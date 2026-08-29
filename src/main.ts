@@ -4,6 +4,8 @@ import type { Highlights } from './ui/board.ts';
 import { LocalSession } from './sessions/local.ts';
 import type { SeatKind } from './sessions/local.ts';
 import { OnlineSession } from './net/client.ts';
+import type { OnlineHandlers } from './net/client.ts';
+import { P2PGuestSession, P2PHostSession } from './net/p2p.ts';
 import type { RoomInfo, View } from './net/protocol.ts';
 import { backwardDests, forwardDest } from './engine/game.ts';
 import type { Bunny, Card, CardAction, Move } from './engine/types.ts';
@@ -88,10 +90,12 @@ const CARD_HINTS: Record<string, string> = {
   J: 'swap', Q: '+12', K: 'squash / +13',
 };
 
+type NetSession = OnlineSession | P2PHostSession | P2PGuestSession;
+
 class App {
   board = new BoardView();
   boardReady = false;
-  session: LocalSession | OnlineSession | null = null;
+  session: LocalSession | NetSession | null = null;
   online = false;
   view: View | null = null;
   sel: Selection = emptySelection();
@@ -525,45 +529,62 @@ $('#start-local').onclick = async () => {
   session.start();
 };
 
-// ---- Online ----
+// ---- Online (browser-hosted P2P or dedicated server) ----
 
-let pendingOnline: OnlineSession | null = null;
+let pendingOnline: NetSession | null = null;
 
 function defaultServerUrl(): string {
   return localStorage.getItem('wahoo-server') ?? 'ws://localhost:8787';
 }
 ($('#online-server') as HTMLInputElement).value = defaultServerUrl();
 
+function netHandlers(getSession: () => NetSession): OnlineHandlers {
+  return {
+    onView: async view => {
+      const session = getSession();
+      if (app.session !== session) {
+        app.session = session;
+        app.online = true;
+        await app.showGame();
+      }
+      app.onView(view);
+    },
+    onRoom: room => renderLobby(getSession(), room),
+    onError: msg => alert(msg),
+    onClose: () => {
+      alert('Disconnected from the game.');
+      app.showMenu();
+    },
+  };
+}
+
 function connectOnline(afterOpen: (s: OnlineSession) => void) {
   const url = ($('#online-server') as HTMLInputElement).value.trim() || 'ws://localhost:8787';
   localStorage.setItem('wahoo-server', url);
   pendingOnline?.leave();
-  const session: OnlineSession = new OnlineSession(
-    url,
-    {
-      onView: async view => {
-        if (app.session !== session) {
-          app.session = session;
-          app.online = true;
-          await app.showGame();
-        }
-        app.onView(view);
-      },
-      onRoom: room => renderLobby(session, room),
-      onError: msg => alert(msg),
-      onClose: () => {
-        alert('Disconnected from server.');
-        app.showMenu();
-      },
-    },
-    () => afterOpen(session),
-  );
+  let session: OnlineSession;
+  session = new OnlineSession(url, netHandlers(() => session), () => afterOpen(session));
   pendingOnline = session;
 }
 
 function playerName(): string {
   return ($('#online-name') as HTMLInputElement).value.trim() || 'Player';
 }
+
+$('#p2p-host').onclick = () => {
+  pendingOnline?.leave();
+  let session: P2PHostSession;
+  session = new P2PHostSession(playerName(), netHandlers(() => session));
+  pendingOnline = session;
+};
+$('#p2p-join').onclick = () => {
+  const code = ($('#p2p-code') as HTMLInputElement).value.trim().toUpperCase();
+  if (!code) return alert('Enter a room code.');
+  pendingOnline?.leave();
+  let session: P2PGuestSession;
+  session = new P2PGuestSession(code, playerName(), netHandlers(() => session));
+  pendingOnline = session;
+};
 
 $('#online-create').onclick = () => connectOnline(s => s.create(playerName()));
 $('#online-join').onclick = () => {
@@ -572,7 +593,7 @@ $('#online-join').onclick = () => {
   connectOnline(s => s.join(code, playerName()));
 };
 
-function renderLobby(session: OnlineSession, room: RoomInfo) {
+function renderLobby(session: NetSession, room: RoomInfo) {
   const lobby = $('#lobby');
   lobby.hidden = false;
   lobby.innerHTML =

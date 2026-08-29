@@ -23,13 +23,23 @@
         <div class="panel" id="online-panel">
           <h2>Online Game</h2>
           <label>Your name <input id="online-name" maxlength="12" placeholder="Player" /></label>
-          <label>Server <input id="online-server" placeholder="ws://localhost:8787" /></label>
           <div class="row">
-            <button id="online-create">Create Room</button>
-            <input id="online-code" maxlength="6" placeholder="CODE" style="text-transform:uppercase" />
-            <button id="online-join">Join</button>
+            <button id="p2p-host" class="primary">Host a Game</button>
+            <input id="p2p-code" maxlength="6" placeholder="CODE" style="text-transform:uppercase" />
+            <button id="p2p-join">Join</button>
           </div>
-          <p class="hint">Online play needs a Wahoo server (<code>npm run server</code> in the repo). GitHub Pages hosts only this client.</p>
+          <p class="hint">Hosted right in your browser — share the code with friends. A free relay
+            sets up the connection; on the same network the game then runs peer-to-peer.</p>
+          <details>
+            <summary>Use a dedicated server instead</summary>
+            <label>Server <input id="online-server" placeholder="ws://localhost:8787" /></label>
+            <div class="row">
+              <button id="online-create">Create Room</button>
+              <input id="online-code" maxlength="6" placeholder="CODE" style="text-transform:uppercase" />
+              <button id="online-join">Join</button>
+            </div>
+            <p class="hint">Run <code>npm run server</code> from the repo and point players at its address.</p>
+          </details>
           <div id="lobby" hidden></div>
         </div>
       </div>

@@ -3,7 +3,9 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "allowScripts": ["esbuild"],
+  "allowScripts": [
+    "esbuild"
+  ],
   "description": "Wahoo: a 4-player team race board game. Hot seat, CPU players, and online play over WebSockets.",
   "scripts": {
     "dev": "vite",
@@ -13,6 +15,7 @@
     "server": "node server/server.ts"
   },
   "dependencies": {
+    "peerjs": "^1.5.5",
     "pixi.js": "^8.6.6",
     "ws": "^8.18.0"
   },

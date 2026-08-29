@@ -10,8 +10,13 @@ stomping anyone who gets in the way.
 
 - **Hot seat** — any mix of humans and CPU players on one device.
 - **CPU players** — heuristic AI opponents.
-- **Online play** — WebSocket rooms with shareable 4-letter codes. Empty seats
-  are filled by CPUs; if a player disconnects mid-game a CPU takes over.
+- **Online play, no server needed** — "Host a Game" runs the room right in the
+  host's browser tab; friends join with a 5-letter code over WebRTC (PeerJS
+  handles the handshake, then traffic flows peer-to-peer — on a shared LAN it
+  stays local). Empty seats are filled by CPUs; if a player disconnects
+  mid-game a CPU takes over.
+- **Dedicated server option** — the same rooms can run on a Node WebSocket
+  server for always-on hosting.
 
 ## The rules in brief
 
@@ -44,10 +49,16 @@ npm test         # rules engine tests (vitest)
 npm run build    # production build to dist/
 ```
 
-## Online play server
+## Online play
 
-GitHub Pages only hosts the static client. To play online, someone needs to run
-the game server (Node ≥ 23.6):
+The default way to play online is **browser-hosted**: click *Host a Game* and
+share the room code — no server required. The internet is only needed for the
+initial PeerJS handshake; after that the game data flows directly between
+browsers.
+
+### Optional dedicated server
+
+For an always-on room host, run the WebSocket server (Node ≥ 23.6):
 
 ```sh
 npm run server           # listens on ws://localhost:8787
