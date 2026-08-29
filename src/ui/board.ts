@@ -1,4 +1,4 @@
-import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
+import { Application, Circle, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import type { View } from '../net/protocol.ts';
 import type { Bunny } from '../engine/types.ts';
 import { PLAYER_NAMES, SPAWN_INDEX, TRACK_LEN } from '../engine/types.ts';
@@ -7,7 +7,7 @@ export const PLAYER_COLORS = [0xe0484d, 0x3f8fde, 0x43b649, 0xe8b53a];
 export const PLAYER_COLORS_CSS = ['#e0484d', '#3f8fde', '#43b649', '#e8b53a'];
 
 const SIZE = 820;
-const CELLS = 29.4; // 20 track cells + outward room for burrows and reserves
+const CELLS = 26.6; // 20 track cells + outward room for reserves and labels
 const CELL = SIZE / CELLS;
 const PAD = ((CELLS - 20) / 2) * CELL;
 
@@ -43,14 +43,15 @@ export function trackPos(index: number) {
   return cellPos(cx, cy);
 }
 
+/** Burrow slots sit on the board, stretching inward from each edge's spawn. */
 export function burrowPos(player: number, slot: number) {
   const spawn = trackPos(SPAWN_INDEX(player));
   const o = OUTWARD[player];
   const e = ENTRANCE_DIR[player];
   const r = (1.15 + slot * 0.95) * CELL;
   return {
-    x: spawn.x + o.x * r + e.x * 0.62 * CELL,
-    y: spawn.y + o.y * r + e.y * 0.62 * CELL,
+    x: spawn.x - o.x * r + e.x * 0.62 * CELL,
+    y: spawn.y - o.y * r + e.y * 0.62 * CELL,
   };
 }
 
@@ -125,8 +126,7 @@ export class BoardView {
 
   private drawStatic() {
     const bg = new Graphics();
-    bg.roundRect(PAD - 2.2 * CELL, PAD - 2.2 * CELL, SIZE - 2 * (PAD - 2.2 * CELL), SIZE - 2 * (PAD - 2.2 * CELL), 24)
-      .fill(0x337140);
+    bg.roundRect(6, 6, SIZE - 12, SIZE - 12, 24).fill(0x337140);
     this.staticLayer.addChild(bg);
 
     for (let i = 0; i < TRACK_LEN; i++) {
@@ -141,6 +141,7 @@ export class BoardView {
       }
       g.eventMode = 'static';
       g.cursor = 'pointer';
+      g.hitArea = new Circle(x, y, CELL * 0.5);
       g.on('pointertap', () => this.cb.onTrack(i));
       this.staticLayer.addChild(g);
     }
@@ -151,6 +152,7 @@ export class BoardView {
         const g = this.circle(x, y, CELL * 0.4, 0x24492c, PLAYER_COLORS[p]);
         g.eventMode = 'static';
         g.cursor = 'pointer';
+        g.hitArea = new Circle(x, y, CELL * 0.5);
         g.on('pointertap', () => this.cb.onBurrow(p, slot));
         this.staticLayer.addChild(g);
       }
@@ -172,7 +174,7 @@ export class BoardView {
         }),
       });
       label.anchor.set(0.5);
-      label.position.set(spawn.x + o.x * 3.6 * CELL, spawn.y + o.y * 3.6 * CELL);
+      label.position.set(spawn.x + o.x * 2.55 * CELL, spawn.y + o.y * 2.55 * CELL);
       if (p === 1) label.rotation = -Math.PI / 2;
       if (p === 3) label.rotation = Math.PI / 2;
       this.labelLayer.addChild(label);
@@ -197,6 +199,8 @@ export class BoardView {
     root.addChild(g);
     root.eventMode = 'static';
     root.cursor = 'pointer';
+    // A generous touch target: much larger than the drawn bunny.
+    root.hitArea = new Circle(0, -CELL * 0.1, CELL * 0.75);
     root.on('pointertap', e => {
       e.stopPropagation();
       const b = this.currentBunnies.find(x => x.id === bunny.id);
@@ -226,6 +230,9 @@ export class BoardView {
     this.currentBunnies = view.bunnies;
 
     // Pieces
+    const idle =
+      hi.bunnies.size === 0 && hi.track.size === 0 &&
+      hi.burrows.size === 0 && hi.reserves.size === 0;
     const reserveCount = [0, 0, 0, 0];
     for (const bunny of view.bunnies) {
       let piece = this.pieces.get(bunny.id);
@@ -242,6 +249,13 @@ export class BoardView {
       piece.ty = target.y;
       piece.root.scale.set(bunny.place.kind === 'reserve' ? 0.8 : 1);
       piece.root.alpha = bunny.place.kind === 'burrow' ? 0.95 : 1;
+      // Only clickable pieces intercept taps, so their large hit areas never
+      // block a highlighted destination space during destination picking.
+      const clickable =
+        idle ||
+        hi.bunnies.has(bunny.id) ||
+        (bunny.place.kind === 'reserve' && hi.reserves.has(bunny.player));
+      piece.root.eventMode = clickable ? 'static' : 'none';
     }
 
     // Highlights

@@ -93,17 +93,55 @@ describe('burrow', () => {
     expect(forward.length).toBe(0);
   });
 
-  it('jumps over occupied slots to land deeper with an exact count', () => {
+  it('cannot jump over an occupied shallower slot when entering', () => {
     const g = createGame(6);
     g.current = 0;
     put(g, 1, { kind: 'burrow', slot: 0 });
-    put(g, 0, { kind: 'track', index: 79 }); // needs 1 for slot 0 (occupied), 3 for slot 2
+    put(g, 0, { kind: 'track', index: 79 }); // a 3 would land on slot 2, passing occupied slot 0
+    const forward = actionsForCard(g, 0, '3').filter(
+      a => a.kind === 'forward' && a.bunny === 0,
+    );
+    expect(forward.length).toBe(0);
+  });
+
+  it('enters a shallow slot even when deeper slots are occupied', () => {
+    const g = createGame(60);
+    g.current = 0;
+    put(g, 1, { kind: 'burrow', slot: 3 });
+    put(g, 0, { kind: 'track', index: 79 }); // a 3 lands on slot 2, passing open slots 0 and 1
     giveHand(g, 0, ['3']);
     const move = legalMoves(g).find(
       m => m.type === 'play' && m.action.kind === 'forward' && m.action.bunny === 0,
     )!;
     applyMove(g, move);
     expect(bunny(g, 0).place).toEqual({ kind: 'burrow', slot: 2 });
+  });
+
+  it('advances deeper inside the burrow only through open slots', () => {
+    const g = createGame(61);
+    g.current = 0;
+    put(g, 0, { kind: 'burrow', slot: 0 });
+    put(g, 1, { kind: 'burrow', slot: 2 });
+    const actions = actionsForCard(g, 0, 'A').filter(a => a.kind === 'forward');
+    // Bunny 0 can step to slot 1; bunny 1 can step to slot 3.
+    expect(actions).toEqual([
+      { kind: 'forward', bunny: 0, steps: 1 },
+      { kind: 'forward', bunny: 1, steps: 1 },
+    ]);
+    const two = actionsForCard(g, 0, '2').filter(a => a.kind === 'forward');
+    // Bunny 0 cannot move 2 to slot 2 (occupied); bunny 1 would overshoot.
+    expect(two.filter(a => a.kind === 'forward' && a.bunny === 0).length).toBe(0);
+  });
+
+  it('cannot back into the burrow past an occupied slot', () => {
+    const g = createGame(62);
+    g.current = 0;
+    put(g, 1, { kind: 'burrow', slot: 1 });
+    put(g, 0, { kind: 'track', index: SPAWN_INDEX(0) }); // back 4 targets slot 3, passing slot 1
+    const entries = actionsForCard(g, 0, '4').filter(
+      a => a.kind === 'backward' && a.toBurrow,
+    );
+    expect(entries.length).toBe(0);
   });
 
   it('backs into the burrow with a 4', () => {
@@ -232,8 +270,9 @@ describe('round flow', () => {
     const g = createGame(17);
     g.current = 0;
     for (let i = 0; i < 4; i++) put(g, i, { kind: 'burrow', slot: i });
-    for (let i = 8; i < 11; i++) put(g, i, { kind: 'burrow', slot: i - 8 });
-    put(g, 11, { kind: 'track', index: 38 }); // distance 78 from seat 2's spawn: a 5 reaches slot 3
+    // Teammate's deep slots are filled; the last bunny takes the open slot 0.
+    for (let i = 8; i < 11; i++) put(g, i, { kind: 'burrow', slot: i - 7 });
+    put(g, 11, { kind: 'track', index: 35 }); // distance 75 from seat 2's spawn: a 5 reaches slot 0
     giveHand(g, 0, ['5']);
     const move = legalMoves(g).find(m => m.type === 'play' && m.action.kind === 'forward')!;
     applyMove(g, move);

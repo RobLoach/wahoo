@@ -113,6 +113,14 @@ function burrowSlotOccupied(state: BunnyField, player: number, slot: number): bo
   );
 }
 
+/** No jumping inside the burrow: every slot in [lo, hi] must be open. */
+function burrowSlotsFree(state: BunnyField, player: number, lo: number, hi: number): boolean {
+  for (let s = lo; s <= hi; s++) {
+    if (burrowSlotOccupied(state, player, s)) return false;
+  }
+  return true;
+}
+
 export function allHome(state: GameState, player: number): boolean {
   return state.bunnies
     .filter(b => b.player === player)
@@ -138,8 +146,8 @@ function reserveBunny(state: GameState, player: number): Bunny | undefined {
 /**
  * Destination of a forward move of `steps` for `bunny`, or null if illegal.
  * Track -> track always lands (stomping any occupant). Track -> burrow and
- * burrow -> burrow need an exact count onto an empty slot (jumping over
- * occupied slots is allowed).
+ * burrow -> burrow need an exact count, and no jumping: every burrow slot
+ * passed through as well as the landing slot must be open.
  */
 export function forwardDest(state: BunnyField, bunny: Bunny, steps: number): BunnyPlace | null {
   if (bunny.place.kind === 'track') {
@@ -149,13 +157,13 @@ export function forwardDest(state: BunnyField, bunny: Bunny, steps: number): Bun
     }
     const slot = total - TRACK_LEN;
     if (slot >= BURROW_SLOTS) return null; // overshoots the burrow
-    if (burrowSlotOccupied(state, bunny.player, slot)) return null;
+    if (!burrowSlotsFree(state, bunny.player, 0, slot)) return null;
     return { kind: 'burrow', slot };
   }
   if (bunny.place.kind === 'burrow') {
     const slot = bunny.place.slot + steps;
     if (slot >= BURROW_SLOTS) return null;
-    if (burrowSlotOccupied(state, bunny.player, slot)) return null;
+    if (!burrowSlotsFree(state, bunny.player, bunny.place.slot + 1, slot)) return null;
     return { kind: 'burrow', slot };
   }
   return null;
@@ -168,7 +176,7 @@ export function backwardDests(state: BunnyField, bunny: Bunny): { toBurrow: bool
     { toBurrow: false, place: { kind: 'track', index: (bunny.place.index - 4 + TRACK_LEN) % TRACK_LEN } },
   ];
   const d = distOf(bunny);
-  if (d <= 3 && !burrowSlotOccupied(state, bunny.player, 3 - d)) {
+  if (d <= 3 && burrowSlotsFree(state, bunny.player, 0, 3 - d)) {
     out.push({ toBurrow: true, place: { kind: 'burrow', slot: 3 - d } });
   }
   return out;
@@ -194,9 +202,9 @@ function backwardActions(state: GameState, ctrl: number): CardAction[] {
     // Wrapping backward around the track is always possible (stomps occupant).
     out.push({ kind: 'backward', bunny: b.id, toBurrow: false });
     // Backing across the burrow entrance: from distance d (0..3), four steps
-    // back cross the entrance and reach slot 3-d, if that slot is free.
+    // back cross the entrance and reach slot 3-d through open slots only.
     const d = distOf(b);
-    if (d <= 3 && !burrowSlotOccupied(state, ctrl, 3 - d)) {
+    if (d <= 3 && burrowSlotsFree(state, ctrl, 0, 3 - d)) {
       out.push({ kind: 'backward', bunny: b.id, toBurrow: true });
     }
   }
@@ -349,7 +357,7 @@ function applyAction(state: GameState, seat: number, action: CardAction): void {
       if (bunny.place.kind !== 'track') throw new Error('bunny not on track');
       if (action.toBurrow) {
         const d = distOf(bunny);
-        if (d > 3 || burrowSlotOccupied(state, bunny.player, 3 - d)) {
+        if (d > 3 || !burrowSlotsFree(state, bunny.player, 0, 3 - d)) {
           throw new Error('illegal backward burrow entry');
         }
         moveBunnyTo(state, bunny.id, { kind: 'burrow', slot: 3 - d });

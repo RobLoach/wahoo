@@ -28,8 +28,9 @@ stomping anyone who gets in the way.
   bunnies. **J** swaps one of your bunnies with any other active bunny. **Q**
   moves 12. **K** spawns onto any opponent bunny (stomping it) or moves 13.
   Everything else moves its face value.
-- Burrow entry needs an exact count. Bunnies may jump over each other inside
-  the burrow, and once inside they are immune to everything.
+- Burrow entry needs an exact count, with no jumping inside the burrow: every
+  slot passed through must be open. Once inside, bunnies are immune to
+  everything.
 - Once your own 4 bunnies are home, you keep receiving cards and move your
   teammate's bunnies on your turn.
 
