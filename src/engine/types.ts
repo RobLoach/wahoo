@@ -33,7 +33,7 @@ export type CardAction =
   | { kind: 'backward'; bunny: number; toBurrow: boolean } // 4
   | { kind: 'seven'; parts: { bunny: number; steps: number }[] }
   | { kind: 'swap'; bunny: number; other: number } // J
-  | { kind: 'kingSpawn'; target: number }; // K: stomp opponent, spawn there
+  | { kind: 'kingStomp'; bunny: number; target: number }; // K: leap onto another player's bunny, squashing it
 
 export type Move =
   | { type: 'play'; card: number; action: CardAction } // card = card id in hand

@@ -257,12 +257,15 @@ function swapActions(state: GameState, ctrl: number): CardAction[] {
   return out;
 }
 
-function kingSpawnActions(state: GameState, ctrl: number): CardAction[] {
-  if (!reserveBunny(state, ctrl)) return [];
-  // Any other player's track bunny may be stomped — teammates included.
-  return state.bunnies
-    .filter(b => b.player !== ctrl && b.place.kind === 'track')
-    .map(b => ({ kind: 'kingSpawn', target: b.id }) as CardAction);
+function kingStompActions(state: GameState, ctrl: number): CardAction[] {
+  const mine = state.bunnies.filter(b => b.player === ctrl && b.place.kind === 'track');
+  // Any other player's track bunny may be squashed — teammates included.
+  const targets = state.bunnies.filter(b => b.player !== ctrl && b.place.kind === 'track');
+  const out: CardAction[] = [];
+  for (const m of mine) {
+    for (const t of targets) out.push({ kind: 'kingStomp', bunny: m.id, target: t.id });
+  }
+  return out;
 }
 
 /** All legal actions for a given card rank, for the acting seat. */
@@ -282,7 +285,7 @@ export function actionsForCard(state: GameState, seat: number, rank: Rank): Card
     case 'Q':
       return forwardActions(state, ctrl, 12);
     case 'K':
-      return [...kingSpawnActions(state, ctrl), ...forwardActions(state, ctrl, 13)];
+      return [...kingStompActions(state, ctrl), ...forwardActions(state, ctrl, 13)];
     default:
       return forwardActions(state, ctrl, parseInt(rank, 10));
   }
@@ -399,17 +402,17 @@ function applyAction(state: GameState, seat: number, action: CardAction): void {
       state.log.push(`${name} swaps with ${PLAYER_NAMES[b.player]}.`);
       break;
     }
-    case 'kingSpawn': {
+    case 'kingStomp': {
+      const bunny = state.bunnies.find(b => b.id === action.bunny)!;
       const target = state.bunnies.find(b => b.id === action.target)!;
-      if (target.place.kind !== 'track' || target.player === ctrl) {
-        throw new Error('king spawn must stomp another player\'s track bunny');
+      if (bunny.player !== ctrl || bunny.place.kind !== 'track') {
+        throw new Error('king must move one of your track bunnies');
       }
-      const bunny = reserveBunny(state, ctrl);
-      if (!bunny) throw new Error('no bunny in reserve');
-      const index = target.place.index;
-      target.place = { kind: 'reserve' };
-      state.bunnies.find(b => b.id === bunny.id)!.place = { kind: 'track', index };
-      state.log.push(`${name} spawns with a King, stomping ${PLAYER_NAMES[target.player]}!`);
+      if (target.place.kind !== 'track' || target.player === ctrl) {
+        throw new Error('king must squash another player\'s track bunny');
+      }
+      state.log.push(`${name} leaps onto ${PLAYER_NAMES[target.player]} with a King!`);
+      moveBunnyTo(state, bunny.id, { kind: 'track', index: target.place.index });
       break;
     }
   }

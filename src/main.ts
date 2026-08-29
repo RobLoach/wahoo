@@ -85,7 +85,7 @@ function sevenCandidates(actions: CardAction[], chosen: SevenPart[]) {
 const CARD_HINTS: Record<string, string> = {
   A: 'spawn / +1', '2': 'spawn / +2 & flip', '3': '+3', '4': '−4 (can enter burrow)',
   '5': '+5', '6': '+6', '7': 'split 7', '8': '+8', '9': '+9', '10': '+10',
-  J: 'swap', Q: '+12', K: 'stomp-spawn / +13',
+  J: 'swap', Q: '+12', K: 'squash / +13',
 };
 
 class App {
@@ -155,9 +155,10 @@ class App {
       if (this.sel.sevenParts.length === 0) {
         if (actions.length === 1) return this.submitAction(actions[0]);
         for (const a of actions) {
-          if (a.kind === 'spawn' || a.kind === 'kingSpawn') ambiguous = true;
-          else if (a.kind === 'forward' || a.kind === 'backward' || a.kind === 'swap') sources.add(a.bunny);
-          else if (a.kind === 'seven') a.parts.forEach(p => sources.add(p.bunny));
+          if (a.kind === 'spawn') ambiguous = true;
+          else if (a.kind === 'forward' || a.kind === 'backward' || a.kind === 'swap' || a.kind === 'kingStomp') {
+            sources.add(a.bunny);
+          } else if (a.kind === 'seven') a.parts.forEach(p => sources.add(p.bunny));
         }
       } else {
         const used = this.sel.sevenParts.map(p => p.bunny);
@@ -172,7 +173,9 @@ class App {
     // Count the distinct choices remaining for the selected bunny.
     const bunnyId = this.sel.bunny;
     const direct = actions.filter(
-      a => (a.kind === 'forward' || a.kind === 'backward' || a.kind === 'swap') && a.bunny === bunnyId,
+      a =>
+        (a.kind === 'forward' || a.kind === 'backward' || a.kind === 'swap' || a.kind === 'kingStomp') &&
+        a.bunny === bunnyId,
     );
     const stepOptions = new Set<number>();
     for (const c of sevenCandidates(actions, this.sel.sevenParts)) {
@@ -225,16 +228,14 @@ class App {
     const bunny = view.bunnies.find(b => b.id === id)!;
 
     if (this.sel.bunny !== null) {
-      // A swap target?
-      const swap = actions.find(
-        a => a.kind === 'swap' && a.bunny === this.sel.bunny && a.other === id,
+      // A swap or king-squash target?
+      const targeted = actions.find(
+        a =>
+          (a.kind === 'swap' && a.bunny === this.sel.bunny && a.other === id) ||
+          (a.kind === 'kingStomp' && a.bunny === this.sel.bunny && a.target === id),
       );
-      if (swap) return this.submitAction(swap);
+      if (targeted) return this.submitAction(targeted);
     }
-
-    // King stomp-spawn straight onto an opponent.
-    const king = actions.find(a => a.kind === 'kingSpawn' && a.target === id);
-    if (king && this.sel.bunny === null) return this.submitAction(king);
 
     // Select as a source bunny.
     if (this.isSource(actions, bunny)) {
@@ -246,7 +247,10 @@ class App {
 
   private isSource(actions: CardAction[], bunny: Bunny): boolean {
     for (const a of actions) {
-      if ((a.kind === 'forward' || a.kind === 'backward' || a.kind === 'swap') && a.bunny === bunny.id) {
+      if (
+        (a.kind === 'forward' || a.kind === 'backward' || a.kind === 'swap' || a.kind === 'kingStomp') &&
+        a.bunny === bunny.id
+      ) {
         return true;
       }
     }
@@ -328,8 +332,9 @@ class App {
     if (this.sel.bunny === null) {
       for (const a of actions) {
         if (a.kind === 'spawn') hi.reserves.add(ctrlPlayer(view));
-        if (a.kind === 'forward' || a.kind === 'backward' || a.kind === 'swap') hi.bunnies.add(a.bunny);
-        if (a.kind === 'kingSpawn') hi.bunnies.add(a.target);
+        if (a.kind === 'forward' || a.kind === 'backward' || a.kind === 'swap' || a.kind === 'kingStomp') {
+          hi.bunnies.add(a.bunny);
+        }
       }
       const chosenIds = this.sel.sevenParts.map(p => p.bunny);
       for (const c of sevenCandidates(actions, this.sel.sevenParts)) {
@@ -340,8 +345,8 @@ class App {
         hint = `7-split: ${7 - used} step${7 - used === 1 ? '' : 's'} left — choose another bunny.`;
       } else if (actions.some(a => a.kind === 'spawn')) {
         hint = 'Click a reserve bunny to spawn, or an active bunny to move.';
-      } else if (actions.some(a => a.kind === 'kingSpawn')) {
-        hint = 'Click any other bunny to stomp-spawn onto, or your own to move 13.';
+      } else if (actions.some(a => a.kind === 'kingStomp')) {
+        hint = 'Choose one of your bunnies to move 13 or squash with.';
       } else if (actions.every(a => a.kind === 'swap')) {
         hint = 'Choose one of your bunnies to swap.';
       }
@@ -368,6 +373,12 @@ class App {
           hi.bunnies.add(a.other);
           hint = 'Choose a bunny to swap with.';
         }
+        if (a.kind === 'kingStomp' && a.bunny === bunnyId) {
+          hi.bunnies.add(a.target);
+        }
+      }
+      if (actions.some(a => a.kind === 'kingStomp' && a.bunny === bunnyId)) {
+        hint = 'Squash a highlighted bunny, or take the highlighted space.';
       }
       for (const c of sevenCandidates(actions, this.sel.sevenParts)) {
         for (const p of c.parts) {

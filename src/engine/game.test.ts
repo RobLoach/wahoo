@@ -175,7 +175,7 @@ describe('burrow', () => {
     put(g, 4, { kind: 'burrow', slot: 0 }); // Blue safe at home
     const swaps = actionsForCard(g, 0, 'J');
     expect(swaps.length).toBe(0);
-    const kings = actionsForCard(g, 0, 'K').filter(a => a.kind === 'kingSpawn');
+    const kings = actionsForCard(g, 0, 'K').filter(a => a.kind === 'kingStomp');
     expect(kings.length).toBe(0);
   });
 });
@@ -206,36 +206,41 @@ describe('special cards', () => {
     expect(bunny(g, 4).place).toEqual({ kind: 'track', index: 3 });
   });
 
-  it('king-spawns onto an opponent anywhere on the track', () => {
+  it('king leaps one of your bunnies onto an opponent anywhere on the track', () => {
     const g = createGame(12);
     g.current = 0;
+    put(g, 0, { kind: 'track', index: 3 });
     put(g, 4, { kind: 'track', index: 47 });
     giveHand(g, 0, ['K']);
-    const move = legalMoves(g).find(m => m.type === 'play' && m.action.kind === 'kingSpawn')!;
+    const move = legalMoves(g).find(m => m.type === 'play' && m.action.kind === 'kingStomp')!;
     applyMove(g, move);
     expect(bunny(g, 4).place).toEqual({ kind: 'reserve' });
-    const mine = g.bunnies.find(b => b.player === 0 && b.place.kind === 'track')!;
-    expect(mine.place).toEqual({ kind: 'track', index: 47 });
+    expect(bunny(g, 0).place).toEqual({ kind: 'track', index: 47 });
   });
 
-  it('king can spawn onto a teammate, stomping them', () => {
+  it('king can squash a teammate', () => {
     const g = createGame(13);
     g.current = 0;
+    put(g, 0, { kind: 'track', index: 3 });
     put(g, 8, { kind: 'track', index: 47 }); // seat 2 = teammate
     giveHand(g, 0, ['K']);
-    const move = legalMoves(g).find(m => m.type === 'play' && m.action.kind === 'kingSpawn')!;
+    const move = legalMoves(g).find(m => m.type === 'play' && m.action.kind === 'kingStomp')!;
     applyMove(g, move);
     expect(bunny(g, 8).place).toEqual({ kind: 'reserve' });
-    const mine = g.bunnies.find(b => b.player === 0 && b.place.kind === 'track')!;
-    expect(mine.place).toEqual({ kind: 'track', index: 47 });
+    expect(bunny(g, 0).place).toEqual({ kind: 'track', index: 47 });
   });
 
-  it('king cannot spawn onto your own bunny', () => {
+  it('king cannot squash your own bunny and cannot squash from reserve', () => {
     const g = createGame(130);
     g.current = 0;
-    put(g, 1, { kind: 'track', index: 47 });
-    const kings = actionsForCard(g, 0, 'K').filter(a => a.kind === 'kingSpawn');
-    expect(kings.length).toBe(0);
+    put(g, 0, { kind: 'track', index: 3 });
+    put(g, 1, { kind: 'track', index: 47 }); // both mine: no targets
+    expect(actionsForCard(g, 0, 'K').filter(a => a.kind === 'kingStomp').length).toBe(0);
+    // Opponent on the track but none of my bunnies out: no squash either.
+    const g2 = createGame(131);
+    g2.current = 0;
+    put(g2, 4, { kind: 'track', index: 47 });
+    expect(actionsForCard(g2, 0, 'K').filter(a => a.kind === 'kingStomp').length).toBe(0);
   });
 
   it('a 2 flips a bonus card that the acting player resolves', () => {
