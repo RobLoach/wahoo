@@ -26,7 +26,7 @@ stomping anyone who gets in the way.
   from the draw pile which you play too). **4** moves backward, and can back a
   bunny straight into its burrow. **7** splits seven forward steps across your
   bunnies. **J** swaps one of your bunnies with any other active bunny. **Q**
-  moves 12. **K** spawns onto any opponent bunny (stomping it) or moves 13.
+  moves 12. **K** spawns onto any other bunny — even a teammate's — stomping it, or moves 13.
   Everything else moves its face value.
 - Burrow entry needs an exact count, with no jumping inside the burrow: every
   slot passed through must be open. Once inside, bunnies are immune to

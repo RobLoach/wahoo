@@ -2,7 +2,7 @@ import type {
   Bunny, BunnyPlace, Card, CardAction, GameState, Move, Rank, Suit,
 } from './types.ts';
 import {
-  BURROW_SLOTS, HAND_SIZE, SPAWN_INDEX, TEAM_OF, TEAMMATE_OF, TRACK_LEN,
+  BURROW_SLOTS, HAND_SIZE, SPAWN_INDEX, TEAMMATE_OF, TRACK_LEN,
   PLAYER_NAMES,
 } from './types.ts';
 
@@ -257,11 +257,11 @@ function swapActions(state: GameState, ctrl: number): CardAction[] {
   return out;
 }
 
-function kingSpawnActions(state: GameState, seat: number, ctrl: number): CardAction[] {
+function kingSpawnActions(state: GameState, ctrl: number): CardAction[] {
   if (!reserveBunny(state, ctrl)) return [];
-  const myTeam = TEAM_OF(seat);
+  // Any other player's track bunny may be stomped — teammates included.
   return state.bunnies
-    .filter(b => TEAM_OF(b.player) !== myTeam && b.place.kind === 'track')
+    .filter(b => b.player !== ctrl && b.place.kind === 'track')
     .map(b => ({ kind: 'kingSpawn', target: b.id }) as CardAction);
 }
 
@@ -282,7 +282,7 @@ export function actionsForCard(state: GameState, seat: number, rank: Rank): Card
     case 'Q':
       return forwardActions(state, ctrl, 12);
     case 'K':
-      return [...kingSpawnActions(state, seat, ctrl), ...forwardActions(state, ctrl, 13)];
+      return [...kingSpawnActions(state, ctrl), ...forwardActions(state, ctrl, 13)];
     default:
       return forwardActions(state, ctrl, parseInt(rank, 10));
   }
@@ -401,8 +401,8 @@ function applyAction(state: GameState, seat: number, action: CardAction): void {
     }
     case 'kingSpawn': {
       const target = state.bunnies.find(b => b.id === action.target)!;
-      if (target.place.kind !== 'track' || TEAM_OF(target.player) === TEAM_OF(seat)) {
-        throw new Error('king spawn must stomp an opponent track bunny');
+      if (target.place.kind !== 'track' || target.player === ctrl) {
+        throw new Error('king spawn must stomp another player\'s track bunny');
       }
       const bunny = reserveBunny(state, ctrl);
       if (!bunny) throw new Error('no bunny in reserve');

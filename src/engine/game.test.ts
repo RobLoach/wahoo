@@ -218,10 +218,22 @@ describe('special cards', () => {
     expect(mine.place).toEqual({ kind: 'track', index: 47 });
   });
 
-  it('king cannot spawn onto a teammate', () => {
+  it('king can spawn onto a teammate, stomping them', () => {
     const g = createGame(13);
     g.current = 0;
     put(g, 8, { kind: 'track', index: 47 }); // seat 2 = teammate
+    giveHand(g, 0, ['K']);
+    const move = legalMoves(g).find(m => m.type === 'play' && m.action.kind === 'kingSpawn')!;
+    applyMove(g, move);
+    expect(bunny(g, 8).place).toEqual({ kind: 'reserve' });
+    const mine = g.bunnies.find(b => b.player === 0 && b.place.kind === 'track')!;
+    expect(mine.place).toEqual({ kind: 'track', index: 47 });
+  });
+
+  it('king cannot spawn onto your own bunny', () => {
+    const g = createGame(130);
+    g.current = 0;
+    put(g, 1, { kind: 'track', index: 47 });
     const kings = actionsForCard(g, 0, 'K').filter(a => a.kind === 'kingSpawn');
     expect(kings.length).toBe(0);
   });

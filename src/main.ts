@@ -277,7 +277,7 @@ class App {
       } else if (actions.some(a => a.kind === 'spawn')) {
         hint = 'Click a reserve bunny to spawn, or an active bunny to move.';
       } else if (actions.some(a => a.kind === 'kingSpawn')) {
-        hint = 'Click an opponent to stomp-spawn, or your bunny to move 13.';
+        hint = 'Click any other bunny to stomp-spawn onto, or your own to move 13.';
       } else if (actions.every(a => a.kind === 'swap')) {
         hint = 'Choose one of your bunnies to swap.';
       }
