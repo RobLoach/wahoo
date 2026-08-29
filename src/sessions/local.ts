@@ -47,6 +47,14 @@ export class LocalSession {
     this.maybeCpu();
   }
 
+  /** Rematch: fresh game, same seats. */
+  restart() {
+    if (this.timer) clearTimeout(this.timer);
+    this.state = createGame(Math.floor(Math.random() * 2 ** 31));
+    this.push();
+    this.maybeCpu();
+  }
+
   private maybeCpu() {
     if (this.state.winner !== null || this.seats[this.state.current] !== 'cpu') return;
     this.timer = setTimeout(() => {

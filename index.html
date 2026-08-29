@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Wahoo</title>
+  <meta name="theme-color" content="#16321d" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐰</text></svg>" />
 </head>
 <body>
@@ -28,6 +31,7 @@
             <input id="p2p-code" maxlength="6" placeholder="CODE" style="text-transform:uppercase" />
             <button id="p2p-join">Join</button>
           </div>
+          <button id="p2p-resume" hidden></button>
           <p class="hint">Hosted right in your browser — share the code with friends. A free relay
             sets up the connection; on the same network the game then runs peer-to-peer.</p>
           <details>
@@ -64,6 +68,7 @@
         <div id="controls">
           <button id="btn-fold" hidden>Fold hand (no legal move)</button>
           <button id="btn-cancel" hidden>Cancel selection</button>
+          <button id="btn-again" class="primary" hidden>🔄 Play again</button>
           <button id="btn-menu">↩ Menu</button>
         </div>
         <div id="piles"></div>

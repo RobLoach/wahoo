@@ -1,0 +1,16 @@
+{
+  "name": "Wahoo",
+  "short_name": "Wahoo",
+  "description": "A 4-player team race board game. Stomp your rivals, tuck your bunnies safely into the burrow.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#16321d",
+  "theme_color": "#16321d",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

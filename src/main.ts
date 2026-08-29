@@ -5,10 +5,10 @@ import { LocalSession } from './sessions/local.ts';
 import type { SeatKind } from './sessions/local.ts';
 import { OnlineSession } from './net/client.ts';
 import type { OnlineHandlers } from './net/client.ts';
-import { P2PGuestSession, P2PHostSession } from './net/p2p.ts';
+import { P2PGuestSession, P2PHostSession, savedHostGame } from './net/p2p.ts';
 import type { RoomInfo, View } from './net/protocol.ts';
 import { backwardDest, forwardDest } from './engine/game.ts';
-import type { Bunny, Card, CardAction, Move } from './engine/types.ts';
+import type { Bunny, Card, CardAction, Move, MoveEffect } from './engine/types.ts';
 import { PLAYER_NAMES, TEAMMATE_OF } from './engine/types.ts';
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) =>
@@ -99,6 +99,21 @@ class App {
   online = false;
   view: View | null = null;
   sel: Selection = emptySelection();
+  roomInfo: RoomInfo | null = null;
+  onMenuShown: (() => void) | null = null;
+  private pendingEffects: MoveEffect[] | undefined;
+  private recentBunnies = new Set<number>();
+  /** Hot-seat pass-the-device privacy. */
+  localHumans = 1;
+  private lastHumanSeat: number | null = null;
+  private curtain = false;
+
+  startLocalMeta(humans: number) {
+    this.localHumans = humans;
+    this.lastHumanSeat = null;
+    this.curtain = false;
+    this.roomInfo = null;
+  }
 
   async showGame() {
     $('#menu').hidden = true;
@@ -123,12 +138,21 @@ class App {
     $('#game').hidden = true;
     $('#menu').hidden = false;
     $('#lobby').hidden = true;
+    this.roomInfo = null;
+    this.onMenuShown?.();
   }
 
   onView(view: View) {
     this.view = view;
+    this.pendingEffects = view.effects;
+    this.recentBunnies = new Set(view.effects.map(e => e.bunny));
     // A new decision point invalidates any in-progress selection.
     this.sel = emptySelection();
+    // Hot-seat privacy: hide the hand while the device changes hands.
+    if (!this.online && view.canAct && this.localHumans > 1 && view.mySeat !== this.lastHumanSeat) {
+      this.curtain = true;
+    }
+    if (view.canAct) this.lastHumanSeat = view.mySeat;
     if (view.pendingFlip && view.canAct) {
       this.sel.cardId = 'flip';
       // A flipped card with a single legal move plays itself after a pause,
@@ -323,6 +347,7 @@ class App {
 
   private highlightsAndHint(): { hi: Highlights; hint: string } {
     const hi = emptyHighlights();
+    hi.recent = this.recentBunnies;
     const view = this.view!;
     if (!view.canAct) return { hi, hint: '' };
 
@@ -390,15 +415,25 @@ class App {
     const view = this.view;
     if (!view || !this.boardReady) return;
 
-    const { hi, hint } = this.highlightsAndHint();
-    this.board.render(view, hi);
+    const name = view.seatNames[view.current] ?? PLAYER_NAMES[view.current];
+    const curtainUp = this.curtain && view.canAct && view.winner === null;
+    const { hi, hint } = curtainUp
+      ? (() => {
+          const h = emptyHighlights();
+          h.recent = this.recentBunnies;
+          return { hi: h, hint: '' };
+        })()
+      : this.highlightsAndHint();
+    this.board.render(view, hi, this.pendingEffects);
+    this.pendingEffects = undefined;
 
     // Status line
     if (view.winner !== null) {
       const teams = view.winner === 0 ? 'Red & Green' : 'Blue & Yellow';
       this.setStatus(`🏆 Team ${teams} wins!`, true);
+    } else if (curtainUp) {
+      this.setStatus(`Round ${view.round} — pass the device to ${name}.`);
     } else {
-      const name = view.seatNames[view.current] ?? PLAYER_NAMES[view.current];
       const controlling =
         view.mySeat !== null && ctrlPlayer(view) !== view.mySeat
           ? ` (moving ${PLAYER_NAMES[ctrlPlayer(view)]}'s bunnies)`
@@ -410,13 +445,28 @@ class App {
       );
     }
 
-    // Hand
+    // Rematch button once a winner is decided (host/local only).
+    $('#btn-again').hidden =
+      view.winner === null || (this.online && this.roomInfo?.youAreHost !== true);
+
+    // Hand (or the pass-the-device curtain)
     const handEl = $('#hand');
     handEl.innerHTML = '';
+    if (curtainUp) {
+      const reveal = document.createElement('button');
+      reveal.className = 'curtain-btn';
+      reveal.style.borderColor = PLAYER_COLORS_CSS[view.current];
+      reveal.textContent = `👀 Tap to show ${name}'s hand`;
+      reveal.onclick = () => {
+        this.curtain = false;
+        this.refresh();
+      };
+      handEl.appendChild(reveal);
+    }
     const playable = new Set(
       view.legal.filter(m => m.type === 'play').map(m => (m as any).card as number),
     );
-    for (const card of view.myHand) {
+    for (const card of curtainUp ? [] : view.myHand) {
       const el = document.createElement('button');
       el.className = 'card';
       if (card.suit === '♥' || card.suit === '♦') el.classList.add('red');
@@ -440,7 +490,7 @@ class App {
 
     // Pending flip display
     const flipEl = $('#flip-area');
-    if (view.pendingFlip) {
+    if (view.pendingFlip && !curtainUp) {
       flipEl.hidden = false;
       const c = view.pendingFlip;
       const red = c.suit === '♥' || c.suit === '♦' ? ' red' : '';
@@ -456,7 +506,8 @@ class App {
     }
 
     // Fold + cancel buttons
-    const foldOnly = view.canAct && view.legal.length === 1 && view.legal[0].type === 'discardHand';
+    const foldOnly =
+      !curtainUp && view.canAct && view.legal.length === 1 && view.legal[0].type === 'discardHand';
     $('#btn-fold').hidden = !foldOnly;
     const hasSelection =
       (this.sel.cardId !== null && this.sel.cardId !== 'flip') ||
@@ -512,12 +563,23 @@ buildSeatConfig();
 $('#start-local').onclick = async () => {
   const seats = Array.from(document.querySelectorAll<HTMLSelectElement>('#seat-config select'))
     .map(sel => sel.value as SeatKind);
+  app.startLocalMeta(seats.filter(s => s === 'human').length);
   await app.showGame();
   const session = new LocalSession(seats, view => app.onView(view));
   app.session = session;
   app.online = false;
   session.start();
 };
+
+/** Persistent identity so a reconnecting player can reclaim their seat. */
+function clientToken(): string {
+  let token = localStorage.getItem('wahoo-token');
+  if (!token) {
+    token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+    localStorage.setItem('wahoo-token', token);
+  }
+  return token;
+}
 
 // ---- Online (browser-hosted P2P or dedicated server) ----
 
@@ -539,13 +601,30 @@ function netHandlers(getSession: () => NetSession): OnlineHandlers {
       }
       app.onView(view);
     },
-    onRoom: room => renderLobby(getSession(), room),
+    onRoom: room => {
+      app.roomInfo = room;
+      renderLobby(getSession(), room);
+    },
     onError: msg => alert(msg),
     onClose: () => {
+      if (lastGuestCode && confirm('Disconnected from the game. Try to rejoin?')) {
+        joinP2P(lastGuestCode);
+        return;
+      }
       alert('Disconnected from the game.');
       app.showMenu();
     },
   };
+}
+
+let lastGuestCode: string | null = null;
+
+function joinP2P(code: string) {
+  pendingOnline?.leave();
+  lastGuestCode = code;
+  let session: P2PGuestSession;
+  session = new P2PGuestSession(code, playerName(), clientToken(), netHandlers(() => session));
+  pendingOnline = session;
 }
 
 function connectOnline(afterOpen: (s: OnlineSession) => void) {
@@ -558,29 +637,49 @@ function connectOnline(afterOpen: (s: OnlineSession) => void) {
 }
 
 function playerName(): string {
-  return ($('#online-name') as HTMLInputElement).value.trim() || 'Player';
+  const name = ($('#online-name') as HTMLInputElement).value.trim();
+  if (name) localStorage.setItem('wahoo-name', name);
+  return name || localStorage.getItem('wahoo-name') || 'Player';
 }
+($('#online-name') as HTMLInputElement).value = localStorage.getItem('wahoo-name') ?? '';
 
 $('#p2p-host').onclick = () => {
   pendingOnline?.leave();
+  lastGuestCode = null;
   let session: P2PHostSession;
-  session = new P2PHostSession(playerName(), netHandlers(() => session));
+  session = new P2PHostSession(playerName(), clientToken(), netHandlers(() => session));
   pendingOnline = session;
 };
 $('#p2p-join').onclick = () => {
   const code = ($('#p2p-code') as HTMLInputElement).value.trim().toUpperCase();
   if (!code) return alert('Enter a room code.');
+  joinP2P(code);
+};
+
+function refreshResumeButton() {
+  const saved = savedHostGame();
+  const btn = $('#p2p-resume') as HTMLButtonElement;
+  btn.hidden = !saved;
+  if (saved) btn.textContent = `▶ Resume hosted game ${saved.code}`;
+}
+app.onMenuShown = refreshResumeButton;
+refreshResumeButton();
+
+$('#p2p-resume').onclick = () => {
+  const saved = savedHostGame();
+  if (!saved) return refreshResumeButton();
   pendingOnline?.leave();
-  let session: P2PGuestSession;
-  session = new P2PGuestSession(code, playerName(), netHandlers(() => session));
+  lastGuestCode = null;
+  let session: P2PHostSession;
+  session = new P2PHostSession(saved.name, clientToken(), netHandlers(() => session), saved);
   pendingOnline = session;
 };
 
-$('#online-create').onclick = () => connectOnline(s => s.create(playerName()));
+$('#online-create').onclick = () => connectOnline(s => s.create(playerName(), clientToken()));
 $('#online-join').onclick = () => {
   const code = ($('#online-code') as HTMLInputElement).value.trim().toUpperCase();
   if (!code) return alert('Enter a room code.');
-  connectOnline(s => s.join(code, playerName()));
+  connectOnline(s => s.join(code, playerName(), clientToken()));
 };
 
 function renderLobby(session: NetSession, room: RoomInfo) {
@@ -588,6 +687,24 @@ function renderLobby(session: NetSession, room: RoomInfo) {
   lobby.hidden = false;
   lobby.innerHTML =
     `<p>Room code: <span class="code">${room.code}</span> — share it with friends.</p>`;
+  if (!(session instanceof OnlineSession)) {
+    const url = `${location.origin}${location.pathname}?join=${room.code}`;
+    const invite = document.createElement('p');
+    invite.className = 'hint invite';
+    invite.textContent = 'Invite link: ';
+    const codeEl = document.createElement('code');
+    codeEl.textContent = url;
+    invite.appendChild(codeEl);
+    const copy = document.createElement('button');
+    copy.textContent = 'Copy';
+    copy.style.marginLeft = '6px';
+    copy.onclick = () => {
+      navigator.clipboard?.writeText(url);
+      copy.textContent = 'Copied!';
+    };
+    invite.appendChild(copy);
+    lobby.appendChild(invite);
+  }
   room.seats.forEach((seat, i) => {
     const row = document.createElement('div');
     row.className = 'seat-row';
@@ -646,6 +763,29 @@ $('#btn-menu').onclick = () => {
 window.addEventListener('keydown', e => {
   if (e.key === 'Escape') ($('#btn-cancel') as HTMLButtonElement).click();
 });
+
+$('#btn-again').onclick = () => {
+  const session = app.session;
+  if (!session) return;
+  if (session instanceof LocalSession) session.restart();
+  else session.playAgain();
+};
+
+// ?join=CODE deep link: prefill and join the browser-hosted room right away.
+{
+  const joinCode = new URLSearchParams(location.search).get('join');
+  if (joinCode) {
+    ($('#p2p-code') as HTMLInputElement).value = joinCode.toUpperCase();
+    setTimeout(() => joinP2P(joinCode.toUpperCase()), 50);
+  }
+}
+
+// Offline/installable support (skipped during local development).
+if ('serviceWorker' in navigator && location.hostname !== 'localhost') {
+  navigator.serviceWorker
+    .register(`${import.meta.env.BASE_URL}sw.js`)
+    .catch(() => { /* offline support is best-effort */ });
+}
 
 // Exposed for end-to-end tests and console debugging.
 (window as unknown as Record<string, unknown>).__wahoo = {

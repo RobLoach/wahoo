@@ -8,8 +8,16 @@ stomping anyone who gets in the way.
 
 ## Features
 
-- **Hot seat** — any mix of humans and CPU players on one device.
+- **Hot seat** — any mix of humans and CPU players on one device, with a
+  pass-the-device curtain so nobody peeks at the next hand.
 - **CPU players** — heuristic AI opponents.
+- **Animated moves** — bunnies hop space by space and the last move is
+  highlighted, so you can always see what just happened.
+- **Installable PWA** — add it to a phone home screen; hot-seat and CPU games
+  work fully offline.
+- **Reconnection** — refresh mid-game and rejoin your seat (a CPU covers for
+  you meanwhile); a browser host can even close the tab and resume the room
+  later. Invite links (`?join=CODE`) get friends in with one tap.
 - **Online play, no server needed** — "Host a Game" runs the room right in the
   host's browser tab; friends join with a 5-letter code over WebRTC (PeerJS
   handles the handshake, then traffic flows peer-to-peer — on a shared LAN it
@@ -43,9 +51,10 @@ stomping anyone who gets in the way.
 
 ```sh
 npm install
-npm run dev      # local dev server
-npm test         # rules engine tests (vitest)
-npm run build    # production build to dist/
+npm run dev       # local dev server
+npm test          # rules engine tests (vitest)
+npm run build     # production build to dist/
+npm run test:e2e  # browser tests (Playwright; build first)
 ```
 
 ## Online play

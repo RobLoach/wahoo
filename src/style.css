@@ -107,6 +107,13 @@ button:disabled { opacity: 0.45; cursor: default; }
   text-align: center; width: 100%;
 }
 
+.curtain-btn {
+  width: 100%; min-height: 92px; font-size: 1.1rem; font-weight: bold;
+  border-width: 3px; border-radius: 10px; background: #1f4227;
+}
+
+#lobby .invite code { word-break: break-all; font-size: 0.75rem; }
+
 #flip-area {
   background: #503b12; border: 1px solid #d8a531; border-radius: 10px; padding: 10px;
   display: flex; align-items: center; gap: 12px;

@@ -26,6 +26,15 @@ export interface PlayerState {
   out: boolean;
 }
 
+/** How one bunny moved during the last applied move (drives UI animation). */
+export interface MoveEffect {
+  bunny: number;
+  from: BunnyPlace;
+  to: BunnyPlace;
+  /** forward/backward hop along the track; jump = teleport (spawn, swap, king); stomped = sent home. */
+  kind: 'forward' | 'backward' | 'jump' | 'stomped';
+}
+
 /** A concrete effect chosen for a card. */
 export type CardAction =
   | { kind: 'spawn' } // A or 2: reserve -> Position 1
@@ -54,6 +63,8 @@ export interface GameState {
   winner: number | null; // team 0 (seats 0&2) or 1 (seats 1&3)
   rng: number; // mulberry32 state, used for reshuffles
   log: string[];
+  /** Bunny movements caused by the most recently applied move. */
+  effects: MoveEffect[];
 }
 
 export const TRACK_LEN = 80;

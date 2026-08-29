@@ -1,5 +1,5 @@
 import type {
-  Bunny, BunnyPlace, Card, CardAction, GameState, Move, Rank, Suit,
+  Bunny, BunnyPlace, Card, CardAction, GameState, Move, MoveEffect, Rank, Suit,
 } from './types.ts';
 import {
   BURROW_SLOTS, HAND_SIZE, SPAWN_INDEX, TEAMMATE_OF, TRACK_LEN,
@@ -59,6 +59,7 @@ export function createGame(seed: number): GameState {
     winner: null,
     rng: seed | 0,
     log: [],
+    effects: [],
   };
   shuffle(state, state.drawPile);
   startRound(state);
@@ -307,6 +308,9 @@ export function cloneState(state: GameState): GameState {
 function stompAt(state: GameState, index: number, mover: Bunny): void {
   const victim = bunnyAtTrack(state, index);
   if (victim && victim.id !== mover.id) {
+    state.effects.push({
+      bunny: victim.id, from: victim.place, to: { kind: 'reserve' }, kind: 'stomped',
+    });
     victim.place = { kind: 'reserve' };
     state.log.push(
       `${PLAYER_NAMES[mover.player]} stomps ${PLAYER_NAMES[victim.player]}'s bunny!`,
@@ -314,9 +318,15 @@ function stompAt(state: GameState, index: number, mover: Bunny): void {
   }
 }
 
-function moveBunnyTo(state: GameState, bunnyId: number, dest: BunnyPlace): void {
+function moveBunnyTo(
+  state: GameState,
+  bunnyId: number,
+  dest: BunnyPlace,
+  kind: MoveEffect['kind'] = 'jump',
+): void {
   const bunny = state.bunnies.find(b => b.id === bunnyId)!;
   if (dest.kind === 'track') stompAt(state, dest.index, bunny);
+  state.effects.push({ bunny: bunny.id, from: bunny.place, to: dest, kind });
   bunny.place = dest;
 }
 
@@ -327,7 +337,7 @@ function applyAction(state: GameState, seat: number, action: CardAction): void {
     case 'spawn': {
       const bunny = reserveBunny(state, ctrl);
       if (!bunny) throw new Error('no bunny in reserve');
-      moveBunnyTo(state, bunny.id, { kind: 'track', index: SPAWN_INDEX(ctrl) });
+      moveBunnyTo(state, bunny.id, { kind: 'track', index: SPAWN_INDEX(ctrl) }, 'jump');
       state.log.push(`${name} spawns a bunny.`);
       break;
     }
@@ -336,7 +346,7 @@ function applyAction(state: GameState, seat: number, action: CardAction): void {
       if (bunny.player !== ctrl) throw new Error('not your bunny');
       const dest = forwardDest(state, bunny, action.steps);
       if (!dest) throw new Error('illegal forward move');
-      moveBunnyTo(state, bunny.id, dest);
+      moveBunnyTo(state, bunny.id, dest, 'forward');
       if (dest.kind === 'burrow') state.log.push(`${name} tucks a bunny into the burrow!`);
       break;
     }
@@ -345,7 +355,7 @@ function applyAction(state: GameState, seat: number, action: CardAction): void {
       if (bunny.player !== ctrl) throw new Error('not your bunny');
       const dest = backwardDest(bunny);
       if (!dest) throw new Error('bunny not on track');
-      moveBunnyTo(state, bunny.id, dest);
+      moveBunnyTo(state, bunny.id, dest, 'backward');
       break;
     }
     case 'seven': {
@@ -365,7 +375,7 @@ function applyAction(state: GameState, seat: number, action: CardAction): void {
         }
         const dest = forwardDest(state, bunny, part.steps);
         if (!dest) throw new Error('illegal seven part');
-        moveBunnyTo(state, bunny.id, dest);
+        moveBunnyTo(state, bunny.id, dest, 'forward');
       }
       break;
     }
@@ -377,6 +387,8 @@ function applyAction(state: GameState, seat: number, action: CardAction): void {
       }
       if (a.player !== ctrl) throw new Error('must swap one of your own bunnies');
       const tmp = a.place;
+      state.effects.push({ bunny: a.id, from: a.place, to: b.place, kind: 'jump' });
+      state.effects.push({ bunny: b.id, from: b.place, to: tmp, kind: 'jump' });
       a.place = b.place;
       b.place = tmp;
       state.log.push(`${name} swaps with ${PLAYER_NAMES[b.player]}.`);
@@ -390,6 +402,8 @@ function applyAction(state: GameState, seat: number, action: CardAction): void {
       const bunny = reserveBunny(state, ctrl);
       if (!bunny) throw new Error('no bunny in reserve');
       const index = target.place.index;
+      state.effects.push({ bunny: target.id, from: target.place, to: { kind: 'reserve' }, kind: 'stomped' });
+      state.effects.push({ bunny: bunny.id, from: bunny.place, to: { kind: 'track', index }, kind: 'jump' });
       target.place = { kind: 'reserve' };
       bunny.place = { kind: 'track', index };
       state.log.push(`${name} spawns with a King, stomping ${PLAYER_NAMES[target.player]}!`);
@@ -444,6 +458,7 @@ function advanceTurn(state: GameState): void {
 /** Validate and apply a move for the current seat. Mutates and returns state. */
 export function applyMove(state: GameState, move: Move): GameState {
   if (state.winner !== null) throw new Error('game is over');
+  state.effects = [];
   const seat = state.current;
 
   if (move.type === 'discardHand') {

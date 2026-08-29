@@ -1,4 +1,4 @@
-import type { Bunny, Card, GameState, Move } from '../engine/types.ts';
+import type { Bunny, Card, GameState, Move, MoveEffect } from '../engine/types.ts';
 import { legalMoves } from '../engine/game.ts';
 
 /** Everything a client is allowed to see, plus its legal moves when acting. */
@@ -21,6 +21,8 @@ export interface View {
   canAct: boolean;
   legal: Move[];
   seatNames: string[];
+  /** Bunny movements from the last applied move, for animation. */
+  effects: MoveEffect[];
 }
 
 export function makeView(
@@ -46,17 +48,19 @@ export function makeView(
     canAct: canAct && state.winner === null,
     legal: canAct && state.winner === null ? structuredClone(legalMoves(state)) : [],
     seatNames,
+    effects: structuredClone(state.effects),
   };
 }
 
 // --- WebSocket messages -----------------------------------------------------
 
 export type ClientMsg =
-  | { t: 'create'; name: string }
-  | { t: 'join'; code: string; name: string }
+  | { t: 'create'; name: string; token?: string }
+  | { t: 'join'; code: string; name: string; token?: string }
   | { t: 'sit'; seat: number }
   | { t: 'cpu'; seat: number; on: boolean }
   | { t: 'start' }
+  | { t: 'again' }
   | { t: 'move'; move: Move };
 
 export interface RoomInfo {

@@ -38,7 +38,7 @@ function handleMessage(clientId: string, msg: ClientMsg) {
     const created = new GameRoom(makeCode(), send, CPU_DELAY_MS);
     rooms.set(created.code, created);
     clientRoom.set(clientId, created);
-    created.addClient(clientId, msg.name);
+    created.addClient(clientId, msg.name, msg.token);
     return;
   }
   if (msg.t === 'join') {
@@ -46,7 +46,7 @@ function handleMessage(clientId: string, msg: ClientMsg) {
     const target = rooms.get(String(msg.code).toUpperCase());
     if (!target) return send(clientId, { t: 'err', msg: 'Room not found.' });
     clientRoom.set(clientId, target);
-    target.addClient(clientId, msg.name);
+    target.addClient(clientId, msg.name, msg.token);
     return;
   }
   room?.handle(clientId, msg);

@@ -1,6 +1,6 @@
 import { Application, Circle, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import type { View } from '../net/protocol.ts';
-import type { Bunny } from '../engine/types.ts';
+import type { Bunny, MoveEffect } from '../engine/types.ts';
 import { PLAYER_NAMES, SPAWN_INDEX, TRACK_LEN } from '../engine/types.ts';
 
 export const PLAYER_COLORS = [0xe0484d, 0x3f8fde, 0x43b649, 0xe8b53a];
@@ -59,6 +59,8 @@ export interface Highlights {
   bunnies: Set<number>;
   /** The bunny currently picked up to move (shown with a white ring). */
   selected: number | null;
+  /** Bunnies that moved in the last play (shown with a soft blue ring). */
+  recent: Set<number>;
   track: Map<number, string>; // index -> optional label (e.g. step count)
   burrows: Map<string, string>; // `${player}:${slot}` -> optional label
   reserves: Set<number>; // player
@@ -67,6 +69,7 @@ export interface Highlights {
 export const emptyHighlights = (): Highlights => ({
   bunnies: new Set(),
   selected: null,
+  recent: new Set(),
   track: new Map(),
   burrows: new Map(),
   reserves: new Set(),
@@ -83,6 +86,8 @@ interface Piece {
   root: Container;
   tx: number;
   ty: number;
+  /** Waypoints to hop through before easing to (tx, ty). */
+  queue: { x: number; y: number }[];
 }
 
 export class BoardView {
@@ -107,7 +112,7 @@ export class BoardView {
     parent.appendChild(this.app.canvas);
     this.app.stage.addChild(this.staticLayer, this.highlightLayer, this.labelLayer, this.pieceLayer);
     this.drawStatic();
-    this.app.ticker.add(() => this.animate());
+    this.app.ticker.add(ticker => this.animate(ticker.deltaTime));
   }
 
   private circle(x: number, y: number, r: number, fill: number, stroke = 0x1e4426) {
@@ -198,7 +203,7 @@ export class BoardView {
       if (b && b.place.kind === 'reserve') this.cb.onReserve(b.player);
       else this.cb.onBunny(bunny.id);
     });
-    return { root, tx: 0, ty: 0 };
+    return { root, tx: 0, ty: 0, queue: [] };
   }
 
   private currentBunnies: Bunny[] = [];
@@ -217,8 +222,43 @@ export class BoardView {
     this.highlightLayer.removeChildren().forEach(c => c.destroy());
   }
 
-  render(view: View, hi: Highlights) {
+  /** Track-space waypoints for a hop-style move effect (empty = straight glide). */
+  private waypointsFor(effect: MoveEffect, player: number): { x: number; y: number }[] {
+    if (effect.kind === 'forward' && effect.from.kind !== 'reserve') {
+      const spawn = SPAWN_INDEX(player);
+      const start = effect.from.kind === 'track'
+        ? (effect.from.index - spawn + TRACK_LEN) % TRACK_LEN
+        : TRACK_LEN + effect.from.slot;
+      const end = effect.to.kind === 'track'
+        ? (effect.to.index - spawn + TRACK_LEN) % TRACK_LEN
+        : effect.to.kind === 'burrow' ? TRACK_LEN + effect.to.slot : start;
+      const pts: { x: number; y: number }[] = [];
+      for (let d = start + 1; d <= end; d++) {
+        pts.push(d < TRACK_LEN ? trackPos((spawn + d) % TRACK_LEN) : burrowPos(player, d - TRACK_LEN));
+      }
+      return pts;
+    }
+    if (effect.kind === 'backward' && effect.from.kind === 'track') {
+      const pts: { x: number; y: number }[] = [];
+      for (let i = 1; i <= 4; i++) {
+        pts.push(trackPos((effect.from.index - i + TRACK_LEN) % TRACK_LEN));
+      }
+      return pts;
+    }
+    return [];
+  }
+
+  render(view: View, hi: Highlights, effects?: MoveEffect[]) {
     this.currentBunnies = view.bunnies;
+
+    // A fresh state change: queue hop waypoints for the pieces that moved.
+    if (effects) {
+      for (const effect of effects) {
+        const piece = this.pieces.get(effect.bunny);
+        const bunny = view.bunnies.find(b => b.id === effect.bunny);
+        if (piece && bunny) piece.queue = this.waypointsFor(effect, bunny.player);
+      }
+    }
 
     // Pieces
     const idle =
@@ -298,6 +338,9 @@ export class BoardView {
       } else if (hi.bunnies.has(bunny.id)) {
         const { x, y } = this.targetFor(bunny, order);
         ring(x, y, CELL * 0.55);
+      } else if (hi.recent.has(bunny.id)) {
+        const { x, y } = this.targetFor(bunny, order);
+        ring(x, y, CELL * 0.58, 0x8ecbff, 3);
       }
     }
 
@@ -309,15 +352,34 @@ export class BoardView {
     });
   }
 
-  private animate() {
+  /** dt is in 60fps-normalized frames, so motion speed is frame-rate independent. */
+  private animate(dt: number) {
+    const hopSpeed = CELL * 0.3 * Math.min(dt, 4);
+    const ease = 1 - Math.pow(0.82, dt);
     for (const piece of this.pieces.values()) {
+      while (piece.queue.length) {
+        // Hop through waypoints at constant speed (space-by-space movement).
+        const t = piece.queue[0];
+        const dx = t.x - piece.root.x;
+        const dy = t.y - piece.root.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist <= hopSpeed) {
+          piece.root.position.set(t.x, t.y);
+          piece.queue.shift();
+          continue;
+        }
+        piece.root.x += (dx / dist) * hopSpeed;
+        piece.root.y += (dy / dist) * hopSpeed;
+        break;
+      }
+      if (piece.queue.length) continue;
       const dx = piece.tx - piece.root.x;
       const dy = piece.ty - piece.root.y;
       if (Math.abs(dx) + Math.abs(dy) < 0.5) {
         piece.root.position.set(piece.tx, piece.ty);
       } else {
-        piece.root.x += dx * 0.18;
-        piece.root.y += dy * 0.18;
+        piece.root.x += dx * ease;
+        piece.root.y += dy * ease;
       }
     }
   }

@@ -9,6 +9,13 @@ interface Seat {
   name: string;
   cpu: boolean;
   clientId: string | null;
+  /** Persistent client token so a disconnected player can reclaim the seat. */
+  token: string | null;
+}
+
+export interface RoomSnapshot {
+  seats: ({ name: string; cpu: boolean; token: string | null } | null)[];
+  game: GameState | null;
 }
 
 export function sanitizeName(name: unknown): string {
@@ -26,6 +33,7 @@ export class GameRoom {
   hostId: string | null = null;
   /** clientId -> seat index (null while spectating). */
   private clients = new Map<string, number | null>();
+  private tokens = new Map<string, string | null>();
   private cpuTimer: ReturnType<typeof setTimeout> | null = null;
 
   readonly code: string;
@@ -40,15 +48,22 @@ export class GameRoom {
     this.cpuDelay = cpuDelay;
   }
 
-  /** Add a connection: takes the first free seat, or spectates mid-game. */
-  addClient(id: string, rawName: string): void {
+  /** Add a connection: reclaims a seat by token, takes a free seat, or spectates. */
+  addClient(id: string, rawName: string, token?: string): void {
     const name = sanitizeName(rawName);
+    this.tokens.set(id, token ?? null);
     if (this.hostId === null) this.hostId = id;
-    const seat = this.game ? -1 : this.seats.findIndex(s => s === null);
+    // Reclaim: a seat previously held by this client (now vacated or CPU-run).
+    const reclaim = token
+      ? this.seats.findIndex(s => s !== null && s.clientId === null && s.token === token)
+      : -1;
+    const seat = reclaim !== -1
+      ? reclaim
+      : this.game ? -1 : this.seats.findIndex(s => s === null);
     if (seat === -1) {
       this.clients.set(id, null);
     } else {
-      this.seats[seat] = { name, cpu: false, clientId: id };
+      this.seats[seat] = { name, cpu: false, clientId: id, token: token ?? null };
       this.clients.set(id, seat);
     }
     this.broadcastRoom();
@@ -65,7 +80,7 @@ export class GameRoom {
         if (target < 0 || target > 3 || this.seats[target]) return;
         const name = current !== null ? this.seats[current]?.name ?? 'Player' : 'Player';
         if (current !== null) this.seats[current] = null;
-        this.seats[target] = { name, cpu: false, clientId: id };
+        this.seats[target] = { name, cpu: false, clientId: id, token: this.tokens.get(id) ?? null };
         this.clients.set(id, target);
         this.broadcastRoom();
         break;
@@ -75,7 +90,7 @@ export class GameRoom {
         const target = msg.seat | 0;
         if (target < 0 || target > 3) return;
         if (msg.on && this.seats[target] === null) {
-          this.seats[target] = { name: PLAYER_NAMES[target], cpu: true, clientId: null };
+          this.seats[target] = { name: PLAYER_NAMES[target], cpu: true, clientId: null, token: null };
         } else if (!msg.on && this.seats[target]?.cpu) {
           this.seats[target] = null;
         }
@@ -85,8 +100,19 @@ export class GameRoom {
       case 'start': {
         if (this.hostId !== id || this.game) return;
         for (let i = 0; i < 4; i++) {
-          if (!this.seats[i]) this.seats[i] = { name: PLAYER_NAMES[i], cpu: true, clientId: null };
+          if (!this.seats[i]) {
+            this.seats[i] = { name: PLAYER_NAMES[i], cpu: true, clientId: null, token: null };
+          }
         }
+        this.game = createGame(Math.floor(Math.random() * 2 ** 31));
+        this.broadcastRoom();
+        this.broadcastState();
+        this.scheduleCpu();
+        break;
+      }
+      case 'again': {
+        // Host starts a rematch with the same seats once a game has finished.
+        if (this.hostId !== id || !this.game || this.game.winner === null) return;
         this.game = createGame(Math.floor(Math.random() * 2 ** 31));
         this.broadcastRoom();
         this.broadcastState();
@@ -114,10 +140,13 @@ export class GameRoom {
   removeClient(id: string): boolean {
     const seat = this.clients.get(id);
     this.clients.delete(id);
+    this.tokens.delete(id);
     if (seat !== null && seat !== undefined && this.seats[seat]?.clientId === id) {
       if (this.game && this.game.winner === null) {
-        // Keep the game going: the seat becomes a CPU.
-        this.seats[seat] = { name: this.seats[seat]!.name, cpu: true, clientId: null };
+        // Keep the game going: a CPU takes over, but the token stays so the
+        // player can reconnect and reclaim the seat.
+        const old = this.seats[seat]!;
+        this.seats[seat] = { name: old.name, cpu: true, clientId: null, token: old.token };
         this.scheduleCpu();
       } else {
         this.seats[seat] = null;
@@ -138,6 +167,30 @@ export class GameRoom {
   dispose(): void {
     if (this.cpuTimer) clearTimeout(this.cpuTimer);
     this.cpuTimer = null;
+  }
+
+  /** Serializable state for persisting a room across a page reload. */
+  snapshot(): RoomSnapshot {
+    return structuredClone({
+      seats: this.seats.map(s => (s ? { name: s.name, cpu: s.cpu, token: s.token } : null)),
+      game: this.game,
+    });
+  }
+
+  /** Rebuild a room from a snapshot; offline human seats run as CPUs until reclaimed. */
+  static restore(
+    code: string,
+    send: (clientId: string, msg: ServerMsg) => void,
+    snap: RoomSnapshot,
+    cpuDelay = 900,
+  ): GameRoom {
+    const room = new GameRoom(code, send, cpuDelay);
+    room.seats = snap.seats.map(s =>
+      s ? { name: s.name, cpu: true, clientId: null, token: s.token ?? null } : null,
+    );
+    room.game = structuredClone(snap.game);
+    if (room.game && room.game.winner === null) room.scheduleCpu();
+    return room;
   }
 
   private roomInfo(clientId: string): RoomInfo {
