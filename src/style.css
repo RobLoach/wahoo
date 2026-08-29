@@ -59,7 +59,26 @@ button:disabled { opacity: 0.45; cursor: default; }
 /* ------- game ------- */
 #game { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
 #board-wrap { flex: 1 1 500px; max-width: 820px; }
-.board-canvas { width: 100%; height: auto; border-radius: 12px; display: block; }
+/* Square board sized to fit the screen: capped by container width AND by the
+   viewport height minus room for the status bar + hand, with a sane floor. */
+.board-canvas {
+  width: clamp(240px, calc(100vh - 290px), 100%);
+  width: clamp(240px, calc(100dvh - 290px), 100%);
+  height: auto; border-radius: 12px; display: block; margin: 0 auto;
+}
+@media (min-width: 880px) {
+  /* Side panel sits next to the board: only the viewport height caps it. */
+  .board-canvas {
+    width: clamp(320px, calc(100vh - 60px), 100%);
+    width: clamp(320px, calc(100dvh - 60px), 100%);
+  }
+}
+@media (max-width: 600px) {
+  #app { padding: 8px; }
+  #game { gap: 10px; }
+  #side { gap: 8px; }
+  #log { max-height: 140px; }
+}
 
 #side { flex: 1 1 280px; min-width: 280px; display: flex; flex-direction: column; gap: 10px; }
 

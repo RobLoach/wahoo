@@ -57,15 +57,18 @@ export function reservePos(player: number, n: number) {
 
 export interface Highlights {
   bunnies: Set<number>;
-  track: Set<number>;
-  burrows: Set<string>; // `${player}:${slot}`
+  /** The bunny currently picked up to move (shown with a white ring). */
+  selected: number | null;
+  track: Map<number, string>; // index -> optional label (e.g. step count)
+  burrows: Map<string, string>; // `${player}:${slot}` -> optional label
   reserves: Set<number>; // player
 }
 
 export const emptyHighlights = (): Highlights => ({
   bunnies: new Set(),
-  track: new Set(),
-  burrows: new Set(),
+  selected: null,
+  track: new Map(),
+  burrows: new Map(),
   reserves: new Set(),
 });
 
@@ -235,7 +238,9 @@ export class BoardView {
       const target = this.targetFor(bunny, order);
       piece.tx = target.x;
       piece.ty = target.y;
-      piece.root.scale.set(bunny.place.kind === 'reserve' ? 0.8 : 1);
+      piece.root.scale.set(
+        hi.selected === bunny.id ? 1.18 : bunny.place.kind === 'reserve' ? 0.8 : 1,
+      );
       piece.root.alpha = bunny.place.kind === 'burrow' ? 0.95 : 1;
       // Only clickable pieces intercept taps, so their large hit areas never
       // block a highlighted destination space during destination picking.
@@ -248,20 +253,37 @@ export class BoardView {
 
     // Highlights
     this.highlightLayer.removeChildren().forEach(c => c.destroy());
-    const ring = (x: number, y: number, r: number) => {
+    const ring = (x: number, y: number, r: number, color = 0xffe97a, width = 4) => {
       const g = new Graphics();
-      g.circle(x, y, r).stroke({ color: 0xffe97a, width: 4 });
-      g.circle(x, y, r).fill({ color: 0xffe97a, alpha: 0.22 });
+      g.circle(x, y, r).stroke({ color, width });
+      g.circle(x, y, r).fill({ color, alpha: 0.22 });
       this.highlightLayer.addChild(g);
     };
-    for (const i of hi.track) {
+    const stepLabel = (x: number, y: number, text: string) => {
+      const t = new Text({
+        text,
+        style: new TextStyle({
+          fill: 0xffffff,
+          fontSize: CELL * 0.52,
+          fontFamily: 'system-ui, sans-serif',
+          fontWeight: 'bold',
+          stroke: { color: 0x1e3d24, width: 4 },
+        }),
+      });
+      t.anchor.set(0.5);
+      t.position.set(x, y);
+      this.highlightLayer.addChild(t);
+    };
+    for (const [i, label] of hi.track) {
       const { x, y } = trackPos(i);
       ring(x, y, CELL * 0.5);
+      if (label) stepLabel(x, y, label);
     }
-    for (const key of hi.burrows) {
+    for (const [key, label] of hi.burrows) {
       const [p, s] = key.split(':').map(Number);
       const { x, y } = burrowPos(p, s);
       ring(x, y, CELL * 0.48);
+      if (label) stepLabel(x, y, label);
     }
     for (const p of hi.reserves) {
       const { x, y } = reservePos(p, 0);
@@ -270,7 +292,10 @@ export class BoardView {
     const reserveIdx = [0, 0, 0, 0];
     for (const bunny of view.bunnies) {
       const order = bunny.place.kind === 'reserve' ? reserveIdx[bunny.player]++ : 0;
-      if (hi.bunnies.has(bunny.id)) {
+      if (hi.selected === bunny.id) {
+        const { x, y } = this.targetFor(bunny, order);
+        ring(x, y, CELL * 0.62, 0xffffff, 5);
+      } else if (hi.bunnies.has(bunny.id)) {
         const { x, y } = this.targetFor(bunny, order);
         ring(x, y, CELL * 0.55);
       }

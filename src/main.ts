@@ -347,12 +347,13 @@ class App {
       }
     } else {
       const bunnyId = this.sel.bunny;
+      hi.selected = bunnyId;
       const sim = simBunnies(view.bunnies, this.sel.sevenParts);
       const bunny = sim.find(b => b.id === bunnyId)!;
-      const mark = (place: Bunny['place'] | null, player: number) => {
+      const mark = (place: Bunny['place'] | null, player: number, label = '') => {
         if (!place) return;
-        if (place.kind === 'track') hi.track.add(place.index);
-        if (place.kind === 'burrow') hi.burrows.add(`${player}:${place.slot}`);
+        if (place.kind === 'track') hi.track.set(place.index, label);
+        if (place.kind === 'burrow') hi.burrows.set(`${player}:${place.slot}`, label);
       };
       for (const a of actions) {
         if (a.kind === 'forward' && a.bunny === bunnyId) {
@@ -371,7 +372,7 @@ class App {
       for (const c of sevenCandidates(actions, this.sel.sevenParts)) {
         for (const p of c.parts) {
           if (p.bunny === bunnyId) {
-            mark(forwardDest({ bunnies: sim }, bunny, p.steps), bunny.player);
+            mark(forwardDest({ bunnies: sim }, bunny, p.steps), bunny.player, String(p.steps));
             hint = 'Choose how far this bunny hops.';
           }
         }
