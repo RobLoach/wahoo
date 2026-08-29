@@ -125,8 +125,70 @@ class App {
     this.view = view;
     // A new decision point invalidates any in-progress selection.
     this.sel = emptySelection();
-    if (view.pendingFlip && view.canAct) this.sel.cardId = 'flip';
+    if (view.pendingFlip && view.canAct) {
+      this.sel.cardId = 'flip';
+      // A flipped card with a single legal move plays itself after a pause,
+      // long enough to see what was flipped.
+      if (view.legal.length === 1) {
+        const move = view.legal[0];
+        setTimeout(() => {
+          if (this.view === view && this.view.canAct) this.submit(move);
+        }, 1100);
+      }
+    }
     this.refresh();
+  }
+
+  /**
+   * Resolve forced choices automatically: a card with exactly one legal action
+   * plays immediately; if every option routes through one bunny it gets
+   * selected; a selected bunny with a single destination moves right away.
+   */
+  private autoAdvance() {
+    const view = this.view;
+    if (!view?.canAct || this.sel.cardId === null || this.sel.cardId === 'flip') return;
+    const actions = selectedActions(view, this.sel);
+
+    if (this.sel.bunny === null) {
+      const sources = new Set<number>();
+      let ambiguous = false;
+      if (this.sel.sevenParts.length === 0) {
+        if (actions.length === 1) return this.submitAction(actions[0]);
+        for (const a of actions) {
+          if (a.kind === 'spawn' || a.kind === 'kingSpawn') ambiguous = true;
+          else if (a.kind === 'forward' || a.kind === 'backward' || a.kind === 'swap') sources.add(a.bunny);
+          else if (a.kind === 'seven') a.parts.forEach(p => sources.add(p.bunny));
+        }
+      } else {
+        const used = this.sel.sevenParts.map(p => p.bunny);
+        for (const c of sevenCandidates(actions, this.sel.sevenParts)) {
+          for (const p of c.parts) if (!used.includes(p.bunny)) sources.add(p.bunny);
+        }
+      }
+      if (ambiguous || sources.size !== 1) return;
+      this.sel.bunny = [...sources][0];
+    }
+
+    // Count the distinct choices remaining for the selected bunny.
+    const bunnyId = this.sel.bunny;
+    const direct = actions.filter(
+      a => (a.kind === 'forward' || a.kind === 'backward' || a.kind === 'swap') && a.bunny === bunnyId,
+    );
+    const stepOptions = new Set<number>();
+    for (const c of sevenCandidates(actions, this.sel.sevenParts)) {
+      for (const p of c.parts) if (p.bunny === bunnyId) stepOptions.add(p.steps);
+    }
+    if (direct.length + stepOptions.size !== 1) return;
+
+    if (direct.length === 1) return this.submitAction(direct[0]);
+    const steps = [...stepOptions][0];
+    const parts = [...this.sel.sevenParts, { bunny: bunnyId, steps }];
+    if (parts.reduce((s, p) => s + p.steps, 0) === 7) {
+      return this.submitAction({ kind: 'seven', parts });
+    }
+    this.sel.sevenParts = parts;
+    this.sel.bunny = null;
+    this.autoAdvance();
   }
 
   submit(move: Move) {
@@ -177,6 +239,7 @@ class App {
     // Select as a source bunny.
     if (this.isSource(actions, bunny)) {
       this.sel.bunny = id;
+      this.autoAdvance();
       this.refresh();
     }
   }
@@ -238,6 +301,7 @@ class App {
           if (total === 7) return this.submitAction({ kind: 'seven', parts });
           this.sel.sevenParts = parts;
           this.sel.bunny = null;
+          this.autoAdvance();
           return this.refresh();
         }
       }
@@ -359,7 +423,10 @@ class App {
         if (!canPlay) return;
         const wasSelected = this.sel.cardId === card.id;
         this.sel = emptySelection();
-        if (!wasSelected) this.sel.cardId = card.id;
+        if (!wasSelected) {
+          this.sel.cardId = card.id;
+          this.autoAdvance();
+        }
         this.refresh();
       };
       handEl.appendChild(el);
