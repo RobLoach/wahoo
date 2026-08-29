@@ -196,6 +196,9 @@ function backwardActions(state: GameState, ctrl: number): CardAction[] {
     .map(b => ({ kind: 'backward', bunny: b.id }) as CardAction);
 }
 
+/** A 7 moves one bunny 7 tiles, or splits across at most two bunnies. */
+const SEVEN_MAX_BUNNIES = 2;
+
 /** Enumerate valid 7-splits (deduplicated by their part multiset). */
 function sevenActions(state: GameState, ctrl: number): CardAction[] {
   const movable = state.bunnies.filter(
@@ -216,6 +219,7 @@ function sevenActions(state: GameState, ctrl: number): CardAction[] {
       }
       return;
     }
+    if (used.length >= SEVEN_MAX_BUNNIES) return;
     for (const b of movable) {
       if (used.includes(b.id)) continue;
       const simBunny = sim.bunnies.find(x => x.id === b.id)!;
@@ -351,6 +355,9 @@ function applyAction(state: GameState, seat: number, action: CardAction): void {
       }
       const ids = action.parts.map(p => p.bunny);
       if (new Set(ids).size !== ids.length) throw new Error('seven parts must use distinct bunnies');
+      if (ids.length > SEVEN_MAX_BUNNIES) {
+        throw new Error('seven may move at most two bunnies');
+      }
       for (const part of action.parts) {
         const bunny = state.bunnies.find(b => b.id === part.bunny)!;
         if (bunny.player !== ctrl || bunny.place.kind !== 'track') {

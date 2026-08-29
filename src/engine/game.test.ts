@@ -169,17 +169,20 @@ describe('burrow', () => {
 });
 
 describe('special cards', () => {
-  it('splits a 7 across multiple bunnies', () => {
+  it('splits a 7 across two bunnies but never more', () => {
     const g = createGame(10);
     g.current = 0;
     put(g, 0, { kind: 'track', index: 5 });
     put(g, 1, { kind: 'track', index: 30 });
-    const sevens = actionsForCard(g, 0, '7').filter(a => a.kind === 'seven');
-    const split = sevens.find(
-      a => a.kind === 'seven' && a.parts.length === 2,
-    ) as Extract<CardAction, { kind: 'seven' }>;
+    put(g, 2, { kind: 'track', index: 60 });
+    const sevens = actionsForCard(g, 0, '7').filter(
+      (a): a is Extract<CardAction, { kind: 'seven' }> => a.kind === 'seven',
+    );
+    const split = sevens.find(a => a.parts.length === 2);
     expect(split).toBeTruthy();
-    expect(split.parts.reduce((s, p) => s + p.steps, 0)).toBe(7);
+    expect(split!.parts.reduce((s, p) => s + p.steps, 0)).toBe(7);
+    expect(sevens.some(a => a.parts.length === 1)).toBe(true); // one bunny, all 7
+    expect(sevens.every(a => a.parts.length <= 2)).toBe(true); // 3-way splits are illegal
   });
 
   it('swaps with an opponent using a jack', () => {

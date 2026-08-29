@@ -29,7 +29,7 @@ stomping anyone who gets in the way.
   doesn't stomp.
 - **A / 2** spawn a bunny at Position 1 or move 1/2 (a 2 also flips a bonus card
   from the draw pile which you play too). **4** moves backward 4 spaces, staying
-  on the track. **7** splits seven forward steps across your bunnies. **J**
+  on the track. **7** moves one bunny 7, or splits the 7 between two bunnies. **J**
   swaps one of your bunnies with any other active bunny. **Q** moves 12. **K**
   moves 13, or spawns from your reserve onto any other player's track bunny —
   even a teammate's — stomping it. Everything else moves its face value.
