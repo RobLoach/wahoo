@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wahoo</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐰</text></svg>" />
+</head>
+<body>
+  <div id="app">
+    <section id="menu">
+      <h1>🐰 Wahoo</h1>
+      <p class="tagline">A 4-player team race. Stomp your rivals, tuck your bunnies safely into the burrow.</p>
+
+      <div class="menu-panels">
+        <div class="panel" id="local-panel">
+          <h2>Local Game</h2>
+          <p>Hot seat and/or CPU players on this device.</p>
+          <div id="seat-config"></div>
+          <button id="start-local" class="primary">Start Game</button>
+        </div>
+
+        <div class="panel" id="online-panel">
+          <h2>Online Game</h2>
+          <label>Your name <input id="online-name" maxlength="12" placeholder="Player" /></label>
+          <label>Server <input id="online-server" placeholder="ws://localhost:8787" /></label>
+          <div class="row">
+            <button id="online-create">Create Room</button>
+            <input id="online-code" maxlength="6" placeholder="CODE" style="text-transform:uppercase" />
+            <button id="online-join">Join</button>
+          </div>
+          <p class="hint">Online play needs a Wahoo server (<code>npm run server</code> in the repo). GitHub Pages hosts only this client.</p>
+          <div id="lobby" hidden></div>
+        </div>
+      </div>
+
+      <details id="rules">
+        <summary>How to play</summary>
+        <ul>
+          <li>Teams of two sit opposite each other (Red &amp; Green vs Blue &amp; Yellow). First team to get all 8 bunnies home wins.</li>
+          <li>Each round you're dealt 4 cards. On your turn, play one card and do what it says — no drawing back up. If nothing in your hand is playable, you fold for the round.</li>
+          <li><b>A / 2</b>: spawn a bunny (2 also flips a bonus card). <b>4</b>: move backward — you can back straight into your burrow. <b>7</b>: split 7 steps across your bunnies. <b>J</b>: swap with any bunny. <b>Q</b>: 12 forward. <b>K</b>: spawn onto any opponent, stomping them, or 13 forward. Other cards move their face value.</li>
+          <li>Landing on any bunny stomps it back to its reserve. Burrow entry needs an exact count; bunnies in burrows are safe from everything.</li>
+        </ul>
+      </details>
+    </section>
+
+    <section id="game" hidden>
+      <div id="board-wrap"></div>
+      <aside id="side">
+        <div id="status"></div>
+        <div id="flip-area" hidden></div>
+        <div id="hand"></div>
+        <div id="controls">
+          <button id="btn-fold" hidden>Fold hand (no legal move)</button>
+          <button id="btn-cancel" hidden>Cancel selection</button>
+          <button id="btn-menu">↩ Menu</button>
+        </div>
+        <div id="piles"></div>
+        <div id="log"></div>
+      </aside>
+    </section>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

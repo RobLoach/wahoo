@@ -1,0 +1,25 @@
+{
+  "name": "wahoo",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "allowScripts": ["esbuild"],
+  "description": "Wahoo: a 4-player team race board game. Hot seat, CPU players, and online play over WebSockets.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "server": "node server/server.ts"
+  },
+  "dependencies": {
+    "pixi.js": "^8.6.6",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.13",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7",
+    "vitest": "^2.1.8"
+  }
+}
