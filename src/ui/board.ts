@@ -11,59 +11,48 @@ const CELLS = 26.6; // 20 track cells + outward room for reserves and labels
 const CELL = SIZE / CELLS;
 const PAD = ((CELLS - 20) / 2) * CELL;
 
-/** Outward-facing unit vector for each player's side (0=bottom,1=left,2=top,3=right). */
+/**
+ * Outward-facing diagonal for each player's corner
+ * (0 = bottom-right, 1 = bottom-left, 2 = top-left, 3 = top-right).
+ */
 const OUTWARD = [
-  { x: 0, y: 1 },
-  { x: -1, y: 0 },
-  { x: 0, y: -1 },
-  { x: 1, y: 0 },
-];
-/** Direction from each spawn toward the burrow entrance (previous track space). */
-const ENTRANCE_DIR = [
-  { x: 1, y: 0 },
-  { x: 0, y: 1 },
-  { x: -1, y: 0 },
-  { x: 0, y: -1 },
+  { x: 1, y: 1 },
+  { x: -1, y: 1 },
+  { x: -1, y: -1 },
+  { x: 1, y: -1 },
 ];
 
 function cellPos(cx: number, cy: number) {
   return { x: PAD + cx * CELL, y: PAD + cy * CELL };
 }
 
-/** Track index -> pixel position. Index 0 is Red's spawn at bottom center. */
+/** Track index -> pixel position. Index 0 is Red's spawn at the bottom-right corner. */
 export function trackPos(index: number) {
   const i = ((index % TRACK_LEN) + TRACK_LEN) % TRACK_LEN;
   let cx: number;
   let cy: number;
-  if (i <= 10) { cx = 10 - i; cy = 20; }
-  else if (i <= 30) { cx = 0; cy = 20 - (i - 10); }
-  else if (i <= 50) { cx = i - 30; cy = 0; }
-  else if (i <= 70) { cx = 20; cy = i - 50; }
-  else { cx = 20 - (i - 70); cy = 20; }
+  if (i < 20) { cx = 20 - i; cy = 20; }
+  else if (i < 40) { cx = 0; cy = 20 - (i - 20); }
+  else if (i < 60) { cx = i - 40; cy = 0; }
+  else { cx = 20; cy = i - 60; }
   return cellPos(cx, cy);
 }
 
-/** Burrow slots sit on the board, stretching inward from each edge's spawn. */
+/** Burrow slots run diagonally inward from each player's corner. */
 export function burrowPos(player: number, slot: number) {
-  const spawn = trackPos(SPAWN_INDEX(player));
+  const corner = trackPos(SPAWN_INDEX(player));
   const o = OUTWARD[player];
-  const e = ENTRANCE_DIR[player];
-  const r = (1.15 + slot * 0.95) * CELL;
-  return {
-    x: spawn.x - o.x * r + e.x * 0.62 * CELL,
-    y: spawn.y - o.y * r + e.y * 0.62 * CELL,
-  };
+  const r = (1.0 + slot * 0.72) * CELL;
+  return { x: corner.x - o.x * r, y: corner.y - o.y * r };
 }
 
+/** Reserve bunnies wait in a 2x2 cluster just outside their corner. */
 export function reservePos(player: number, n: number) {
-  const spawn = trackPos(SPAWN_INDEX(player));
+  const corner = trackPos(SPAWN_INDEX(player));
   const o = OUTWARD[player];
-  const e = ENTRANCE_DIR[player];
-  const along = -(1.6 + n * 0.95) * CELL; // opposite side from the burrow
-  return {
-    x: spawn.x + o.x * 1.5 * CELL + e.x * along,
-    y: spawn.y + o.y * 1.5 * CELL + e.y * along,
-  };
+  const ax = (0.95 + (n % 2) * 0.85) * CELL;
+  const ay = (0.95 + Math.floor(n / 2) * 0.85) * CELL;
+  return { x: corner.x + o.x * ax, y: corner.y + o.y * ay };
 }
 
 export interface Highlights {
@@ -160,8 +149,9 @@ export class BoardView {
         const { x, y } = reservePos(p, n);
         this.staticLayer.addChild(this.circle(x, y, CELL * 0.34, 0x2e6338, 0x244f2c));
       }
-      // Seat label
-      const spawn = trackPos(SPAWN_INDEX(p));
+      // Seat label below/above the reserve cluster, growing toward the board
+      // center so long names never clip at the canvas edge.
+      const corner = trackPos(SPAWN_INDEX(p));
       const o = OUTWARD[p];
       const label = new Text({
         text: PLAYER_NAMES[p],
@@ -173,10 +163,8 @@ export class BoardView {
           stroke: { color: 0x1e3d24, width: 4 },
         }),
       });
-      label.anchor.set(0.5);
-      label.position.set(spawn.x + o.x * 2.55 * CELL, spawn.y + o.y * 2.55 * CELL);
-      if (p === 1) label.rotation = -Math.PI / 2;
-      if (p === 3) label.rotation = Math.PI / 2;
+      label.anchor.set(o.x > 0 ? 1 : 0, 0.5);
+      label.position.set(corner.x + o.x * 2.8 * CELL, corner.y + o.y * 2.7 * CELL);
       this.labelLayer.addChild(label);
       this.seatLabels.push(label);
     }
