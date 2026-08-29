@@ -169,17 +169,10 @@ export function forwardDest(state: BunnyField, bunny: Bunny, steps: number): Bun
   return null;
 }
 
-/** Destinations for a backward-4: the wrapped track space, plus the burrow slot when reachable. */
-export function backwardDests(state: BunnyField, bunny: Bunny): { toBurrow: boolean; place: BunnyPlace }[] {
-  if (bunny.place.kind !== 'track') return [];
-  const out: { toBurrow: boolean; place: BunnyPlace }[] = [
-    { toBurrow: false, place: { kind: 'track', index: (bunny.place.index - 4 + TRACK_LEN) % TRACK_LEN } },
-  ];
-  const d = distOf(bunny);
-  if (d <= 3 && burrowSlotsFree(state, bunny.player, 0, 3 - d)) {
-    out.push({ toBurrow: true, place: { kind: 'burrow', slot: 3 - d } });
-  }
-  return out;
+/** Destination of a backward-4: four spaces back along the track (never the burrow). */
+export function backwardDest(bunny: Bunny): BunnyPlace | null {
+  if (bunny.place.kind !== 'track') return null;
+  return { kind: 'track', index: (bunny.place.index - 4 + TRACK_LEN) % TRACK_LEN };
 }
 
 function forwardActions(state: GameState, ctrl: number, steps: number): CardAction[] {
@@ -196,19 +189,11 @@ function spawnAction(state: GameState, ctrl: number): CardAction[] {
 }
 
 function backwardActions(state: GameState, ctrl: number): CardAction[] {
-  const out: CardAction[] = [];
-  for (const b of state.bunnies) {
-    if (b.player !== ctrl || b.place.kind !== 'track') continue;
-    // Wrapping backward around the track is always possible (stomps occupant).
-    out.push({ kind: 'backward', bunny: b.id, toBurrow: false });
-    // Backing across the burrow entrance: from distance d (0..3), four steps
-    // back cross the entrance and reach slot 3-d through open slots only.
-    const d = distOf(b);
-    if (d <= 3 && burrowSlotsFree(state, ctrl, 0, 3 - d)) {
-      out.push({ kind: 'backward', bunny: b.id, toBurrow: true });
-    }
-  }
-  return out;
+  // Moving backward stays on the track (stomping any occupant); the burrow is
+  // only entered by completing a lap forward.
+  return state.bunnies
+    .filter(b => b.player === ctrl && b.place.kind === 'track')
+    .map(b => ({ kind: 'backward', bunny: b.id }) as CardAction);
 }
 
 /** Enumerate valid 7-splits (deduplicated by their part multiset). */
@@ -257,15 +242,12 @@ function swapActions(state: GameState, ctrl: number): CardAction[] {
   return out;
 }
 
-function kingStompActions(state: GameState, ctrl: number): CardAction[] {
-  const mine = state.bunnies.filter(b => b.player === ctrl && b.place.kind === 'track');
-  // Any other player's track bunny may be squashed — teammates included.
-  const targets = state.bunnies.filter(b => b.player !== ctrl && b.place.kind === 'track');
-  const out: CardAction[] = [];
-  for (const m of mine) {
-    for (const t of targets) out.push({ kind: 'kingStomp', bunny: m.id, target: t.id });
-  }
-  return out;
+function kingSpawnActions(state: GameState, ctrl: number): CardAction[] {
+  if (!reserveBunny(state, ctrl)) return [];
+  // Spawn from reserve onto any other player's track bunny — teammates included.
+  return state.bunnies
+    .filter(b => b.player !== ctrl && b.place.kind === 'track')
+    .map(b => ({ kind: 'kingSpawn', target: b.id }) as CardAction);
 }
 
 /** All legal actions for a given card rank, for the acting seat. */
@@ -285,7 +267,7 @@ export function actionsForCard(state: GameState, seat: number, rank: Rank): Card
     case 'Q':
       return forwardActions(state, ctrl, 12);
     case 'K':
-      return [...kingStompActions(state, ctrl), ...forwardActions(state, ctrl, 13)];
+      return [...kingSpawnActions(state, ctrl), ...forwardActions(state, ctrl, 13)];
     default:
       return forwardActions(state, ctrl, parseInt(rank, 10));
   }
@@ -357,18 +339,9 @@ function applyAction(state: GameState, seat: number, action: CardAction): void {
     case 'backward': {
       const bunny = state.bunnies.find(b => b.id === action.bunny)!;
       if (bunny.player !== ctrl) throw new Error('not your bunny');
-      if (bunny.place.kind !== 'track') throw new Error('bunny not on track');
-      if (action.toBurrow) {
-        const d = distOf(bunny);
-        if (d > 3 || !burrowSlotsFree(state, bunny.player, 0, 3 - d)) {
-          throw new Error('illegal backward burrow entry');
-        }
-        moveBunnyTo(state, bunny.id, { kind: 'burrow', slot: 3 - d });
-        state.log.push(`${name} backs a bunny into the burrow!`);
-      } else {
-        const index = (bunny.place.index - 4 + TRACK_LEN) % TRACK_LEN;
-        moveBunnyTo(state, bunny.id, { kind: 'track', index });
-      }
+      const dest = backwardDest(bunny);
+      if (!dest) throw new Error('bunny not on track');
+      moveBunnyTo(state, bunny.id, dest);
       break;
     }
     case 'seven': {
@@ -402,17 +375,17 @@ function applyAction(state: GameState, seat: number, action: CardAction): void {
       state.log.push(`${name} swaps with ${PLAYER_NAMES[b.player]}.`);
       break;
     }
-    case 'kingStomp': {
-      const bunny = state.bunnies.find(b => b.id === action.bunny)!;
+    case 'kingSpawn': {
       const target = state.bunnies.find(b => b.id === action.target)!;
-      if (bunny.player !== ctrl || bunny.place.kind !== 'track') {
-        throw new Error('king must move one of your track bunnies');
-      }
       if (target.place.kind !== 'track' || target.player === ctrl) {
-        throw new Error('king must squash another player\'s track bunny');
+        throw new Error('king must stomp another player\'s track bunny');
       }
-      state.log.push(`${name} leaps onto ${PLAYER_NAMES[target.player]} with a King!`);
-      moveBunnyTo(state, bunny.id, { kind: 'track', index: target.place.index });
+      const bunny = reserveBunny(state, ctrl);
+      if (!bunny) throw new Error('no bunny in reserve');
+      const index = target.place.index;
+      target.place = { kind: 'reserve' };
+      bunny.place = { kind: 'track', index };
+      state.log.push(`${name} spawns with a King, stomping ${PLAYER_NAMES[target.player]}!`);
       break;
     }
   }

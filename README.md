@@ -28,12 +28,11 @@ stomping anyone who gets in the way.
 - Landing on any bunny stomps it back to its owner's reserve. Passing through
   doesn't stomp.
 - **A / 2** spawn a bunny at Position 1 or move 1/2 (a 2 also flips a bonus card
-  from the draw pile which you play too). **4** moves backward, and can back a
-  bunny straight into its burrow. **7** splits seven forward steps across your
-  bunnies. **J** swaps one of your bunnies with any other active bunny. **Q**
-  moves 12. **K** moves 13, or leaps one of your bunnies onto any other player's bunny —
-  even a teammate's — squashing it.
-  Everything else moves its face value.
+  from the draw pile which you play too). **4** moves backward 4 spaces, staying
+  on the track. **7** splits seven forward steps across your bunnies. **J**
+  swaps one of your bunnies with any other active bunny. **Q** moves 12. **K**
+  moves 13, or spawns from your reserve onto any other player's track bunny —
+  even a teammate's — stomping it. Everything else moves its face value.
 - Burrow entry needs an exact count, with no jumping inside the burrow: every
   slot passed through must be open. Once inside, bunnies are immune to
   everything.

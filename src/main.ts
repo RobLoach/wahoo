@@ -7,7 +7,7 @@ import { OnlineSession } from './net/client.ts';
 import type { OnlineHandlers } from './net/client.ts';
 import { P2PGuestSession, P2PHostSession } from './net/p2p.ts';
 import type { RoomInfo, View } from './net/protocol.ts';
-import { backwardDests, forwardDest } from './engine/game.ts';
+import { backwardDest, forwardDest } from './engine/game.ts';
 import type { Bunny, Card, CardAction, Move } from './engine/types.ts';
 import { PLAYER_NAMES, TEAMMATE_OF } from './engine/types.ts';
 
@@ -85,9 +85,9 @@ function sevenCandidates(actions: CardAction[], chosen: SevenPart[]) {
 // ---------------------------------------------------------------------------
 
 const CARD_HINTS: Record<string, string> = {
-  A: 'spawn / +1', '2': 'spawn / +2 & flip', '3': '+3', '4': '−4 (can enter burrow)',
+  A: 'spawn / +1', '2': 'spawn / +2 & flip', '3': '+3', '4': '−4',
   '5': '+5', '6': '+6', '7': 'split 7', '8': '+8', '9': '+9', '10': '+10',
-  J: 'swap', Q: '+12', K: 'squash / +13',
+  J: 'swap', Q: '+12', K: 'stomp-spawn / +13',
 };
 
 type NetSession = OnlineSession | P2PHostSession | P2PGuestSession;
@@ -159,8 +159,8 @@ class App {
       if (this.sel.sevenParts.length === 0) {
         if (actions.length === 1) return this.submitAction(actions[0]);
         for (const a of actions) {
-          if (a.kind === 'spawn') ambiguous = true;
-          else if (a.kind === 'forward' || a.kind === 'backward' || a.kind === 'swap' || a.kind === 'kingStomp') {
+          if (a.kind === 'spawn' || a.kind === 'kingSpawn') ambiguous = true;
+          else if (a.kind === 'forward' || a.kind === 'backward' || a.kind === 'swap') {
             sources.add(a.bunny);
           } else if (a.kind === 'seven') a.parts.forEach(p => sources.add(p.bunny));
         }
@@ -178,7 +178,7 @@ class App {
     const bunnyId = this.sel.bunny;
     const direct = actions.filter(
       a =>
-        (a.kind === 'forward' || a.kind === 'backward' || a.kind === 'swap' || a.kind === 'kingStomp') &&
+        (a.kind === 'forward' || a.kind === 'backward' || a.kind === 'swap') &&
         a.bunny === bunnyId,
     );
     const stepOptions = new Set<number>();
@@ -232,14 +232,16 @@ class App {
     const bunny = view.bunnies.find(b => b.id === id)!;
 
     if (this.sel.bunny !== null) {
-      // A swap or king-squash target?
-      const targeted = actions.find(
-        a =>
-          (a.kind === 'swap' && a.bunny === this.sel.bunny && a.other === id) ||
-          (a.kind === 'kingStomp' && a.bunny === this.sel.bunny && a.target === id),
+      // A swap target?
+      const swap = actions.find(
+        a => a.kind === 'swap' && a.bunny === this.sel.bunny && a.other === id,
       );
-      if (targeted) return this.submitAction(targeted);
+      if (swap) return this.submitAction(swap);
     }
+
+    // King stomp-spawn straight onto another player's bunny.
+    const king = actions.find(a => a.kind === 'kingSpawn' && a.target === id);
+    if (king && this.sel.bunny === null) return this.submitAction(king);
 
     // Select as a source bunny.
     if (this.isSource(actions, bunny)) {
@@ -251,10 +253,7 @@ class App {
 
   private isSource(actions: CardAction[], bunny: Bunny): boolean {
     for (const a of actions) {
-      if (
-        (a.kind === 'forward' || a.kind === 'backward' || a.kind === 'swap' || a.kind === 'kingStomp') &&
-        a.bunny === bunny.id
-      ) {
+      if ((a.kind === 'forward' || a.kind === 'backward' || a.kind === 'swap') && a.bunny === bunny.id) {
         return true;
       }
     }
@@ -293,9 +292,7 @@ class App {
         if (matches(forwardDest({ bunnies: sim }, bunny, a.steps))) return this.submitAction(a);
       }
       if (a.kind === 'backward' && a.bunny === bunnyId) {
-        for (const opt of backwardDests({ bunnies: sim }, bunny)) {
-          if (opt.toBurrow === a.toBurrow && matches(opt.place)) return this.submitAction(a);
-        }
+        if (matches(backwardDest(bunny))) return this.submitAction(a);
       }
     }
 
@@ -336,9 +333,8 @@ class App {
     if (this.sel.bunny === null) {
       for (const a of actions) {
         if (a.kind === 'spawn') hi.reserves.add(ctrlPlayer(view));
-        if (a.kind === 'forward' || a.kind === 'backward' || a.kind === 'swap' || a.kind === 'kingStomp') {
-          hi.bunnies.add(a.bunny);
-        }
+        if (a.kind === 'forward' || a.kind === 'backward' || a.kind === 'swap') hi.bunnies.add(a.bunny);
+        if (a.kind === 'kingSpawn') hi.bunnies.add(a.target);
       }
       const chosenIds = this.sel.sevenParts.map(p => p.bunny);
       for (const c of sevenCandidates(actions, this.sel.sevenParts)) {
@@ -349,8 +345,8 @@ class App {
         hint = `7-split: ${7 - used} step${7 - used === 1 ? '' : 's'} left — choose another bunny.`;
       } else if (actions.some(a => a.kind === 'spawn')) {
         hint = 'Click a reserve bunny to spawn, or an active bunny to move.';
-      } else if (actions.some(a => a.kind === 'kingStomp')) {
-        hint = 'Choose one of your bunnies to move 13 or squash with.';
+      } else if (actions.some(a => a.kind === 'kingSpawn')) {
+        hint = 'Stomp-spawn onto a highlighted bunny, or move your own 13.';
       } else if (actions.every(a => a.kind === 'swap')) {
         hint = 'Choose one of your bunnies to swap.';
       }
@@ -370,19 +366,13 @@ class App {
           hint = 'Choose the highlighted destination.';
         }
         if (a.kind === 'backward' && a.bunny === bunnyId) {
-          for (const opt of backwardDests({ bunnies: sim }, bunny)) mark(opt.place, bunny.player);
-          hint = 'Choose where to move backward.';
+          mark(backwardDest(bunny), bunny.player);
+          hint = 'Choose the highlighted destination.';
         }
         if (a.kind === 'swap' && a.bunny === bunnyId) {
           hi.bunnies.add(a.other);
           hint = 'Choose a bunny to swap with.';
         }
-        if (a.kind === 'kingStomp' && a.bunny === bunnyId) {
-          hi.bunnies.add(a.target);
-        }
-      }
-      if (actions.some(a => a.kind === 'kingStomp' && a.bunny === bunnyId)) {
-        hint = 'Squash a highlighted bunny, or take the highlighted space.';
       }
       for (const c of sevenCandidates(actions, this.sel.sevenParts)) {
         for (const p of c.parts) {

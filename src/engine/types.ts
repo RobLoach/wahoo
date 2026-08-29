@@ -30,10 +30,10 @@ export interface PlayerState {
 export type CardAction =
   | { kind: 'spawn' } // A or 2: reserve -> Position 1
   | { kind: 'forward'; bunny: number; steps: number }
-  | { kind: 'backward'; bunny: number; toBurrow: boolean } // 4
+  | { kind: 'backward'; bunny: number } // 4: four spaces back along the track
   | { kind: 'seven'; parts: { bunny: number; steps: number }[] }
   | { kind: 'swap'; bunny: number; other: number } // J
-  | { kind: 'kingStomp'; bunny: number; target: number }; // K: leap onto another player's bunny, squashing it
+  | { kind: 'kingSpawn'; target: number }; // K: spawn from reserve onto another player's bunny, stomping it
 
 export type Move =
   | { type: 'play'; card: number; action: CardAction } // card = card id in hand
