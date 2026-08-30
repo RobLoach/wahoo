@@ -10,6 +10,32 @@ import type { OnlineHandlers } from './client.ts';
 /** Namespaced PeerJS id so room codes don't collide with other apps. */
 const peerIdFor = (code: string) => `wahoo-bunny-race-${code.toLowerCase()}`;
 
+/**
+ * ICE servers: STUN discovers direct peer-to-peer routes; the free Open Relay
+ * TURN servers carry (still end-to-end encrypted) traffic when strict NATs
+ * block a direct connection. Relay only engages when direct fails. Swap in
+ * your own TURN credentials here if the public relay proves unreliable.
+ */
+const PEER_OPTIONS = {
+  config: {
+    iceServers: [
+      { urls: ['stun:stun.l.google.com:19302', 'stun:openrelay.metered.ca:80'] },
+      {
+        urls: [
+          'turn:openrelay.metered.ca:80',
+          'turn:openrelay.metered.ca:443',
+          'turns:openrelay.metered.ca:443?transport=tcp',
+        ],
+        username: 'openrelayproject',
+        credential: 'openrelayproject',
+      },
+    ],
+  },
+};
+
+/** How long a guest waits for the data channel before giving up. */
+const CONNECT_TIMEOUT_MS = 20_000;
+
 const SNAPSHOT_KEY = 'wahoo-host-snapshot';
 
 const HOST_ID = 'host';
@@ -62,7 +88,7 @@ export class P2PHostSession {
     this.room = resume
       ? GameRoom.restore(this.code, (cid, msg) => this.deliver(cid, msg), resume.snap)
       : new GameRoom(this.code, (cid, msg) => this.deliver(cid, msg));
-    this.peer = new Peer(peerIdFor(this.code));
+    this.peer = new Peer(peerIdFor(this.code), PEER_OPTIONS);
     this.peer.on('open', () => this.room.addClient(HOST_ID, this.name, this.token));
     this.peer.on('connection', conn => this.accept(conn));
     this.peer.on('error', err => {
@@ -146,11 +172,25 @@ export class P2PGuestSession {
     token: string,
     private handlers: OnlineHandlers,
   ) {
-    this.peer = new Peer();
+    this.peer = new Peer(PEER_OPTIONS);
     this.peer.on('open', () => {
       const conn = this.peer.connect(peerIdFor(code), { reliable: true });
       this.conn = conn;
-      conn.on('open', () => conn.send({ t: 'join', code, name, token } satisfies ClientMsg));
+      // If no route can be found (even via the TURN relay), say so instead of
+      // hanging on the spinner forever.
+      const connectTimer = setTimeout(() => {
+        if (!this.closed && !conn.open) {
+          this.handlers.onError(
+            'Could not reach the host — this network may be blocking the connection. ' +
+              'Try again, or use the dedicated server option.',
+          );
+          this.leave();
+        }
+      }, CONNECT_TIMEOUT_MS);
+      conn.on('open', () => {
+        clearTimeout(connectTimer);
+        conn.send({ t: 'join', code, name, token } satisfies ClientMsg);
+      });
       conn.on('data', raw => {
         const msg = raw as ServerMsg;
         if (!msg || typeof msg.t !== 'string') return;

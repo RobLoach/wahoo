@@ -73,7 +73,9 @@ Move and squash sound effects live in `src/assets/hop.wav` and
 The default way to play online is **browser-hosted**: click *Host a Game* and
 share the room code — no server required. The internet is only needed for the
 initial PeerJS handshake; after that the game data flows directly between
-browsers.
+browsers. When a strict NAT or firewall blocks the direct path, the connection
+automatically falls back to a free TURN relay (traffic stays end-to-end
+encrypted); swap in your own TURN credentials in `src/net/p2p.ts` if needed.
 
 ### Optional dedicated server
 
