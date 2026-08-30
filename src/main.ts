@@ -1,5 +1,5 @@
 import './style.css';
-import { BoardView, emptyHighlights, PLAYER_COLORS_CSS, trackPos, burrowPos, reservePos } from './ui/board.ts';
+import { BoardView, emptyHighlights, PLAYER_COLORS_CSS, TEAM_MARKS, trackPos, burrowPos, reservePos } from './ui/board.ts';
 import type { Highlights } from './ui/board.ts';
 import { LocalSession } from './sessions/local.ts';
 import type { SeatKind } from './sessions/local.ts';
@@ -445,6 +445,22 @@ class App {
       handEl.appendChild(el);
     }
 
+    // Last played card, so every turn is easy to follow.
+    const lastEl = $('#last-play');
+    if (view.lastPlay) {
+      const { seat, card, bonus } = view.lastPlay;
+      const red = card.suit === '♥' || card.suit === '♦' ? ' red' : '';
+      lastEl.hidden = false;
+      lastEl.innerHTML =
+        `<span class="mini-card${red}">${card.rank}${card.suit}</span>` +
+        `<span><b style="color:${PLAYER_COLORS_CSS[seat]}">${
+          view.seatNames[seat] ?? PLAYER_NAMES[seat]
+        }</b> played${bonus ? ' the flipped bonus card' : ''}</span>`;
+    } else {
+      lastEl.hidden = true;
+      lastEl.innerHTML = '';
+    }
+
     // Pending flip display
     const flipEl = $('#flip-area');
     if (view.pendingFlip && !curtainUp) {
@@ -473,7 +489,11 @@ class App {
     $('#btn-cancel').hidden = !hasSelection;
 
     // Piles
+    const teamName = (i: number) =>
+      `<span style="color:${PLAYER_COLORS_CSS[i]}">${PLAYER_NAMES[i]}</span>`;
     $('#piles').innerHTML =
+      `Teams: ${TEAM_MARKS[0]} ${teamName(0)} & ${teamName(2)} vs ` +
+      `${TEAM_MARKS[1]} ${teamName(1)} & ${teamName(3)}<br/>` +
       `Draw pile: ${view.drawCount} · Discard: ${
         view.discardTop ? view.discardTop.rank + view.discardTop.suit : '—'
       } · Hands: ` +
@@ -529,7 +549,11 @@ $('#start-local').onclick = async () => {
     .map(sel => sel.value as SeatKind);
   app.startLocalMeta(seats.filter(s => s === 'human').length);
   await app.showGame();
-  const session = new LocalSession(seats, view => app.onView(view));
+  const session = new LocalSession(
+    seats,
+    view => app.onView(view),
+    (window as unknown as Record<string, number>).__wahooCpuDelay,
+  );
   app.session = session;
   app.online = false;
   session.start();

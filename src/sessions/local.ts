@@ -7,17 +7,21 @@ import { PLAYER_NAMES } from '../engine/types.ts';
 
 export type SeatKind = 'human' | 'cpu-easy' | 'cpu-medium' | 'cpu-hard';
 
-const CPU_DELAY_MS = 650;
+/** A relaxed pause between CPU turns so plays are easy to follow. */
+const DEFAULT_CPU_DELAY_MS = 1500;
 
 /** Runs a full game on this device: any mix of hot-seat humans and CPUs. */
 export class LocalSession {
   private state;
   private timer: ReturnType<typeof setTimeout> | null = null;
+  private cpuDelay: number;
 
   constructor(
     private seats: SeatKind[],
     private onView: (view: View) => void,
+    cpuDelay?: number,
   ) {
+    this.cpuDelay = cpuDelay ?? DEFAULT_CPU_DELAY_MS;
     this.state = createGame(Math.floor(Math.random() * 2 ** 31));
   }
 
@@ -64,7 +68,7 @@ export class LocalSession {
       applyMove(this.state, chooseMove(this.state, difficulty));
       this.push();
       this.maybeCpu();
-    }, CPU_DELAY_MS);
+    }, this.cpuDelay);
   }
 
   leave() {

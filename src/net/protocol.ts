@@ -23,6 +23,8 @@ export interface View {
   seatNames: string[];
   /** Bunny movements from the last applied move, for animation. */
   effects: MoveEffect[];
+  /** The card most recently played, for display. */
+  lastPlay: { seat: number; card: Card; bonus?: boolean } | null;
 }
 
 export function makeView(
@@ -49,6 +51,7 @@ export function makeView(
     legal: canAct && state.winner === null ? structuredClone(legalMoves(state)) : [],
     seatNames,
     effects: structuredClone(state.effects),
+    lastPlay: structuredClone(state.lastPlay),
   };
 }
 

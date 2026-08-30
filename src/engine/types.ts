@@ -65,6 +65,8 @@ export interface GameState {
   log: string[];
   /** Bunny movements caused by the most recently applied move. */
   effects: MoveEffect[];
+  /** The card most recently played (bonus = flipped by a 2), for display. */
+  lastPlay: { seat: number; card: Card; bonus?: boolean } | null;
 }
 
 export const TRACK_LEN = 80;

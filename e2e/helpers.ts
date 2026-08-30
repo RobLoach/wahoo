@@ -18,6 +18,7 @@ export async function startLocal(page: Page, seats?: string[], dismissCurtain = 
         .forEach((sel, i) => (sel.value = kinds[i]));
     }, seats);
   }
+  await page.evaluate(() => ((window as any).__wahooCpuDelay = 40));
   await page.click('#start-local');
   await page.waitForSelector('#game:not([hidden]) .board-canvas');
   // Multi-human games open behind the pass-the-device curtain.

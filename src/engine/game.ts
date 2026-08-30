@@ -60,6 +60,7 @@ export function createGame(seed: number): GameState {
     rng: seed | 0,
     log: [],
     effects: [],
+    lastPlay: null,
   };
   shuffle(state, state.drawPile);
   startRound(state);
@@ -467,6 +468,7 @@ export function applyMove(state: GameState, move: Move): GameState {
     state.discard.push(...player.hand);
     player.hand = [];
     player.out = true;
+    state.lastPlay = null;
     state.log.push(`${PLAYER_NAMES[seat]} has no legal move and folds.`);
     advanceTurn(state);
     return state;
@@ -477,6 +479,7 @@ export function applyMove(state: GameState, move: Move): GameState {
     if (!card) throw new Error('no pending flipped card');
     state.pendingFlip = null;
     state.discard.push(card);
+    state.lastPlay = { seat, card: { ...card }, bonus: true };
     applyAction(state, seat, move.action);
     checkWinner(state);
     if (state.winner === null && card.rank === '2') flipBonus(state, seat);
@@ -492,6 +495,7 @@ export function applyMove(state: GameState, move: Move): GameState {
   const card = player.hand[idx];
   player.hand.splice(idx, 1);
   state.discard.push(card);
+  state.lastPlay = { seat, card: { ...card } };
   state.log.push(`${PLAYER_NAMES[seat]} plays ${card.rank}${card.suit}.`);
   applyAction(state, seat, move.action);
   checkWinner(state);

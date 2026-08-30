@@ -3,13 +3,16 @@ import type { View } from '../net/protocol.ts';
 import type { Bunny, MoveEffect } from '../engine/types.ts';
 import { PLAYER_NAMES, SPAWN_INDEX, TRACK_LEN } from '../engine/types.ts';
 
-export const PLAYER_COLORS = [0xd20f39, 0x1e66f5, 0x40a02b, 0xdf8e1d];
-export const PLAYER_COLORS_CSS = ['#d20f39', '#1e66f5', '#40a02b', '#df8e1d'];
+export const PLAYER_COLORS = [0xd95d5d, 0x4a7fd4, 0x57a15e, 0xe0a83f];
+export const PLAYER_COLORS_CSS = ['#d95d5d', '#4a7fd4', '#57a15e', '#e0a83f'];
 
 const SIZE = 820;
 const CELLS = 26.6; // 20 track cells + outward room for reserves and labels
 const CELL = SIZE / CELLS;
 const PAD = ((CELLS - 20) / 2) * CELL;
+
+/** Shared mark per team so partners are recognizable at a glance. */
+export const TEAM_MARKS = ['✦', '●'];
 
 /**
  * Outward-facing diagonal for each player's corner
@@ -105,7 +108,7 @@ export class BoardView {
     await this.app.init({
       width: SIZE,
       height: SIZE,
-      background: 0xdce0e8,
+      background: 0xa9c6dd,
       antialias: true,
     });
     this.app.canvas.classList.add('board-canvas');
@@ -123,7 +126,7 @@ export class BoardView {
     this.app.ticker.add(ticker => this.animate(ticker.deltaTime));
   }
 
-  private circle(x: number, y: number, r: number, fill: number, stroke = 0x9ca0b0) {
+  private circle(x: number, y: number, r: number, fill: number, stroke = 0xbfae8d) {
     const g = new Graphics();
     g.circle(x, y, r).fill(fill).stroke({ color: stroke, width: 2 });
     return g;
@@ -131,13 +134,13 @@ export class BoardView {
 
   private drawStatic() {
     const bg = new Graphics();
-    bg.roundRect(6, 6, SIZE - 12, SIZE - 12, 24).fill(0xeff1f5);
+    bg.roundRect(6, 6, SIZE - 12, SIZE - 12, 24).fill(0xecdfc3);
     this.staticLayer.addChild(bg);
 
     for (let i = 0; i < TRACK_LEN; i++) {
       const { x, y } = trackPos(i);
       const isSpawn = i % 20 === 0;
-      const color = isSpawn ? PLAYER_COLORS[i / 20] : 0xccd0da;
+      const color = isSpawn ? PLAYER_COLORS[i / 20] : 0xf7f0dd;
       const g = this.circle(x, y, CELL * 0.42, color);
       if (isSpawn) {
         const ring = new Graphics();
@@ -150,24 +153,24 @@ export class BoardView {
     for (let p = 0; p < 4; p++) {
       for (let slot = 0; slot < 4; slot++) {
         const { x, y } = burrowPos(p, slot);
-        this.staticLayer.addChild(this.circle(x, y, CELL * 0.4, 0xacb0be, PLAYER_COLORS[p]));
+        this.staticLayer.addChild(this.circle(x, y, CELL * 0.4, 0xb59b71, PLAYER_COLORS[p]));
       }
       for (let n = 0; n < 4; n++) {
         const { x, y } = reservePos(p, n);
-        this.staticLayer.addChild(this.circle(x, y, CELL * 0.34, 0xbcc0cc, 0xacb0be));
+        this.staticLayer.addChild(this.circle(x, y, CELL * 0.34, 0xd9c9a3, 0xbfae8d));
       }
       // Seat label below/above the reserve cluster, growing toward the board
       // center so long names never clip at the canvas edge.
       const corner = trackPos(SPAWN_INDEX(p));
       const o = OUTWARD[p];
       const label = new Text({
-        text: PLAYER_NAMES[p],
+        text: `${TEAM_MARKS[p % 2]} ${PLAYER_NAMES[p]}`,
         style: new TextStyle({
-          fill: 0x4c4f69,
+          fill: 0x2f3d4f,
           fontSize: 20,
           fontFamily: 'system-ui, sans-serif',
           fontWeight: 'bold',
-          stroke: { color: 0xeff1f5, width: 4 },
+          stroke: { color: 0xdceaf5, width: 4 },
         }),
       });
       label.anchor.set(o.x > 0 ? 1 : 0, 0.5);
@@ -187,10 +190,10 @@ export class BoardView {
     g.ellipse(-CELL * 0.16, -CELL * 0.4, CELL * 0.045, CELL * 0.16).fill(0xffffff);
     g.ellipse(CELL * 0.16, -CELL * 0.4, CELL * 0.045, CELL * 0.16).fill(0xffffff);
     // body
-    g.circle(0, 0, CELL * 0.33).fill(color).stroke({ color: 0x4c4f69, width: 2 });
+    g.circle(0, 0, CELL * 0.33).fill(color).stroke({ color: 0x33404f, width: 2 });
     // eyes
-    g.circle(-CELL * 0.11, -CELL * 0.06, CELL * 0.05).fill(0x4c4f69);
-    g.circle(CELL * 0.11, -CELL * 0.06, CELL * 0.05).fill(0x4c4f69);
+    g.circle(-CELL * 0.11, -CELL * 0.06, CELL * 0.05).fill(0x33404f);
+    g.circle(CELL * 0.11, -CELL * 0.06, CELL * 0.05).fill(0x33404f);
     root.addChild(g);
     return { root, tx: 0, ty: 0, queue: [] };
   }
@@ -312,7 +315,7 @@ export class BoardView {
 
     // Highlights
     this.highlightLayer.removeChildren().forEach(c => c.destroy());
-    const ring = (x: number, y: number, r: number, color = 0xfe640b, width = 4) => {
+    const ring = (x: number, y: number, r: number, color = 0xf26d4f, width = 4) => {
       const g = new Graphics();
       g.circle(x, y, r).stroke({ color, width });
       g.circle(x, y, r).fill({ color, alpha: 0.22 });
@@ -322,11 +325,11 @@ export class BoardView {
       const t = new Text({
         text,
         style: new TextStyle({
-          fill: 0x4c4f69,
+          fill: 0x2f3d4f,
           fontSize: CELL * 0.52,
           fontFamily: 'system-ui, sans-serif',
           fontWeight: 'bold',
-          stroke: { color: 0xeff1f5, width: 4 },
+          stroke: { color: 0xf7f0dd, width: 4 },
         }),
       });
       t.anchor.set(0.5);
@@ -353,28 +356,30 @@ export class BoardView {
       const order = bunny.place.kind === 'reserve' ? reserveIdx[bunny.player]++ : 0;
       if (hi.selected === bunny.id) {
         const { x, y } = this.targetFor(bunny, order);
-        ring(x, y, CELL * 0.62, 0x8839ef, 5);
+        ring(x, y, CELL * 0.62, 0x7f5bd4, 5);
       } else if (hi.bunnies.has(bunny.id)) {
         const { x, y } = this.targetFor(bunny, order);
         ring(x, y, CELL * 0.55);
       } else if (hi.recent.has(bunny.id)) {
         const { x, y } = this.targetFor(bunny, order);
-        ring(x, y, CELL * 0.58, 0x04a5e5, 3);
+        ring(x, y, CELL * 0.58, 0x2aa4a8, 3);
       }
     }
 
     // Current player indicator
     this.seatLabels.forEach((label, p) => {
-      label.style.fill = p === view.current ? 0xfe640b : 0x4c4f69;
+      label.style.fill = p === view.current ? 0xf26d4f : 0x2f3d4f;
       const cpu = view.seatNames[p]?.includes('CPU');
-      label.text = `${PLAYER_NAMES[p]}${cpu ? ' 🤖' : ''}${view.folded[p] ? ' (folded)' : ''}`;
+      label.text =
+        `${TEAM_MARKS[p % 2]} ${PLAYER_NAMES[p]}` +
+        `${cpu ? ' 🤖' : ''}${view.folded[p] ? ' (folded)' : ''}`;
     });
   }
 
   /** dt is in 60fps-normalized frames, so motion speed is frame-rate independent. */
   private animate(dt: number) {
-    const hopSpeed = CELL * 0.3 * Math.min(dt, 4);
-    const ease = 1 - Math.pow(0.82, dt);
+    const hopSpeed = CELL * 0.14 * Math.min(dt, 4); // ~8 spaces/second
+    const ease = 1 - Math.pow(0.9, dt);
     for (const piece of this.pieces.values()) {
       while (piece.queue.length) {
         // Hop through waypoints at constant speed (space-by-space movement).

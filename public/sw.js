@@ -1,7 +1,7 @@
 // Wahoo service worker: offline support for local (hot-seat/CPU) play.
 // Hashed build assets are cached forever; navigations are network-first so a
 // new deploy is picked up on the next online visit.
-const CACHE = 'wahoo-v3';
+const CACHE = 'wahoo-v4';
 
 self.addEventListener('install', () => {
   self.skipWaiting();

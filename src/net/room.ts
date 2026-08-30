@@ -43,7 +43,7 @@ export class GameRoom {
 
   // No constructor parameter properties: this file also runs under Node's
   // strip-only TypeScript mode, which cannot transform them.
-  constructor(code: string, send: (clientId: string, msg: ServerMsg) => void, cpuDelay = 900) {
+  constructor(code: string, send: (clientId: string, msg: ServerMsg) => void, cpuDelay = 1500) {
     this.code = code;
     this.send = send;
     this.cpuDelay = cpuDelay;
@@ -195,7 +195,7 @@ export class GameRoom {
     code: string,
     send: (clientId: string, msg: ServerMsg) => void,
     snap: RoomSnapshot,
-    cpuDelay = 900,
+    cpuDelay = 1500,
   ): GameRoom {
     const room = new GameRoom(code, send, cpuDelay);
     room.seats = snap.seats.map(s =>
