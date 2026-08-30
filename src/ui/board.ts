@@ -3,8 +3,8 @@ import type { View } from '../net/protocol.ts';
 import type { Bunny, MoveEffect } from '../engine/types.ts';
 import { PLAYER_NAMES, SPAWN_INDEX, TRACK_LEN } from '../engine/types.ts';
 
-export const PLAYER_COLORS = [0xe0484d, 0x3f8fde, 0x43b649, 0xe8b53a];
-export const PLAYER_COLORS_CSS = ['#e0484d', '#3f8fde', '#43b649', '#e8b53a'];
+export const PLAYER_COLORS = [0xd20f39, 0x1e66f5, 0x40a02b, 0xdf8e1d];
+export const PLAYER_COLORS_CSS = ['#d20f39', '#1e66f5', '#40a02b', '#df8e1d'];
 
 const SIZE = 820;
 const CELLS = 26.6; // 20 track cells + outward room for reserves and labels
@@ -105,7 +105,7 @@ export class BoardView {
     await this.app.init({
       width: SIZE,
       height: SIZE,
-      background: 0x452f1c,
+      background: 0xdce0e8,
       antialias: true,
     });
     this.app.canvas.classList.add('board-canvas');
@@ -123,7 +123,7 @@ export class BoardView {
     this.app.ticker.add(ticker => this.animate(ticker.deltaTime));
   }
 
-  private circle(x: number, y: number, r: number, fill: number, stroke = 0x3a2816) {
+  private circle(x: number, y: number, r: number, fill: number, stroke = 0x9ca0b0) {
     const g = new Graphics();
     g.circle(x, y, r).fill(fill).stroke({ color: stroke, width: 2 });
     return g;
@@ -131,13 +131,13 @@ export class BoardView {
 
   private drawStatic() {
     const bg = new Graphics();
-    bg.roundRect(6, 6, SIZE - 12, SIZE - 12, 24).fill(0x66492c);
+    bg.roundRect(6, 6, SIZE - 12, SIZE - 12, 24).fill(0xeff1f5);
     this.staticLayer.addChild(bg);
 
     for (let i = 0; i < TRACK_LEN; i++) {
       const { x, y } = trackPos(i);
       const isSpawn = i % 20 === 0;
-      const color = isSpawn ? PLAYER_COLORS[i / 20] : 0xd9cfa3;
+      const color = isSpawn ? PLAYER_COLORS[i / 20] : 0xccd0da;
       const g = this.circle(x, y, CELL * 0.42, color);
       if (isSpawn) {
         const ring = new Graphics();
@@ -150,11 +150,11 @@ export class BoardView {
     for (let p = 0; p < 4; p++) {
       for (let slot = 0; slot < 4; slot++) {
         const { x, y } = burrowPos(p, slot);
-        this.staticLayer.addChild(this.circle(x, y, CELL * 0.4, 0x2c1d0f, PLAYER_COLORS[p]));
+        this.staticLayer.addChild(this.circle(x, y, CELL * 0.4, 0xacb0be, PLAYER_COLORS[p]));
       }
       for (let n = 0; n < 4; n++) {
         const { x, y } = reservePos(p, n);
-        this.staticLayer.addChild(this.circle(x, y, CELL * 0.34, 0x543b23, 0x452f1c));
+        this.staticLayer.addChild(this.circle(x, y, CELL * 0.34, 0xbcc0cc, 0xacb0be));
       }
       // Seat label below/above the reserve cluster, growing toward the board
       // center so long names never clip at the canvas edge.
@@ -163,11 +163,11 @@ export class BoardView {
       const label = new Text({
         text: PLAYER_NAMES[p],
         style: new TextStyle({
-          fill: 0xffffff,
+          fill: 0x4c4f69,
           fontSize: 20,
           fontFamily: 'system-ui, sans-serif',
           fontWeight: 'bold',
-          stroke: { color: 0x2b1c0e, width: 4 },
+          stroke: { color: 0xeff1f5, width: 4 },
         }),
       });
       label.anchor.set(o.x > 0 ? 1 : 0, 0.5);
@@ -187,10 +187,10 @@ export class BoardView {
     g.ellipse(-CELL * 0.16, -CELL * 0.4, CELL * 0.045, CELL * 0.16).fill(0xffffff);
     g.ellipse(CELL * 0.16, -CELL * 0.4, CELL * 0.045, CELL * 0.16).fill(0xffffff);
     // body
-    g.circle(0, 0, CELL * 0.33).fill(color).stroke({ color: 0x223322, width: 2 });
+    g.circle(0, 0, CELL * 0.33).fill(color).stroke({ color: 0x4c4f69, width: 2 });
     // eyes
-    g.circle(-CELL * 0.11, -CELL * 0.06, CELL * 0.05).fill(0x222222);
-    g.circle(CELL * 0.11, -CELL * 0.06, CELL * 0.05).fill(0x222222);
+    g.circle(-CELL * 0.11, -CELL * 0.06, CELL * 0.05).fill(0x4c4f69);
+    g.circle(CELL * 0.11, -CELL * 0.06, CELL * 0.05).fill(0x4c4f69);
     root.addChild(g);
     return { root, tx: 0, ty: 0, queue: [] };
   }
@@ -312,7 +312,7 @@ export class BoardView {
 
     // Highlights
     this.highlightLayer.removeChildren().forEach(c => c.destroy());
-    const ring = (x: number, y: number, r: number, color = 0xffe97a, width = 4) => {
+    const ring = (x: number, y: number, r: number, color = 0xfe640b, width = 4) => {
       const g = new Graphics();
       g.circle(x, y, r).stroke({ color, width });
       g.circle(x, y, r).fill({ color, alpha: 0.22 });
@@ -322,11 +322,11 @@ export class BoardView {
       const t = new Text({
         text,
         style: new TextStyle({
-          fill: 0xffffff,
+          fill: 0x4c4f69,
           fontSize: CELL * 0.52,
           fontFamily: 'system-ui, sans-serif',
           fontWeight: 'bold',
-          stroke: { color: 0x2b1c0e, width: 4 },
+          stroke: { color: 0xeff1f5, width: 4 },
         }),
       });
       t.anchor.set(0.5);
@@ -353,19 +353,19 @@ export class BoardView {
       const order = bunny.place.kind === 'reserve' ? reserveIdx[bunny.player]++ : 0;
       if (hi.selected === bunny.id) {
         const { x, y } = this.targetFor(bunny, order);
-        ring(x, y, CELL * 0.62, 0xffffff, 5);
+        ring(x, y, CELL * 0.62, 0x8839ef, 5);
       } else if (hi.bunnies.has(bunny.id)) {
         const { x, y } = this.targetFor(bunny, order);
         ring(x, y, CELL * 0.55);
       } else if (hi.recent.has(bunny.id)) {
         const { x, y } = this.targetFor(bunny, order);
-        ring(x, y, CELL * 0.58, 0x8ecbff, 3);
+        ring(x, y, CELL * 0.58, 0x04a5e5, 3);
       }
     }
 
     // Current player indicator
     this.seatLabels.forEach((label, p) => {
-      label.style.fill = p === view.current ? 0xffe97a : 0xffffff;
+      label.style.fill = p === view.current ? 0xfe640b : 0x4c4f69;
       const cpu = view.seatNames[p]?.includes('CPU');
       label.text = `${PLAYER_NAMES[p]}${cpu ? ' 🤖' : ''}${view.folded[p] ? ' (folded)' : ''}`;
     });
