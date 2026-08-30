@@ -89,6 +89,8 @@ test('a multi-option card waits for a destination pick', async ({ page }) => {
   await page.click('#hand .card');
   // Two bunnies can move: nothing auto-plays, sources are highlighted.
   await expect(page.locator('#status')).toContainText("Red's turn");
+  // The selected card's description is shown without needing to hover.
+  await expect(page.locator('#card-help')).toContainText('backward 4 spaces');
   const v = await view(page);
   expect(v.bunnies.find((b: any) => b.id === 0).place).toEqual({ kind: 'track', index: 5 });
 });

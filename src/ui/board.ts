@@ -85,12 +85,20 @@ export interface BoardCallbacks {
   onReserve(player: number): void;
 }
 
+interface MovePath {
+  pts: { x: number; y: number }[];
+  segLens: number[];
+  total: number;
+  elapsed: number;
+  duration: number;
+}
+
 interface Piece {
   root: Container;
   tx: number;
   ty: number;
-  /** Waypoints to hop through before easing to (tx, ty). */
-  queue: { x: number; y: number }[];
+  /** Eased path (accelerate, then slow into position) for the current move. */
+  path: MovePath | null;
 }
 
 export class BoardView {
@@ -195,7 +203,7 @@ export class BoardView {
     g.circle(-CELL * 0.11, -CELL * 0.06, CELL * 0.05).fill(0x33404f);
     g.circle(CELL * 0.11, -CELL * 0.06, CELL * 0.05).fill(0x33404f);
     root.addChild(g);
-    return { root, tx: 0, ty: 0, queue: [] };
+    return { root, tx: 0, ty: 0, path: null };
   }
 
   private lastHi: Highlights | null = null;
@@ -280,17 +288,31 @@ export class BoardView {
     return [];
   }
 
+  /** Begin an eased movement along the effect's path to the piece's target. */
+  private startPath(piece: Piece, effect: MoveEffect, player: number) {
+    const pts = [
+      { x: piece.root.x, y: piece.root.y },
+      ...this.waypointsFor(effect, player),
+      { x: piece.tx, y: piece.ty },
+    ].filter((p, i, arr) => i === 0 || Math.hypot(p.x - arr[i - 1].x, p.y - arr[i - 1].y) > 0.5);
+    if (pts.length < 2) {
+      piece.path = null;
+      return;
+    }
+    const segLens = [];
+    let total = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const len = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+      segLens.push(len);
+      total += len;
+    }
+    const duration = Math.min(2200, 350 + (total / CELL) * 110);
+    piece.path = { pts, segLens, total, elapsed: 0, duration };
+  }
+
   render(view: View, hi: Highlights, effects?: MoveEffect[]) {
     this.lastHi = hi;
-
-    // A fresh state change: queue hop waypoints for the pieces that moved.
-    if (effects) {
-      for (const effect of effects) {
-        const piece = this.pieces.get(effect.bunny);
-        const bunny = view.bunnies.find(b => b.id === effect.bunny);
-        if (piece && bunny) piece.queue = this.waypointsFor(effect, bunny.player);
-      }
-    }
+    const effectFor = effects && new Map(effects.map(e => [e.bunny, e]));
 
     // Pieces
     const reserveCount = [0, 0, 0, 0];
@@ -307,6 +329,8 @@ export class BoardView {
       const target = this.targetFor(bunny, order);
       piece.tx = target.x;
       piece.ty = target.y;
+      const effect = effectFor?.get(bunny.id);
+      if (effect) this.startPath(piece, effect, bunny.player);
       piece.root.scale.set(
         hi.selected === bunny.id ? 1.18 : bunny.place.kind === 'reserve' ? 0.8 : 1,
       );
@@ -379,25 +403,34 @@ export class BoardView {
 
   /** dt is in 60fps-normalized frames, so motion speed is frame-rate independent. */
   private animate(dt: number) {
-    const hopSpeed = CELL * 0.14 * Math.min(dt, 4); // ~8 spaces/second
+    const dtMs = dt * (1000 / 60);
     const ease = 1 - Math.pow(0.9, dt);
+    const easeInOut = (t: number) =>
+      t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
     for (const piece of this.pieces.values()) {
-      while (piece.queue.length) {
-        // Hop through waypoints at constant speed (space-by-space movement).
-        const t = piece.queue[0];
-        const dx = t.x - piece.root.x;
-        const dy = t.y - piece.root.y;
-        const dist = Math.hypot(dx, dy);
-        if (dist <= hopSpeed) {
-          piece.root.position.set(t.x, t.y);
-          piece.queue.shift();
-          continue;
+      const path = piece.path;
+      if (path) {
+        // Follow the move path with ease-in-out: build up speed, then
+        // slow gently into the final position.
+        path.elapsed += dtMs;
+        const t = Math.min(1, path.elapsed / path.duration);
+        let remaining = easeInOut(t) * path.total;
+        let seg = 0;
+        while (seg < path.segLens.length - 1 && remaining > path.segLens[seg]) {
+          remaining -= path.segLens[seg];
+          seg++;
         }
-        piece.root.x += (dx / dist) * hopSpeed;
-        piece.root.y += (dy / dist) * hopSpeed;
-        break;
+        const a = path.pts[seg];
+        const b = path.pts[seg + 1];
+        const f = path.segLens[seg] > 0 ? Math.min(1, remaining / path.segLens[seg]) : 1;
+        piece.root.position.set(a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * f);
+        if (t >= 1) {
+          const end = path.pts[path.pts.length - 1];
+          piece.root.position.set(end.x, end.y);
+          piece.path = null;
+        }
+        continue;
       }
-      if (piece.queue.length) continue;
       const dx = piece.tx - piece.root.x;
       const dy = piece.ty - piece.root.y;
       if (Math.abs(dx) + Math.abs(dy) < 0.5) {

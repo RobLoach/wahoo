@@ -109,6 +109,11 @@ button:disabled { opacity: 0.45; cursor: default; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 #hand { display: flex; gap: 8px; flex-wrap: wrap; min-height: 92px; }
+
+#card-help {
+  font-size: 0.85rem; font-style: italic; color: #4a5f76;
+  background: #e2edf6; border-radius: 8px; padding: 6px 10px;
+}
 .card {
   width: 62px; height: 88px; border-radius: 8px; background: #ffffff; color: #2f3d4f;
   border: 2px solid #b9cddd; cursor: pointer; font-size: 1.25rem; font-weight: bold;

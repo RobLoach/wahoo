@@ -468,6 +468,21 @@ class App {
       lastEl.innerHTML = '';
     }
 
+    // Description of the selected card, always visible (tooltips need hover).
+    const helpEl = $('#card-help');
+    const selRank =
+      this.sel.cardId === 'flip'
+        ? view.pendingFlip?.rank
+        : typeof this.sel.cardId === 'number'
+          ? view.myHand.find(c => c.id === this.sel.cardId)?.rank
+          : undefined;
+    if (selRank && !curtainUp) {
+      helpEl.hidden = false;
+      helpEl.textContent = CARD_TOOLTIPS[selRank] ?? '';
+    } else {
+      helpEl.hidden = true;
+    }
+
     // Pending flip display
     const flipEl = $('#flip-area');
     if (view.pendingFlip && !curtainUp) {

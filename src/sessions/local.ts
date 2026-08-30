@@ -7,8 +7,8 @@ import { PLAYER_NAMES } from '../engine/types.ts';
 
 export type SeatKind = 'human' | 'cpu-easy' | 'cpu-medium' | 'cpu-hard';
 
-/** A relaxed pause between CPU turns so plays are easy to follow. */
-const DEFAULT_CPU_DELAY_MS = 1500;
+/** A relaxed pause between CPU turns so everyone sees what was played. */
+const DEFAULT_CPU_DELAY_MS = 4000;
 
 /** Runs a full game on this device: any mix of hot-seat humans and CPUs. */
 export class LocalSession {
