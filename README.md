@@ -63,9 +63,10 @@ npm run test:e2e  # browser tests (Playwright; build first)
 npm run test:all  # everything: unit tests, build, then browser tests
 ```
 
-Move and squash sound effects live in `src/assets/hop.wav` and
-`src/assets/squash.wav` — replace those files (updating the imports in
-`src/sounds.ts` if the format changes) to customize them.
+Sound effects live in `src/assets/` — `hop.wav` (spawns and swaps),
+`squash.wav` (stomps), and `burrow.wav` (the celebration when a bunny makes it
+home). Replace those files (updating the imports in `src/sounds.ts` if the
+format changes) to customize them.
 
 
 ## Online play
