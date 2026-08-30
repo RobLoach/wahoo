@@ -448,14 +448,21 @@ class App {
     // Last played card, so every turn is easy to follow.
     const lastEl = $('#last-play');
     if (view.lastPlay) {
-      const { seat, card, bonus } = view.lastPlay;
-      const red = card.suit === '♥' || card.suit === '♦' ? ' red' : '';
+      const { seat, card, bonus, fold } = view.lastPlay;
+      const who = `<b style="color:${PLAYER_COLORS_CSS[seat]}">${
+        view.seatNames[seat] ?? PLAYER_NAMES[seat]
+      }</b>`;
       lastEl.hidden = false;
-      lastEl.innerHTML =
-        `<span class="mini-card${red}">${card.rank}${card.suit}</span>` +
-        `<span><b style="color:${PLAYER_COLORS_CSS[seat]}">${
-          view.seatNames[seat] ?? PLAYER_NAMES[seat]
-        }</b> played${bonus ? ' the flipped bonus card' : ''}</span>`;
+      if (fold || !card) {
+        lastEl.innerHTML =
+          `<span class="mini-card fold">✕</span>` +
+          `<span>${who} folded — no playable cards.</span>`;
+      } else {
+        const red = card.suit === '♥' || card.suit === '♦' ? ' red' : '';
+        lastEl.innerHTML =
+          `<span class="mini-card${red}">${card.rank}${card.suit}</span>` +
+          `<span>${who} played${bonus ? ' the flipped bonus card' : ''}</span>`;
+      }
     } else {
       lastEl.hidden = true;
       lastEl.innerHTML = '';
@@ -489,8 +496,10 @@ class App {
     $('#btn-cancel').hidden = !hasSelection;
 
     // Piles
+    const shortName = (i: number) =>
+      (view.seatNames[i] ?? PLAYER_NAMES[i]).replace(/^CPU /, '');
     const teamName = (i: number) =>
-      `<span style="color:${PLAYER_COLORS_CSS[i]}">${PLAYER_NAMES[i]}</span>`;
+      `<span style="color:${PLAYER_COLORS_CSS[i]}">${shortName(i)}</span>`;
     $('#piles').innerHTML =
       `Teams: ${TEAM_MARKS[0]} ${teamName(0)} & ${teamName(2)} vs ` +
       `${TEAM_MARKS[1]} ${teamName(1)} & ${teamName(3)}<br/>` +
@@ -498,10 +507,7 @@ class App {
         view.discardTop ? view.discardTop.rank + view.discardTop.suit : '—'
       } · Hands: ` +
       view.handCounts
-        .map(
-          (n, i) =>
-            `<span style="color:${PLAYER_COLORS_CSS[i]}">${PLAYER_NAMES[i]} ${n}</span>`,
-        )
+        .map((n, i) => `<span style="color:${PLAYER_COLORS_CSS[i]}">${shortName(i)} ${n}</span>`)
         .join(' ');
 
     // Log
@@ -590,10 +596,14 @@ function netHandlers(getSession: () => NetSession): OnlineHandlers {
       app.onView(view);
     },
     onRoom: room => {
+      setNetPending(null);
       app.roomInfo = room;
       renderLobby(getSession(), room);
     },
-    onError: msg => alert(msg),
+    onError: msg => {
+      setNetPending(null);
+      alert(msg);
+    },
     onClose: () => {
       if (lastGuestCode && confirm('Disconnected from the game. Try to rejoin?')) {
         joinP2P(lastGuestCode);
@@ -607,9 +617,23 @@ function netHandlers(getSession: () => NetSession): OnlineHandlers {
 
 let lastGuestCode: string | null = null;
 
+/** Show a spinner on the Host/Join buttons while the P2P handshake runs. */
+function setNetPending(which: 'host' | 'join' | 'resume' | null) {
+  const host = $('#p2p-host') as HTMLButtonElement;
+  const join = $('#p2p-join') as HTMLButtonElement;
+  const resume = $('#p2p-resume') as HTMLButtonElement;
+  host.disabled = join.disabled = which !== null;
+  resume.disabled = which !== null;
+  host.innerHTML = which === 'host' ? '<span class="spinner"></span> Connecting…' : 'Host a Game';
+  join.innerHTML = which === 'join' ? '<span class="spinner"></span> Joining…' : 'Join';
+  if (which === 'resume') resume.innerHTML = '<span class="spinner"></span> Resuming…';
+  if (which === null) refreshResumeButton(); // restore the resume label
+}
+
 function joinP2P(code: string) {
   pendingOnline?.leave();
   lastGuestCode = code;
+  setNetPending('join');
   let session: P2PGuestSession;
   session = new P2PGuestSession(code, playerName(), clientToken(), netHandlers(() => session));
   pendingOnline = session;
@@ -634,6 +658,7 @@ function playerName(): string {
 $('#p2p-host').onclick = () => {
   pendingOnline?.leave();
   lastGuestCode = null;
+  setNetPending('host');
   let session: P2PHostSession;
   session = new P2PHostSession(playerName(), clientToken(), netHandlers(() => session));
   pendingOnline = session;
@@ -658,6 +683,7 @@ $('#p2p-resume').onclick = () => {
   if (!saved) return refreshResumeButton();
   pendingOnline?.leave();
   lastGuestCode = null;
+  setNetPending('resume');
   let session: P2PHostSession;
   session = new P2PHostSession(saved.name, clientToken(), netHandlers(() => session), saved);
   pendingOnline = session;

@@ -369,9 +369,10 @@ export class BoardView {
     // Current player indicator
     this.seatLabels.forEach((label, p) => {
       label.style.fill = p === view.current ? 0xf26d4f : 0x2f3d4f;
-      const cpu = view.seatNames[p]?.includes('CPU');
+      const raw = view.seatNames[p] ?? PLAYER_NAMES[p];
+      const cpu = raw.includes('CPU');
       label.text =
-        `${TEAM_MARKS[p % 2]} ${PLAYER_NAMES[p]}` +
+        `${TEAM_MARKS[p % 2]} ${raw.replace(/^CPU /, '')}` +
         `${cpu ? ' 🤖' : ''}${view.folded[p] ? ' (folded)' : ''}`;
     });
   }

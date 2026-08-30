@@ -99,6 +99,14 @@ button:disabled { opacity: 0.45; cursor: default; }
   padding: 0 4px;
 }
 .mini-card.red { color: #cc4a4a; }
+.mini-card.fold { color: #8fa3b5; background: #e2edf6; }
+
+.spinner {
+  display: inline-block; width: 13px; height: 13px; border-radius: 50%;
+  border: 2px solid currentColor; border-top-color: transparent;
+  animation: spin 0.8s linear infinite; vertical-align: -2px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 #hand { display: flex; gap: 8px; flex-wrap: wrap; min-height: 92px; }
 .card {

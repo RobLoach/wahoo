@@ -102,6 +102,8 @@ test('fold appears when no card is playable', async ({ page }) => {
   await expect(page.locator('#btn-fold')).toBeVisible();
   await page.click('#btn-fold');
   await expect(page.locator('#log')).toContainText('Red has no legal move and folds');
+  // The fold is announced like a played card.
+  await expect(page.locator('#last-play')).toContainText('folded');
 });
 
 test('king stomp-spawns onto an opponent via board clicks', async ({ page }) => {

@@ -468,7 +468,7 @@ export function applyMove(state: GameState, move: Move): GameState {
     state.discard.push(...player.hand);
     player.hand = [];
     player.out = true;
-    state.lastPlay = null;
+    state.lastPlay = { seat, fold: true };
     state.log.push(`${PLAYER_NAMES[seat]} has no legal move and folds.`);
     advanceTurn(state);
     return state;

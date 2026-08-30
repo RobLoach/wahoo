@@ -23,8 +23,8 @@ export interface View {
   seatNames: string[];
   /** Bunny movements from the last applied move, for animation. */
   effects: MoveEffect[];
-  /** The card most recently played, for display. */
-  lastPlay: { seat: number; card: Card; bonus?: boolean } | null;
+  /** The most recent play (fold = discarded hand), for display. */
+  lastPlay: { seat: number; card?: Card; bonus?: boolean; fold?: boolean } | null;
 }
 
 export function makeView(
