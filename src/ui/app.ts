@@ -393,11 +393,15 @@ export class App {
       const teams = view.winner === 0 ? 'Red & Green' : 'Blue & Yellow';
       this.setStatus(`🏆 Team ${teams} wins!`, true);
     } else if (curtainUp) {
-      this.setStatus(`Round ${view.round} — pass the device to ${name}.`);
+      this.setStatusHtml(
+        `Round ${view.round} — pass the device to ` +
+          `<b style="color:${PLAYER_COLORS_CSS[view.current]}">${name}</b>.`,
+      );
     } else {
+      const ctrl = ctrlPlayer(view);
       const controlling =
-        view.mySeat !== null && ctrlPlayer(view) !== view.mySeat
-          ? ` (moving ${PLAYER_NAMES[ctrlPlayer(view)]}'s bunnies)`
+        view.mySeat !== null && ctrl !== view.mySeat
+          ? ` (moving <b style="color:${PLAYER_COLORS_CSS[ctrl]}">${PLAYER_NAMES[ctrl]}</b>'s bunnies)`
           : '';
       const who = `<b style="color:${PLAYER_COLORS_CSS[view.current]}">${name}</b>`;
       this.setStatusHtml(
