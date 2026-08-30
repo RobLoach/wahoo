@@ -11,7 +11,7 @@ import { randomRoomCode } from '../src/net/words.ts';
 import type { ClientMsg, ServerMsg } from '../src/net/protocol.ts';
 
 const PORT = Number(process.env.PORT ?? 8787);
-const CPU_DELAY_MS = Number(process.env.CPU_DELAY_MS ?? 900);
+const CPU_DELAY_MS = Number(process.env.CPU_DELAY_MS ?? 4000);
 
 const rooms = new Map<string, GameRoom>();
 const sockets = new Map<string, WebSocket>();

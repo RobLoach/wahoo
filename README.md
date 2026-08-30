@@ -93,3 +93,13 @@ server behind HTTPS use `wss://…`), create a room, and share the room code.
 
 Pushes to `main` build and deploy the client to GitHub Pages via
 `.github/workflows/deploy.yml`.
+
+## License
+
+[GPL-3.0-or-later](LICENSE). Free as in freedom: use it, change it, share it —
+derivatives stay free too.
+
+## AI disclaimer
+
+This game was built with AI assistance from Claude Fable (Anthropic), with
+direction, design decisions, and the Wahoo ruleset by Rob Loach.

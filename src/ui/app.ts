@@ -96,6 +96,9 @@ export class App {
     this.pendingEffects = view.effects;
     this.recentBunnies = new Set(view.effects.map(e => e.bunny));
     playMoveSound(view.effects);
+    if (view.lastPlay && (view.effects.length > 0 || view.lastPlay.fold)) {
+      this.showPlayBanner(view);
+    }
     // A new decision point invalidates any in-progress selection.
     this.sel = emptySelection();
     // Hot-seat privacy: hide the hand while the device changes hands.
@@ -292,6 +295,35 @@ export class App {
       }
     }
     return { hi, hint };
+  }
+
+  private bannerTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Flash the played card and player name in the middle of the board. */
+  private showPlayBanner(view: View) {
+    const play = view.lastPlay;
+    if (!play) return;
+    const el = $('#play-banner');
+    const name = (view.seatNames[play.seat] ?? PLAYER_NAMES[play.seat]).replace(/^CPU /, '');
+    const card = play.card;
+    const cardHtml = play.fold || !card
+      ? '<div class="play-banner-card fold">✕</div>'
+      : `<div class="play-banner-card${
+          card.suit === '♥' || card.suit === '♦' ? ' red' : ''
+        }">${card.rank}<span style="font-size:1.5rem">${card.suit}</span></div>`;
+    el.innerHTML =
+      cardHtml +
+      `<div class="play-banner-name" style="color:${PLAYER_COLORS_CSS[play.seat]}">${name}${
+        play.fold ? ' folded' : ''
+      }</div>`;
+    el.hidden = false;
+    el.classList.remove('show');
+    void el.offsetWidth; // restart the fade animation
+    el.classList.add('show');
+    if (this.bannerTimer) clearTimeout(this.bannerTimer);
+    this.bannerTimer = setTimeout(() => {
+      el.hidden = true;
+    }, 2700);
   }
 
   private victoryShown = false;
@@ -496,9 +528,17 @@ export class App {
         .map((n, i) => `<span style="color:${PLAYER_COLORS_CSS[i]}">${shortName(i)} ${n}</span>`)
         .join(' ');
 
-    // Log
+    // Log, newest first, with player color names tinted for scanning.
+    const colorizeLog = (line: string) =>
+      line.replace(/\b(Red|Blue|Green|Yellow)\b/g, match => {
+        const i = PLAYER_NAMES.indexOf(match);
+        return `<span style="color:${PLAYER_COLORS_CSS[i]};font-weight:600">${match}</span>`;
+      });
     const logEl = $('#log');
-    logEl.innerHTML = [...view.log].reverse().map(line => `<div>${line}</div>`).join('');
+    logEl.innerHTML = [...view.log]
+      .reverse()
+      .map(line => `<div>${colorizeLog(line)}</div>`)
+      .join('');
     logEl.scrollTop = 0;
   }
 }
