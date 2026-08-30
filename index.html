@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Wahoo</title>
   <meta name="theme-color" content="#d6e4f0" />
+  <meta name="description" content="A free 4-player team race board game. Hot seat, CPU opponents, or host a game right in your browser and share a room code." />
+  <meta property="og:title" content="Wahoo — the bunny board game" />
+  <meta property="og:description" content="A free 4-player team race. Hot seat, CPU opponents, or host a game right in your browser and share a room code." />
+  <meta property="og:image" content="https://robloach.github.io/wahoo/social.png" />
+  <meta property="og:url" content="https://robloach.github.io/wahoo/" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐰</text></svg>" />
@@ -21,6 +28,7 @@
           <p>Hot seat and/or CPU players on this device.</p>
           <div id="seat-config"></div>
           <button id="start-local" class="primary">Start Game</button>
+          <button id="local-resume" hidden></button>
         </div>
 
         <div class="panel" id="online-panel">
@@ -60,7 +68,18 @@
     </section>
 
     <section id="game" hidden>
-      <div id="board-wrap"></div>
+      <div id="board-wrap">
+        <div id="victory" hidden>
+          <div class="victory-card">
+            <h2 id="victory-title"></h2>
+            <p id="victory-stats"></p>
+            <div class="row" style="justify-content:center">
+              <button id="btn-again" class="primary" hidden>🔄 Play again</button>
+              <button id="victory-menu">↩ Menu</button>
+            </div>
+          </div>
+        </div>
+      </div>
       <aside id="side">
         <div id="status"></div>
         <div id="last-play" hidden></div>
@@ -70,12 +89,12 @@
         <div id="controls">
           <button id="btn-fold" hidden>Fold hand (no legal move)</button>
           <button id="btn-cancel" hidden>Cancel selection</button>
-          <button id="btn-again" class="primary" hidden>🔄 Play again</button>
         </div>
         <div id="piles"></div>
         <div id="log"></div>
         <div id="controls-bottom">
           <button id="btn-fullscreen">⤢ Full screen</button>
+          <button id="btn-mute"></button>
           <button id="btn-menu">↩ Menu</button>
         </div>
       </aside>

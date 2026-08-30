@@ -42,6 +42,24 @@ test('winning shows the rematch button and restarts with fresh reserves', async 
   expect(errors).toEqual([]);
 });
 
+test('a local game survives a page reload via Resume', async ({ page }) => {
+  await startLocal(page, ['human', 'human', 'human', 'human']);
+  await page.evaluate(() => {
+    const w = (window as any).__wahoo;
+    const v = w.app.view;
+    w.app.submit(v.legal[Math.floor(Math.random() * v.legal.length)]);
+  });
+  const before = await view(page);
+  await page.reload();
+  const resume = page.locator('#local-resume');
+  await expect(resume).toBeVisible();
+  await resume.click();
+  await page.waitForSelector('#game:not([hidden]) .board-canvas');
+  const after = await page.evaluate(() => (window as any).__wahoo.app.view);
+  expect(after.log).toEqual(before.log);
+  expect(after.round).toBe(before.round);
+});
+
 test('?join=CODE prefills the room code', async ({ page }) => {
   await page.goto('./?join=zzzzz');
   await expect(page.locator('#p2p-code')).toHaveValue('ZZZZZ');

@@ -61,6 +61,7 @@ export function createGame(seed: number): GameState {
     log: [],
     effects: [],
     lastPlay: null,
+    stats: { stomps: [0, 0, 0, 0], folds: [0, 0, 0, 0] },
   };
   shuffle(state, state.drawPile);
   startRound(state);
@@ -312,6 +313,7 @@ function stompAt(state: GameState, index: number, mover: Bunny): void {
     state.effects.push({
       bunny: victim.id, from: victim.place, to: { kind: 'reserve' }, kind: 'stomped',
     });
+    state.stats.stomps[mover.player]++;
     victim.place = { kind: 'reserve' };
     state.log.push(
       `${PLAYER_NAMES[mover.player]} stomps ${PLAYER_NAMES[victim.player]}'s bunny!`,
@@ -403,6 +405,7 @@ function applyAction(state: GameState, seat: number, action: CardAction): void {
       const bunny = reserveBunny(state, ctrl);
       if (!bunny) throw new Error('no bunny in reserve');
       const index = target.place.index;
+      state.stats.stomps[ctrl]++;
       state.effects.push({ bunny: target.id, from: target.place, to: { kind: 'reserve' }, kind: 'stomped' });
       state.effects.push({ bunny: bunny.id, from: bunny.place, to: { kind: 'track', index }, kind: 'jump' });
       target.place = { kind: 'reserve' };
@@ -520,6 +523,7 @@ export function applyMove(state: GameState, move: Move): GameState {
     state.discard.push(...player.hand);
     player.hand = [];
     player.out = true;
+    state.stats.folds[seat]++;
     state.lastPlay = { seat, fold: true };
     state.log.push(`${PLAYER_NAMES[seat]} has no legal move and folds.`);
     advanceTurn(state);

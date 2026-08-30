@@ -6,12 +6,16 @@ stomping anyone who gets in the way.
 
 **Play it:** https://robloach.github.io/wahoo/
 
+![Wahoo mid-game: four bunnies race around a sand board on a calm blue table](docs/screenshot.png)
+
 ## Features
 
 - **Hot seat** — any mix of humans and CPU players on one device, with a
   pass-the-device curtain so nobody peeks at the next hand.
-- **CPU players** — AI opponents with three difficulties: Easy always picks
-  the worst move, Medium plays randomly, Hard plays the best move it can see.
+- **CPU players** — AI opponents with four difficulties: Easy always picks
+  the worst move, Medium plays randomly, Hard plays the best move it can see,
+  and Insane also anticipates the next player's reply (fair warning: it
+  simulates against the real deck, so it effectively counts cards).
 - **Animated moves** — bunnies hop space by space and the last move is
   highlighted, so you can always see what just happened.
 - **Installable PWA** — add it to a phone home screen; hot-seat and CPU games

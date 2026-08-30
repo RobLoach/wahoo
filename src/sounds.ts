@@ -9,12 +9,31 @@ const squash = new Audio(squashUrl);
 hop.volume = 0.5;
 squash.volume = 0.7;
 
+let muted = false;
+try {
+  muted = localStorage.getItem('wahoo-muted') === '1';
+} catch {
+  /* storage unavailable */
+}
+
+export const isMuted = () => muted;
+
+export function setMuted(value: boolean) {
+  muted = value;
+  try {
+    localStorage.setItem('wahoo-muted', value ? '1' : '0');
+  } catch {
+    /* storage unavailable */
+  }
+}
+
 /**
  * Plain movement is silent. Sounds mark the special moments only:
  * squash when a bunny is stomped; otherwise a hop when a bunny reaches its
  * burrow, comes out of reserve, or is swapped.
  */
 export function playMoveSound(effects: MoveEffect[]): void {
+  if (muted) return;
   const squashed = effects.some(e => e.kind === 'stomped');
   const special = effects.some(
     e =>

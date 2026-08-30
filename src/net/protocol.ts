@@ -25,6 +25,7 @@ export interface View {
   effects: MoveEffect[];
   /** The most recent play (fold = discarded hand), for display. */
   lastPlay: { seat: number; card?: Card; desc?: string; bonus?: boolean; fold?: boolean } | null;
+  stats: { stomps: number[]; folds: number[] };
 }
 
 export function makeView(
@@ -52,6 +53,7 @@ export function makeView(
     seatNames,
     effects: structuredClone(state.effects),
     lastPlay: structuredClone(state.lastPlay),
+    stats: structuredClone(state.stats),
   };
 }
 

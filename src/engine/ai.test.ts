@@ -81,6 +81,22 @@ describe('difficulty levels', () => {
     expect(evaluate(a, 0)).toBeGreaterThan(evaluate(b, 0));
   });
 
+  it('insane looks one reply ahead and avoids a walk-in stomp', () => {
+    const g = createGame(103);
+    g.current = 0;
+    put(g, 0, { kind: 'track', index: 5 });
+    put(g, 1, { kind: 'track', index: 40 });
+    giveHand(g, 0, ['5']);
+    // Blue is next and holds a 3: if Red's first bunny stops on track 10,
+    // Blue's bunny on 7 stomps it. The far bunny's move is safe.
+    put(g, 4, { kind: 'track', index: 7 });
+    giveHand(g, 1, ['3']);
+    const hard = chooseMove(g, 'hard', () => 0);
+    expect(hard).toMatchObject({ action: { kind: 'forward', bunny: 0 } }); // greedy walks in
+    const insane = chooseMove(g, 'insane', () => 0);
+    expect(insane).toMatchObject({ action: { kind: 'forward', bunny: 1 } }); // sees the trap
+  });
+
   it('a hard team beats an easy team deterministically', () => {
     const diffs: Difficulty[] = ['hard', 'easy', 'hard', 'easy'];
     for (const seed of [7, 42, 1234]) {

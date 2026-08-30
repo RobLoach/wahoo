@@ -1,7 +1,7 @@
 import './style.css';
 import { BoardView, emptyHighlights, PLAYER_COLORS_CSS, TEAM_MARKS, trackPos, burrowPos, reservePos } from './ui/board.ts';
 import type { Highlights } from './ui/board.ts';
-import { LocalSession } from './sessions/local.ts';
+import { LocalSession, savedLocalGame } from './sessions/local.ts';
 import type { SeatKind } from './sessions/local.ts';
 import { OnlineSession } from './net/client.ts';
 import type { OnlineHandlers } from './net/client.ts';
@@ -10,7 +10,7 @@ import type { RoomInfo, View } from './net/protocol.ts';
 import { backwardDest, forwardDest } from './engine/game.ts';
 import type { Bunny, Card, CardAction, Difficulty, Move, MoveEffect } from './engine/types.ts';
 import { PLAYER_NAMES, TEAMMATE_OF } from './engine/types.ts';
-import { playMoveSound } from './sounds.ts';
+import { isMuted, playMoveSound, setMuted } from './sounds.ts';
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) =>
   document.querySelector(sel) as T;
@@ -362,6 +362,45 @@ class App {
     return { hi, hint };
   }
 
+  private victoryShown = false;
+
+  private renderVictory(view: View) {
+    const overlay = $('#victory');
+    if (view.winner === null) {
+      overlay.hidden = true;
+      this.victoryShown = false;
+      overlay.querySelectorAll('.confetti').forEach(c => c.remove());
+      return;
+    }
+    $('#btn-again').hidden = this.online && this.roomInfo?.youAreHost !== true;
+    const seats = view.winner === 0 ? [0, 2] : [1, 3];
+    const names = (pair: number[]) =>
+      pair.map(i => (view.seatNames[i] ?? PLAYER_NAMES[i]).replace(/^CPU /, '')).join(' & ');
+    $('#victory-title').textContent = `🏆 ${TEAM_MARKS[view.winner]} ${names(seats)} win!`;
+    const teamStomps = (pair: number[]) => pair.reduce((s, i) => s + view.stats.stomps[i], 0);
+    const totalFolds = view.stats.folds.reduce((a, b) => a + b, 0);
+    $('#victory-stats').textContent =
+      `${view.round} round${view.round === 1 ? '' : 's'} · ` +
+      `stomps ${TEAM_MARKS[0]} ${teamStomps([0, 2])} — ${TEAM_MARKS[1]} ${teamStomps([1, 3])}` +
+      (totalFolds ? ` · ${totalFolds} fold${totalFolds === 1 ? '' : 's'}` : '');
+    overlay.hidden = false;
+    if (!this.victoryShown) {
+      this.victoryShown = true;
+      const colors = view.winner === 0
+        ? [PLAYER_COLORS_CSS[0], PLAYER_COLORS_CSS[2]]
+        : [PLAYER_COLORS_CSS[1], PLAYER_COLORS_CSS[3]];
+      for (let i = 0; i < 50; i++) {
+        const bit = document.createElement('span');
+        bit.className = 'confetti';
+        bit.style.left = `${Math.random() * 100}%`;
+        bit.style.background = colors[i % 2];
+        bit.style.animationDuration = `${2.2 + Math.random() * 2.4}s`;
+        bit.style.animationDelay = `${Math.random() * 1.6}s`;
+        overlay.appendChild(bit);
+      }
+    }
+  }
+
   refresh() {
     const view = this.view;
     if (!view || !this.boardReady) return;
@@ -396,9 +435,8 @@ class App {
       );
     }
 
-    // Rematch button once a winner is decided (host/local only).
-    $('#btn-again').hidden =
-      view.winner === null || (this.online && this.roomInfo?.youAreHost !== true);
+    // Victory overlay with stats + rematch once a winner is decided.
+    this.renderVictory(view);
 
     // Hand (or the pass-the-device curtain)
     const handEl = $('#hand');
@@ -548,6 +586,7 @@ function buildSeatConfig() {
     ['cpu-easy', 'CPU · Easy'],
     ['cpu-medium', 'CPU · Medium'],
     ['cpu-hard', 'CPU · Hard'],
+    ['cpu-insane', 'CPU · Insane'],
   ];
   for (let i = 0; i < 4; i++) {
     const row = document.createElement('div');
@@ -690,7 +729,27 @@ function refreshResumeButton() {
   const btn = $('#p2p-resume') as HTMLButtonElement;
   btn.hidden = !saved;
   if (saved) btn.textContent = `▶ Resume hosted game ${saved.code}`;
+  const local = savedLocalGame();
+  const localBtn = $('#local-resume') as HTMLButtonElement;
+  localBtn.hidden = !local;
+  if (local) localBtn.textContent = `▶ Resume game (round ${local.state.round})`;
 }
+
+$('#local-resume').onclick = async () => {
+  const saved = savedLocalGame();
+  if (!saved) return refreshResumeButton();
+  app.startLocalMeta(saved.seats.filter(s => s === 'human').length);
+  await app.showGame();
+  const session = new LocalSession(
+    saved.seats,
+    view => app.onView(view),
+    (window as unknown as Record<string, number>).__wahooCpuDelay,
+    saved.state,
+  );
+  app.session = session;
+  app.online = false;
+  session.start();
+};
 app.onMenuShown = refreshResumeButton;
 refreshResumeButton();
 
@@ -724,7 +783,8 @@ function renderLobby(session: NetSession, room: RoomInfo) {
       'CPU difficulty for added seats <select id="lobby-diff">' +
       '<option value="easy">Easy</option>' +
       '<option value="medium" selected>Medium</option>' +
-      '<option value="hard">Hard</option></select>';
+      '<option value="hard">Hard</option>' +
+      '<option value="insane">Insane</option></select>';
     lobby.appendChild(diffRow);
   }
   if (!(session instanceof OnlineSession)) {
@@ -811,6 +871,17 @@ $('#btn-menu').onclick = () => {
 window.addEventListener('keydown', e => {
   if (e.key === 'Escape') ($('#btn-cancel') as HTMLButtonElement).click();
 });
+
+function refreshMuteButton() {
+  $('#btn-mute').textContent = isMuted() ? '🔇 Muted' : '🔊 Sound';
+}
+refreshMuteButton();
+$('#btn-mute').onclick = () => {
+  setMuted(!isMuted());
+  refreshMuteButton();
+};
+
+$('#victory-menu').onclick = () => ($('#btn-menu') as HTMLButtonElement).click();
 
 $('#btn-fullscreen').onclick = () => {
   if (document.fullscreenElement) {

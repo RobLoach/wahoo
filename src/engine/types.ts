@@ -67,6 +67,8 @@ export interface GameState {
   effects: MoveEffect[];
   /** The most recent play (bonus = flipped by a 2; fold = discarded hand). */
   lastPlay: { seat: number; card?: Card; desc?: string; bonus?: boolean; fold?: boolean } | null;
+  /** Running tallies per seat, for the victory screen. */
+  stats: { stomps: number[]; folds: number[] };
 }
 
 export const TRACK_LEN = 80;
@@ -74,8 +76,11 @@ export const SIDE_LEN = 20;
 export const BURROW_SLOTS = 4;
 export const HAND_SIZE = 4;
 
-/** CPU strength: easy always picks the worst move, medium picks randomly, hard the best. */
-export type Difficulty = 'easy' | 'medium' | 'hard';
+/**
+ * CPU strength: easy always picks the worst move, medium picks randomly,
+ * hard greedily picks the best, insane also anticipates the next player's reply.
+ */
+export type Difficulty = 'easy' | 'medium' | 'hard' | 'insane';
 
 export const PLAYER_NAMES = ['Red', 'Blue', 'Green', 'Yellow'];
 export const TEAM_OF = (seat: number) => seat % 2;

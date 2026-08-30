@@ -40,6 +40,7 @@ export function chooseMove(
   if (difficulty === 'medium') {
     return moves[Math.min(moves.length - 1, Math.floor(rand() * moves.length))];
   }
+  if (difficulty === 'insane') return chooseInsane(state, moves, rand);
 
   const sign = difficulty === 'hard' ? 1 : -1; // easy maximizes the negated score
   const seat = state.current;
@@ -72,6 +73,97 @@ export function chooseMove(
     if (value > bestValue) {
       bestValue = value;
       best = move;
+    }
+  }
+  return best;
+}
+
+
+/** Resolve any pending flipped card greedily in `forSeat`'s favor. */
+function resolveFlips(state: GameState, forSeat: number): GameState {
+  let current = state;
+  while (current.pendingFlip && current.winner === null) {
+    let best: GameState | null = null;
+    let bestValue = -Infinity;
+    for (const move of legalMoves(current)) {
+      const sim = cloneState(current);
+      try {
+        applyMove(sim, move);
+      } catch {
+        continue;
+      }
+      const value = evaluate(sim, forSeat);
+      if (value > bestValue) {
+        bestValue = value;
+        best = sim;
+      }
+    }
+    if (!best) break;
+    current = best;
+  }
+  return current;
+}
+
+/** The state after the current seat plays its greedily-best move. */
+function bestReply(state: GameState): GameState | null {
+  const replier = state.current;
+  let best: GameState | null = null;
+  let bestValue = -Infinity;
+  for (const move of legalMoves(state)) {
+    const sim = cloneState(state);
+    try {
+      applyMove(sim, move);
+    } catch {
+      continue;
+    }
+    const resolved = resolveFlips(sim, replier);
+    const value = evaluate(resolved, replier);
+    if (value > bestValue) {
+      bestValue = value;
+      best = resolved;
+    }
+  }
+  return best;
+}
+
+/** How many top candidate moves get the expensive two-ply treatment. */
+const INSANE_CANDIDATES = 20;
+
+/**
+ * Two-ply search: try each candidate move, let the next player answer with
+ * their own greedy best (teammates help, opponents punish), and keep the move
+ * whose aftermath looks best. Note: like any tabletop shark, it "remembers"
+ * what's in the deck — it simulates against the true hidden state.
+ */
+function chooseInsane(state: GameState, moves: Move[], rand: () => number): Move {
+  const seat = state.current;
+  const scored: { move: Move; sim: GameState; shallow: number }[] = [];
+  for (const move of moves) {
+    const sim = cloneState(state);
+    try {
+      applyMove(sim, move);
+    } catch {
+      continue;
+    }
+    const resolved = resolveFlips(sim, seat);
+    scored.push({ move, sim: resolved, shallow: evaluate(resolved, seat) });
+  }
+  scored.sort((a, b) => b.shallow - a.shallow);
+
+  let best = scored[0]?.move ?? moves[0];
+  let bestValue = -Infinity;
+  for (const candidate of scored.slice(0, INSANE_CANDIDATES)) {
+    let value;
+    if (candidate.sim.winner !== null) {
+      value = evaluate(candidate.sim, seat);
+    } else {
+      const afterReply = bestReply(candidate.sim);
+      value = evaluate(afterReply ?? candidate.sim, seat);
+    }
+    value += rand() * 0.5;
+    if (value > bestValue) {
+      bestValue = value;
+      best = candidate.move;
     }
   }
   return best;

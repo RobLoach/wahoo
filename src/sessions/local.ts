@@ -2,10 +2,38 @@ import { applyMove, createGame } from '../engine/game.ts';
 import { chooseMove } from '../engine/ai.ts';
 import { makeView } from '../net/protocol.ts';
 import type { View } from '../net/protocol.ts';
-import type { Difficulty, Move } from '../engine/types.ts';
+import type { Difficulty, GameState, Move } from '../engine/types.ts';
 import { PLAYER_NAMES } from '../engine/types.ts';
 
-export type SeatKind = 'human' | 'cpu-easy' | 'cpu-medium' | 'cpu-hard';
+export type SeatKind = 'human' | 'cpu-easy' | 'cpu-medium' | 'cpu-hard' | 'cpu-insane';
+
+const SAVE_KEY = 'wahoo-local-game';
+
+export interface LocalSave {
+  seats: SeatKind[];
+  state: GameState;
+}
+
+/** The unfinished local game saved by the last session, if any. */
+export function savedLocalGame(): LocalSave | null {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as LocalSave;
+    if (!parsed.state || parsed.state.winner !== null) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function clearLocalGame(): void {
+  try {
+    localStorage.removeItem(SAVE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
 
 /** A relaxed pause between CPU turns so everyone sees what was played. */
 const DEFAULT_CPU_DELAY_MS = 4000;
@@ -20,9 +48,10 @@ export class LocalSession {
     private seats: SeatKind[],
     private onView: (view: View) => void,
     cpuDelay?: number,
+    resume?: GameState,
   ) {
     this.cpuDelay = cpuDelay ?? DEFAULT_CPU_DELAY_MS;
-    this.state = createGame(Math.floor(Math.random() * 2 ** 31));
+    this.state = resume ? structuredClone(resume) : createGame(Math.floor(Math.random() * 2 ** 31));
   }
 
   start() {
@@ -36,7 +65,21 @@ export class LocalSession {
     );
   }
 
+  /** Persist the game so an accidental tab close can be resumed. */
+  private persist() {
+    try {
+      if (this.state.winner === null) {
+        localStorage.setItem(SAVE_KEY, JSON.stringify({ seats: this.seats, state: this.state }));
+      } else {
+        clearLocalGame();
+      }
+    } catch {
+      /* storage may be unavailable; saving is best-effort */
+    }
+  }
+
   private push() {
+    this.persist();
     const humanTurn =
       this.state.winner === null && this.seats[this.state.current] === 'human';
     this.onView(
