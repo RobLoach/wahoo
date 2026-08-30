@@ -10,7 +10,11 @@ body {
   min-height: 100vh;
 }
 
-#app { max-width: 1280px; margin: 0 auto; padding: 12px; }
+#app {
+  max-width: 1280px; margin: 0 auto;
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+    max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+}
 
 /* ------- menu ------- */
 #menu h1 { font-size: 3rem; margin: 16px 0 0; text-align: center; }
@@ -21,7 +25,7 @@ body {
 }
 .panel {
   background: #eef4f9; border: 1px solid #b9cddd; border-radius: 12px;
-  padding: 18px 22px; width: 340px;
+  padding: 18px 22px; width: min(340px, 100%);
 }
 .panel h2 { margin-top: 0; }
 .panel label { display: block; margin: 8px 0; font-size: 0.9rem; }
@@ -86,11 +90,11 @@ button:disabled { opacity: 0.45; cursor: default; }
   width: clamp(240px, calc(100dvh - 290px), 100%);
   height: auto; border-radius: 12px; display: block; margin: 0 auto;
 }
-@media (min-width: 880px) {
+@media (min-width: 820px) {
   /* Side panel sits next to the board: only the viewport height caps it. */
   .board-canvas {
-    width: clamp(320px, calc(100vh - 60px), 100%);
-    width: clamp(320px, calc(100dvh - 60px), 100%);
+    width: clamp(300px, calc(100vh - 60px), 100%);
+    width: clamp(300px, calc(100dvh - 60px), 100%);
   }
 }
 @media (max-width: 600px) {
@@ -221,6 +225,11 @@ button:disabled { opacity: 0.45; cursor: default; }
 .rules-card td { padding: 4px 0; }
 .rules-card tr + tr th, .rules-card tr + tr td { border-top: 1px solid #d5e3ee; }
 #rules-close { float: right; margin-left: 12px; }
+@media (max-width: 480px) {
+  #rules-modal { padding: 10px 6px; }
+  .rules-card { padding: 14px 16px; }
+  .rules-card th { white-space: normal; padding-right: 8px; }
+}
 
 /* Respect users who ask their OS for less motion. */
 @media (prefers-reduced-motion: reduce) {
