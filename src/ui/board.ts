@@ -105,7 +105,7 @@ export class BoardView {
     await this.app.init({
       width: SIZE,
       height: SIZE,
-      background: 0x2a5d34,
+      background: 0x452f1c,
       antialias: true,
     });
     this.app.canvas.classList.add('board-canvas');
@@ -123,7 +123,7 @@ export class BoardView {
     this.app.ticker.add(ticker => this.animate(ticker.deltaTime));
   }
 
-  private circle(x: number, y: number, r: number, fill: number, stroke = 0x1e4426) {
+  private circle(x: number, y: number, r: number, fill: number, stroke = 0x3a2816) {
     const g = new Graphics();
     g.circle(x, y, r).fill(fill).stroke({ color: stroke, width: 2 });
     return g;
@@ -131,7 +131,7 @@ export class BoardView {
 
   private drawStatic() {
     const bg = new Graphics();
-    bg.roundRect(6, 6, SIZE - 12, SIZE - 12, 24).fill(0x337140);
+    bg.roundRect(6, 6, SIZE - 12, SIZE - 12, 24).fill(0x66492c);
     this.staticLayer.addChild(bg);
 
     for (let i = 0; i < TRACK_LEN; i++) {
@@ -150,11 +150,11 @@ export class BoardView {
     for (let p = 0; p < 4; p++) {
       for (let slot = 0; slot < 4; slot++) {
         const { x, y } = burrowPos(p, slot);
-        this.staticLayer.addChild(this.circle(x, y, CELL * 0.4, 0x24492c, PLAYER_COLORS[p]));
+        this.staticLayer.addChild(this.circle(x, y, CELL * 0.4, 0x2c1d0f, PLAYER_COLORS[p]));
       }
       for (let n = 0; n < 4; n++) {
         const { x, y } = reservePos(p, n);
-        this.staticLayer.addChild(this.circle(x, y, CELL * 0.34, 0x2e6338, 0x244f2c));
+        this.staticLayer.addChild(this.circle(x, y, CELL * 0.34, 0x543b23, 0x452f1c));
       }
       // Seat label below/above the reserve cluster, growing toward the board
       // center so long names never clip at the canvas edge.
@@ -167,7 +167,7 @@ export class BoardView {
           fontSize: 20,
           fontFamily: 'system-ui, sans-serif',
           fontWeight: 'bold',
-          stroke: { color: 0x1e3d24, width: 4 },
+          stroke: { color: 0x2b1c0e, width: 4 },
         }),
       });
       label.anchor.set(o.x > 0 ? 1 : 0, 0.5);
@@ -326,7 +326,7 @@ export class BoardView {
           fontSize: CELL * 0.52,
           fontFamily: 'system-ui, sans-serif',
           fontWeight: 'bold',
-          stroke: { color: 0x1e3d24, width: 4 },
+          stroke: { color: 0x2b1c0e, width: 4 },
         }),
       });
       t.anchor.set(0.5);

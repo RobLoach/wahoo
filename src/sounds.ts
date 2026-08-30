@@ -9,10 +9,21 @@ const squash = new Audio(squashUrl);
 hop.volume = 0.5;
 squash.volume = 0.7;
 
-/** Squash when any bunny got stomped, otherwise a hop for any movement. */
+/**
+ * Plain movement is silent. Sounds mark the special moments only:
+ * squash when a bunny is stomped; otherwise a hop when a bunny reaches its
+ * burrow, comes out of reserve, or is swapped.
+ */
 export function playMoveSound(effects: MoveEffect[]): void {
-  if (effects.length === 0) return;
-  const sound = effects.some(e => e.kind === 'stomped') ? squash : hop;
+  const squashed = effects.some(e => e.kind === 'stomped');
+  const special = effects.some(
+    e =>
+      (e.to.kind === 'burrow' && e.from.kind !== 'burrow') || // reached home
+      (e.from.kind === 'reserve' && e.to.kind === 'track') || // came out
+      (e.kind === 'jump' && e.from.kind === 'track' && e.to.kind === 'track'), // swapped
+  );
+  const sound = squashed ? squash : special ? hop : null;
+  if (!sound) return;
   try {
     sound.currentTime = 0;
     // Browsers block audio before the first user gesture; fail silently.
