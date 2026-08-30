@@ -117,6 +117,7 @@ export class BoardView {
   private pieces = new Map<number, Piece>();
   private cb!: BoardCallbacks;
   private seatLabels: Text[] = [];
+  private labelPills: Graphics[] = [];
 
   async init(parent: HTMLElement, cb: BoardCallbacks) {
     this.cb = cb;
@@ -178,10 +179,13 @@ export class BoardView {
       // center so long names never clip at the canvas edge.
       const corner = trackPos(SPAWN_INDEX(p));
       const o = OUTWARD[p];
+      const pill = new Graphics();
+      this.labelLayer.addChild(pill);
+      this.labelPills.push(pill);
       const label = new Text({
         text: `${TEAM_MARKS[p % 2]} ${PLAYER_NAMES[p]}`,
         style: new TextStyle({
-          fill: 0x2f3d4f,
+          fill: PLAYER_COLORS[p],
           fontSize: 20,
           fontFamily: 'system-ui, sans-serif',
           fontWeight: 'bold',
@@ -401,14 +405,29 @@ export class BoardView {
       }
     }
 
-    // Current player indicator
+    // Current player indicator: names always keep their player color; the
+    // active seat gets a white pill badge and grows slightly.
     this.seatLabels.forEach((label, p) => {
-      label.style.fill = p === view.current ? 0xf26d4f : 0x2f3d4f;
+      const active = p === view.current && view.winner === null;
       const raw = view.seatNames[p] ?? PLAYER_NAMES[p];
       const cpu = raw.includes('CPU');
       label.text =
         `${TEAM_MARKS[p % 2]} ${raw.replace(/^CPU /, '')}` +
         `${cpu ? ' 🤖' : ''}${view.folded[p] ? ' (folded)' : ''}`;
+      label.style.fill = PLAYER_COLORS[p];
+      label.alpha = view.folded[p] ? 0.6 : 1;
+      label.scale.set(active ? 1.12 : 1);
+      const pill = this.labelPills[p];
+      pill.clear();
+      if (active) {
+        const w = label.width + 20;
+        const h = label.height + 8;
+        const x0 = label.anchor.x > 0.5 ? label.x - label.width - 10 : label.x - 10;
+        pill
+          .roundRect(x0, label.y - h / 2, w, h, h / 2)
+          .fill({ color: 0xffffff, alpha: 0.92 })
+          .stroke({ color: PLAYER_COLORS[p], width: 2.5 });
+      }
     });
   }
 

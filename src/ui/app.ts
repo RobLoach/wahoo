@@ -231,6 +231,13 @@ export class App {
     el.classList.toggle('winner', winner);
   }
 
+  /** Like setStatus, but the fragments are trusted markup (player names only). */
+  private setStatusHtml(html: string) {
+    const el = $('#status');
+    el.innerHTML = html;
+    el.classList.remove('winner');
+  }
+
   private highlightsAndHint(): { hi: Highlights; hint: string } {
     const hi = emptyHighlights();
     hi.recent = this.recentBunnies;
@@ -392,10 +399,11 @@ export class App {
         view.mySeat !== null && ctrlPlayer(view) !== view.mySeat
           ? ` (moving ${PLAYER_NAMES[ctrlPlayer(view)]}'s bunnies)`
           : '';
-      this.setStatus(
+      const who = `<b style="color:${PLAYER_COLORS_CSS[view.current]}">${name}</b>`;
+      this.setStatusHtml(
         view.canAct
-          ? `Round ${view.round} — ${name}'s turn${controlling}. ${hint}`
-          : `Round ${view.round} — waiting for ${name}…`,
+          ? `Round ${view.round} — ${who}'s turn${controlling}. ${hint}`
+          : `Round ${view.round} — waiting for ${who}…`,
       );
     }
 
