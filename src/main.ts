@@ -431,7 +431,15 @@ class App {
         if (!canPlay) return;
         const wasSelected = this.sel.cardId === card.id;
         this.sel = emptySelection();
-        if (!wasSelected) this.sel.cardId = card.id;
+        if (!wasSelected) {
+          this.sel.cardId = card.id;
+          // With no bunny out, an A/2/K can only birth one from the reserve:
+          // spawn straight away instead of asking for a redundant tap.
+          const actions = selectedActions(view, this.sel);
+          if (actions.length === 1 && actions[0].kind === 'spawn') {
+            return this.submitAction(actions[0]);
+          }
+        }
         this.refresh();
       };
       handEl.appendChild(el);

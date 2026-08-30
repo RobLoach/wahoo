@@ -33,7 +33,7 @@ test('the game progresses through CPU turns', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-test('playing a card always requires choosing its target', async ({ page }) => {
+test('an ace with no bunnies out spawns immediately on card click', async ({ page }) => {
   const errors = trackErrors(page);
   await startLocal(page, ['human', 'human', 'human', 'human']);
   await forceState(page, {
@@ -41,11 +41,22 @@ test('playing a card always requires choosing its target', async ({ page }) => {
     hand: [{ id: 0, rank: 'A', suit: '♠' }], // no bunnies out: spawn is the only action
   });
   await page.click('#hand .card');
-  // Nothing auto-plays, even with a single legal action.
-  await expect(page.locator('#log')).not.toContainText('Red spawns a bunny');
-  await clickBoard(page, await reservePos(page, 0)); // tap the reserve to spawn
   await expect(page.locator('#log')).toContainText('Red spawns a bunny');
   expect(errors).toEqual([]);
+});
+
+test('an ace with an active bunny still asks: spawn or move', async ({ page }) => {
+  await startLocal(page, ['human', 'human', 'human', 'human']);
+  await forceState(page, {
+    current: 0,
+    hand: [{ id: 0, rank: 'A', suit: '♠' }],
+    bunnies: [{ id: 0, place: { kind: 'track', index: 5 } }],
+  });
+  await page.click('#hand .card');
+  // Both spawn and move are possible: no auto-play, user picks the reserve.
+  await expect(page.locator('#log')).not.toContainText('Red spawns a bunny');
+  await clickBoard(page, await reservePos(page, 0));
+  await expect(page.locator('#log')).toContainText('Red spawns a bunny');
 });
 
 test('taps snap to the nearest legal target', async ({ page }) => {
