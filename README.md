@@ -57,6 +57,11 @@ npm run build     # production build to dist/
 npm run test:e2e  # browser tests (Playwright; build first)
 ```
 
+Move and squash sound effects live in `src/assets/hop.wav` and
+`src/assets/squash.wav` — replace those files (updating the imports in
+`src/sounds.ts` if the format changes) to customize them.
+
+
 ## Online play
 
 The default way to play online is **browser-hosted**: click *Host a Game* and

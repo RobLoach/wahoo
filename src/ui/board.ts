@@ -1,4 +1,4 @@
-import { Application, Circle, Container, Graphics, Text, TextStyle } from 'pixi.js';
+import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import type { View } from '../net/protocol.ts';
 import type { Bunny, MoveEffect } from '../engine/types.ts';
 import { PLAYER_NAMES, SPAWN_INDEX, TRACK_LEN } from '../engine/types.ts';
@@ -112,6 +112,14 @@ export class BoardView {
     parent.appendChild(this.app.canvas);
     this.app.stage.addChild(this.staticLayer, this.highlightLayer, this.labelLayer, this.pieceLayer);
     this.drawStatic();
+    // One stage-level tap handler: every tap snaps to the nearest legal
+    // target, so touches don't need to land exactly on a piece or space.
+    this.app.stage.eventMode = 'static';
+    this.app.stage.hitArea = this.app.screen;
+    this.app.stage.on('pointertap', e => {
+      const p = e.getLocalPosition(this.app.stage);
+      this.resolveTap(p.x, p.y);
+    });
     this.app.ticker.add(ticker => this.animate(ticker.deltaTime));
   }
 
@@ -136,22 +144,13 @@ export class BoardView {
         ring.circle(x, y, CELL * 0.52).stroke({ color: PLAYER_COLORS[i / 20], width: 3 });
         this.staticLayer.addChild(ring);
       }
-      g.eventMode = 'static';
-      g.cursor = 'pointer';
-      g.hitArea = new Circle(x, y, CELL * 0.5);
-      g.on('pointertap', () => this.cb.onTrack(i));
       this.staticLayer.addChild(g);
     }
 
     for (let p = 0; p < 4; p++) {
       for (let slot = 0; slot < 4; slot++) {
         const { x, y } = burrowPos(p, slot);
-        const g = this.circle(x, y, CELL * 0.4, 0x24492c, PLAYER_COLORS[p]);
-        g.eventMode = 'static';
-        g.cursor = 'pointer';
-        g.hitArea = new Circle(x, y, CELL * 0.5);
-        g.on('pointertap', () => this.cb.onBurrow(p, slot));
-        this.staticLayer.addChild(g);
+        this.staticLayer.addChild(this.circle(x, y, CELL * 0.4, 0x24492c, PLAYER_COLORS[p]));
       }
       for (let n = 0; n < 4; n++) {
         const { x, y } = reservePos(p, n);
@@ -193,20 +192,50 @@ export class BoardView {
     g.circle(-CELL * 0.11, -CELL * 0.06, CELL * 0.05).fill(0x222222);
     g.circle(CELL * 0.11, -CELL * 0.06, CELL * 0.05).fill(0x222222);
     root.addChild(g);
-    root.eventMode = 'static';
-    root.cursor = 'pointer';
-    // A generous touch target: much larger than the drawn bunny.
-    root.hitArea = new Circle(0, -CELL * 0.1, CELL * 0.75);
-    root.on('pointertap', e => {
-      e.stopPropagation();
-      const b = this.currentBunnies.find(x => x.id === bunny.id);
-      if (b && b.place.kind === 'reserve') this.cb.onReserve(b.player);
-      else this.cb.onBunny(bunny.id);
-    });
     return { root, tx: 0, ty: 0, queue: [] };
   }
 
-  private currentBunnies: Bunny[] = [];
+  private lastHi: Highlights | null = null;
+
+  /**
+   * Snap a tap to the nearest actionable target (highlighted bunny, space,
+   * burrow slot, or reserve) within a generous radius.
+   */
+  private resolveTap(x: number, y: number) {
+    const hi = this.lastHi;
+    if (!hi) return;
+    type Candidate = { x: number; y: number; act: () => void };
+    const candidates: Candidate[] = [];
+    for (const id of hi.bunnies) {
+      const piece = this.pieces.get(id);
+      if (piece) candidates.push({ x: piece.tx, y: piece.ty, act: () => this.cb.onBunny(id) });
+    }
+    for (const i of hi.track.keys()) {
+      const p = trackPos(i);
+      candidates.push({ x: p.x, y: p.y, act: () => this.cb.onTrack(i) });
+    }
+    for (const key of hi.burrows.keys()) {
+      const [player, slot] = key.split(':').map(Number);
+      const p = burrowPos(player, slot);
+      candidates.push({ x: p.x, y: p.y, act: () => this.cb.onBurrow(player, slot) });
+    }
+    for (const player of hi.reserves) {
+      for (let n = 0; n < 4; n++) {
+        const p = reservePos(player, n);
+        candidates.push({ x: p.x, y: p.y, act: () => this.cb.onReserve(player) });
+      }
+    }
+    let best: Candidate | null = null;
+    let bestDist = CELL * 1.9; // snap radius
+    for (const c of candidates) {
+      const d = Math.hypot(c.x - x, c.y - y);
+      if (d < bestDist) {
+        bestDist = d;
+        best = c;
+      }
+    }
+    best?.act();
+  }
 
   private targetFor(bunny: Bunny, reserveOrder: number): { x: number; y: number } {
     if (bunny.place.kind === 'track') return trackPos(bunny.place.index);
@@ -249,7 +278,7 @@ export class BoardView {
   }
 
   render(view: View, hi: Highlights, effects?: MoveEffect[]) {
-    this.currentBunnies = view.bunnies;
+    this.lastHi = hi;
 
     // A fresh state change: queue hop waypoints for the pieces that moved.
     if (effects) {
@@ -261,9 +290,6 @@ export class BoardView {
     }
 
     // Pieces
-    const idle =
-      hi.bunnies.size === 0 && hi.track.size === 0 &&
-      hi.burrows.size === 0 && hi.reserves.size === 0;
     const reserveCount = [0, 0, 0, 0];
     for (const bunny of view.bunnies) {
       let piece = this.pieces.get(bunny.id);
@@ -282,13 +308,6 @@ export class BoardView {
         hi.selected === bunny.id ? 1.18 : bunny.place.kind === 'reserve' ? 0.8 : 1,
       );
       piece.root.alpha = bunny.place.kind === 'burrow' ? 0.95 : 1;
-      // Only clickable pieces intercept taps, so their large hit areas never
-      // block a highlighted destination space during destination picking.
-      const clickable =
-        idle ||
-        hi.bunnies.has(bunny.id) ||
-        (bunny.place.kind === 'reserve' && hi.reserves.has(bunny.player));
-      piece.root.eventMode = clickable ? 'static' : 'none';
     }
 
     // Highlights

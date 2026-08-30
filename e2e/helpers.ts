@@ -71,3 +71,14 @@ export async function clickBoard(page: Page, pos: { x: number; y: number }) {
 export async function trackPos(page: Page, index: number) {
   return page.evaluate(i => (window as any).__wahoo.trackPos(i), index);
 }
+
+export async function burrowPos(page: Page, player: number, slot: number) {
+  return page.evaluate(
+    ([p, s]) => (window as any).__wahoo.burrowPos(p, s),
+    [player, slot],
+  );
+}
+
+export async function reservePos(page: Page, player: number) {
+  return page.evaluate(p => (window as any).__wahoo.reservePos(p, 0), player);
+}

@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
-import { clickBoard, forceState, startLocal, trackErrors, trackPos, view, waitForTurn } from './helpers.ts';
+import {
+  burrowPos, clickBoard, forceState, reservePos, startLocal, trackErrors, trackPos, view, waitForTurn,
+} from './helpers.ts';
 
 test('menu renders and a local game starts cleanly', async ({ page }) => {
   const errors = trackErrors(page);
@@ -31,7 +33,7 @@ test('the game progresses through CPU turns', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-test('a single-option card auto-plays on click', async ({ page }) => {
+test('playing a card always requires choosing its target', async ({ page }) => {
   const errors = trackErrors(page);
   await startLocal(page, ['human', 'human', 'human', 'human']);
   await forceState(page, {
@@ -39,8 +41,28 @@ test('a single-option card auto-plays on click', async ({ page }) => {
     hand: [{ id: 0, rank: 'A', suit: '♠' }], // no bunnies out: spawn is the only action
   });
   await page.click('#hand .card');
+  // Nothing auto-plays, even with a single legal action.
+  await expect(page.locator('#log')).not.toContainText('Red spawns a bunny');
+  await clickBoard(page, await reservePos(page, 0)); // tap the reserve to spawn
   await expect(page.locator('#log')).toContainText('Red spawns a bunny');
   expect(errors).toEqual([]);
+});
+
+test('taps snap to the nearest legal target', async ({ page }) => {
+  await startLocal(page, ['human', 'human', 'human', 'human']);
+  await forceState(page, {
+    current: 0,
+    hand: [{ id: 2, rank: '3', suit: '♠' }],
+    bunnies: [{ id: 0, place: { kind: 'track', index: 5 } }],
+  });
+  await page.click('#hand .card');
+  // Tap noticeably off-centre from the bunny: still selects it.
+  const src = await trackPos(page, 5);
+  await clickBoard(page, { x: src.x + 30, y: src.y - 25 });
+  // Then tap near (not on) the destination three ahead.
+  const dest = await trackPos(page, 8);
+  await clickBoard(page, { x: dest.x - 28, y: dest.y + 20 });
+  await expect(page.locator('#log')).toContainText('Red plays 3');
 });
 
 test('a multi-option card waits for a destination pick', async ({ page }) => {
@@ -79,7 +101,8 @@ test('king stomp-spawns onto an opponent via board clicks', async ({ page }) => 
     hand: [{ id: 12, rank: 'K', suit: '♠' }],
     bunnies: [{ id: 4, place: { kind: 'track', index: 47 } }],
   });
-  await page.click('#hand .card'); // single action: auto-plays the king spawn
+  await page.click('#hand .card');
+  await clickBoard(page, await trackPos(page, 47)); // tap the opponent to stomp
   await expect(page.locator('#log')).toContainText('Red spawns with a King, stomping Blue');
   const v = await view(page);
   expect(v.bunnies.find((b: any) => b.id === 4).place).toEqual({ kind: 'reserve' });
@@ -101,7 +124,9 @@ test('7-split shows step labels and completes via destination clicks', async ({ 
   await clickBoard(page, await trackPos(page, 5));
   await expect(page.locator('#status')).toContainText('how far');
   await clickBoard(page, await trackPos(page, 8));
-  // Remaining 4 steps are forced onto bunny 1 and auto-play.
+  // The remaining 4 steps are chosen explicitly: second bunny, then its destination.
+  await clickBoard(page, await trackPos(page, 30));
+  await clickBoard(page, await trackPos(page, 34));
   await expect(page.locator('#log')).toContainText('Red plays 7');
   const v = await view(page);
   expect(v.bunnies.find((b: any) => b.id === 0).place).toEqual({ kind: 'track', index: 8 });

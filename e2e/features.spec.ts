@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { forceState, startLocal, trackErrors, view } from './helpers.ts';
+import { burrowPos, clickBoard, forceState, startLocal, trackErrors, trackPos, view } from './helpers.ts';
 
 test('hot-seat curtain hides the hand between human turns', async ({ page }) => {
   await startLocal(page, ['human', 'human', 'cpu', 'cpu'], false);
@@ -29,7 +29,9 @@ test('winning shows the rematch button and restarts with fresh reserves', async 
       { id: 11, place: { kind: 'track', index: 39 } }, // seat 2 dist 79: an A reaches slot 0
     ],
   });
-  await page.click('#hand .card'); // seat 0 controls the teammate: forced move wins
+  await page.click('#hand .card'); // seat 0 controls the teammate
+  await clickBoard(page, await trackPos(page, 39)); // pick the last bunny
+  await clickBoard(page, await burrowPos(page, 2, 0)); // step it home
   await expect(page.locator('#status')).toContainText('wins');
   await expect(page.locator('#btn-again')).toBeVisible();
   await page.click('#btn-again');

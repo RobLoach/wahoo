@@ -119,7 +119,7 @@ button:disabled { opacity: 0.45; cursor: default; }
   display: flex; align-items: center; gap: 12px;
 }
 
-#controls { display: flex; gap: 8px; flex-wrap: wrap; }
+#controls, #controls-bottom { display: flex; gap: 8px; flex-wrap: wrap; }
 
 #piles { font-size: 0.85rem; opacity: 0.85; }
 
@@ -127,4 +127,4 @@ button:disabled { opacity: 0.45; cursor: default; }
   background: #12271775; border-radius: 10px; padding: 10px; font-size: 0.8rem;
   max-height: 240px; overflow-y: auto; line-height: 1.5;
 }
-#log div:last-child { color: #ffe97a; }
+#log div:first-child { color: #ffe97a; }
