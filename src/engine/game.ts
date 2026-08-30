@@ -413,6 +413,58 @@ function applyAction(state: GameState, seat: number, action: CardAction): void {
   }
 }
 
+/**
+ * A human-readable summary of what a card play is about to do, computed
+ * against the pre-move state (so stomp victims are still on their spaces).
+ */
+function describeAction(state: GameState, seat: number, action: CardAction): string {
+  try {
+    const ctrl = controlledPlayer(state, seat);
+    const whose = ctrl === seat ? 'a bunny' : `${PLAYER_NAMES[ctrl]}'s bunny`;
+    const victimAt = (index: number): string | null => {
+      const v = bunnyAtTrack(state, index);
+      return v ? PLAYER_NAMES[v.player] : null;
+    };
+    switch (action.kind) {
+      case 'spawn': {
+        const v = victimAt(SPAWN_INDEX(ctrl));
+        return `brought ${whose} out of the reserve${v ? `, stomping ${v}` : ''}`;
+      }
+      case 'forward': {
+        const bunny = state.bunnies.find(b => b.id === action.bunny)!;
+        const dest = forwardDest(state, bunny, action.steps);
+        if (dest?.kind === 'burrow') {
+          return `moved ${whose} ${action.steps} forward, into the burrow!`;
+        }
+        const v = dest?.kind === 'track' ? victimAt(dest.index) : null;
+        return `moved ${whose} ${action.steps} forward${v ? `, stomping ${v}` : ''}`;
+      }
+      case 'backward': {
+        const bunny = state.bunnies.find(b => b.id === action.bunny)!;
+        const dest = backwardDest(bunny);
+        const v = dest?.kind === 'track' ? victimAt(dest.index) : null;
+        return `moved ${whose} 4 backward${v ? `, stomping ${v}` : ''}`;
+      }
+      case 'seven': {
+        if (action.parts.length === 1) return `moved ${whose} all 7 forward`;
+        const [a, b] = action.parts;
+        return `split the 7 (${a.steps}+${b.steps}) between two bunnies`;
+      }
+      case 'swap': {
+        const other = state.bunnies.find(b => b.id === action.other)!;
+        return `swapped ${whose} with ${PLAYER_NAMES[other.player]}'s bunny`;
+      }
+      case 'kingSpawn': {
+        const target = state.bunnies.find(b => b.id === action.target)!;
+        return `spawned from the reserve onto ${PLAYER_NAMES[target.player]}, stomping them!`;
+      }
+    }
+  } catch {
+    /* invalid actions get validated (and rejected) in applyAction */
+  }
+  return 'played';
+}
+
 function checkWinner(state: GameState): void {
   for (const team of [0, 1]) {
     if (allHome(state, team) && allHome(state, team + 2)) {
@@ -479,7 +531,9 @@ export function applyMove(state: GameState, move: Move): GameState {
     if (!card) throw new Error('no pending flipped card');
     state.pendingFlip = null;
     state.discard.push(card);
-    state.lastPlay = { seat, card: { ...card }, bonus: true };
+    state.lastPlay = {
+      seat, card: { ...card }, desc: describeAction(state, seat, move.action), bonus: true,
+    };
     applyAction(state, seat, move.action);
     checkWinner(state);
     if (state.winner === null && card.rank === '2') flipBonus(state, seat);
@@ -495,7 +549,7 @@ export function applyMove(state: GameState, move: Move): GameState {
   const card = player.hand[idx];
   player.hand.splice(idx, 1);
   state.discard.push(card);
-  state.lastPlay = { seat, card: { ...card } };
+  state.lastPlay = { seat, card: { ...card }, desc: describeAction(state, seat, move.action) };
   state.log.push(`${PLAYER_NAMES[seat]} plays ${card.rank}${card.suit}.`);
   applyAction(state, seat, move.action);
   checkWinner(state);

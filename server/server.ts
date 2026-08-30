@@ -7,6 +7,7 @@
 import { createServer } from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { GameRoom } from '../src/net/room.ts';
+import { randomRoomCode } from '../src/net/words.ts';
 import type { ClientMsg, ServerMsg } from '../src/net/protocol.ts';
 
 const PORT = Number(process.env.PORT ?? 8787);
@@ -23,7 +24,12 @@ function send(clientId: string, msg: ServerMsg) {
 }
 
 function makeCode(): string {
-  const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  for (let i = 0; i < 60; i++) {
+    const code = randomRoomCode();
+    if (!rooms.has(code)) return code;
+  }
+  // Nearly every word is taken: fall back to random letters.
+  const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
   let code = '';
   do {
     code = Array.from({ length: 4 }, () => letters[Math.floor(Math.random() * letters.length)]).join('');

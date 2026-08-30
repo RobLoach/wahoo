@@ -1,24 +1,16 @@
 import Peer from 'peerjs';
 import type { DataConnection } from 'peerjs';
 import { GameRoom } from './room.ts';
+import { randomRoomCode } from './words.ts';
 import type { RoomSnapshot } from './room.ts';
 import type { ClientMsg, ServerMsg } from './protocol.ts';
 import type { Difficulty, Move } from '../engine/types.ts';
 import type { OnlineHandlers } from './client.ts';
 
-const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const CODE_LEN = 5;
 /** Namespaced PeerJS id so room codes don't collide with other apps. */
 const peerIdFor = (code: string) => `wahoo-bunny-race-${code.toLowerCase()}`;
 
 const SNAPSHOT_KEY = 'wahoo-host-snapshot';
-
-function randomCode(): string {
-  return Array.from(
-    { length: CODE_LEN },
-    () => CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)],
-  ).join('');
-}
 
 const HOST_ID = 'host';
 
@@ -65,7 +57,7 @@ export class P2PHostSession {
     private handlers: OnlineHandlers,
     resume?: HostSnapshot,
   ) {
-    this.code = resume?.code ?? randomCode();
+    this.code = resume?.code ?? randomRoomCode();
     this.name = name || resume?.name || 'Player';
     this.room = resume
       ? GameRoom.restore(this.code, (cid, msg) => this.deliver(cid, msg), resume.snap)

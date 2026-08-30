@@ -289,6 +289,45 @@ describe('round flow', () => {
   });
 });
 
+describe('play descriptions', () => {
+  it('describes a jack swap', () => {
+    const g = createGame(200);
+    g.current = 0;
+    put(g, 0, { kind: 'track', index: 3 });
+    put(g, 4, { kind: 'track', index: 55 });
+    giveHand(g, 0, ['J']);
+    applyMove(g, legalMoves(g).find(m => m.type === 'play' && m.action.kind === 'swap')!);
+    expect(g.lastPlay?.desc).toBe("swapped a bunny with Blue's bunny");
+  });
+
+  it('describes a forward move that stomps', () => {
+    const g = createGame(201);
+    g.current = 0;
+    put(g, 0, { kind: 'track', index: 5 });
+    put(g, 4, { kind: 'track', index: 8 });
+    giveHand(g, 0, ['3']);
+    applyMove(g, legalMoves(g).find(m => m.type === 'play' && m.action.kind === 'forward')!);
+    expect(g.lastPlay?.desc).toBe('moved a bunny 3 forward, stomping Blue');
+  });
+
+  it('describes entering the burrow', () => {
+    const g = createGame(202);
+    g.current = 0;
+    put(g, 0, { kind: 'track', index: 78 });
+    giveHand(g, 0, ['3']);
+    applyMove(g, legalMoves(g).find(m => m.type === 'play' && m.action.kind === 'forward')!);
+    expect(g.lastPlay?.desc).toBe('moved a bunny 3 forward, into the burrow!');
+  });
+
+  it('describes a fold', () => {
+    const g = createGame(203);
+    g.current = 0;
+    giveHand(g, 0, ['3']);
+    applyMove(g, { type: 'discardHand' });
+    expect(g.lastPlay).toMatchObject({ seat: 0, fold: true });
+  });
+});
+
 describe('full games', () => {
   it('CPU vs CPU games finish with a winner', () => {
     for (const seed of [1, 99, 12345]) {

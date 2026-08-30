@@ -459,9 +459,10 @@ class App {
           `<span>${who} folded — no playable cards.</span>`;
       } else {
         const red = card.suit === '♥' || card.suit === '♦' ? ' red' : '';
+        const desc = view.lastPlay.desc || 'played';
         lastEl.innerHTML =
           `<span class="mini-card${red}">${card.rank}${card.suit}</span>` +
-          `<span>${who} played${bonus ? ' the flipped bonus card' : ''}</span>`;
+          `<span>${who} ${desc}${bonus ? ' <i>(flipped bonus card)</i>' : ''}</span>`;
       }
     } else {
       lastEl.hidden = true;

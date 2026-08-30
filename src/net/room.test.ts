@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { GameRoom, sanitizeName } from './room.ts';
+import { ROOM_WORDS, randomRoomCode } from './words.ts';
 import type { ServerMsg } from './protocol.ts';
 
 /** A room with a message collector per client id. */
@@ -205,5 +206,14 @@ describe('reconnection', () => {
     expect(restored.seats[0]).toMatchObject({ cpu: false, clientId: 'a2' });
     expect(last2('a2', 'state').view.myHand.length).toBeGreaterThan(0);
     restored.dispose();
+  });
+});
+
+describe('room codes', () => {
+  it('draws from a large list of clean four-letter words', () => {
+    expect(ROOM_WORDS.length).toBeGreaterThanOrEqual(200);
+    expect(new Set(ROOM_WORDS).size).toBe(ROOM_WORDS.length);
+    for (const word of ROOM_WORDS) expect(word).toMatch(/^[A-Z]{4}$/);
+    expect(ROOM_WORDS).toContain(randomRoomCode());
   });
 });
