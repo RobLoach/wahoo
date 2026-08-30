@@ -2,19 +2,20 @@ import { applyMove, createGame } from '../engine/game.ts';
 import { chooseMove } from '../engine/ai.ts';
 import { makeView } from './protocol.ts';
 import type { ClientMsg, RoomInfo, ServerMsg } from './protocol.ts';
-import type { GameState } from '../engine/types.ts';
+import type { Difficulty, GameState } from '../engine/types.ts';
 import { PLAYER_NAMES } from '../engine/types.ts';
 
 interface Seat {
   name: string;
   cpu: boolean;
+  difficulty?: Difficulty;
   clientId: string | null;
   /** Persistent client token so a disconnected player can reclaim the seat. */
   token: string | null;
 }
 
 export interface RoomSnapshot {
-  seats: ({ name: string; cpu: boolean; token: string | null } | null)[];
+  seats: ({ name: string; cpu: boolean; difficulty?: Difficulty; token: string | null } | null)[];
   game: GameState | null;
 }
 
@@ -90,7 +91,13 @@ export class GameRoom {
         const target = msg.seat | 0;
         if (target < 0 || target > 3) return;
         if (msg.on && this.seats[target] === null) {
-          this.seats[target] = { name: PLAYER_NAMES[target], cpu: true, clientId: null, token: null };
+          this.seats[target] = {
+            name: PLAYER_NAMES[target],
+            cpu: true,
+            difficulty: msg.difficulty ?? 'medium',
+            clientId: null,
+            token: null,
+          };
         } else if (!msg.on && this.seats[target]?.cpu) {
           this.seats[target] = null;
         }
@@ -101,7 +108,9 @@ export class GameRoom {
         if (this.hostId !== id || this.game) return;
         for (let i = 0; i < 4; i++) {
           if (!this.seats[i]) {
-            this.seats[i] = { name: PLAYER_NAMES[i], cpu: true, clientId: null, token: null };
+            this.seats[i] = {
+              name: PLAYER_NAMES[i], cpu: true, difficulty: 'medium', clientId: null, token: null,
+            };
           }
         }
         this.game = createGame(Math.floor(Math.random() * 2 ** 31));
@@ -146,7 +155,9 @@ export class GameRoom {
         // Keep the game going: a CPU takes over, but the token stays so the
         // player can reconnect and reclaim the seat.
         const old = this.seats[seat]!;
-        this.seats[seat] = { name: old.name, cpu: true, clientId: null, token: old.token };
+        this.seats[seat] = {
+          name: old.name, cpu: true, difficulty: 'medium', clientId: null, token: old.token,
+        };
         this.scheduleCpu();
       } else {
         this.seats[seat] = null;
@@ -172,7 +183,9 @@ export class GameRoom {
   /** Serializable state for persisting a room across a page reload. */
   snapshot(): RoomSnapshot {
     return structuredClone({
-      seats: this.seats.map(s => (s ? { name: s.name, cpu: s.cpu, token: s.token } : null)),
+      seats: this.seats.map(s =>
+        s ? { name: s.name, cpu: s.cpu, difficulty: s.difficulty, token: s.token } : null,
+      ),
       game: this.game,
     });
   }
@@ -186,7 +199,15 @@ export class GameRoom {
   ): GameRoom {
     const room = new GameRoom(code, send, cpuDelay);
     room.seats = snap.seats.map(s =>
-      s ? { name: s.name, cpu: true, clientId: null, token: s.token ?? null } : null,
+      s
+        ? {
+            name: s.name,
+            cpu: true,
+            difficulty: s.difficulty ?? 'medium',
+            clientId: null,
+            token: s.token ?? null,
+          }
+        : null,
     );
     room.game = structuredClone(snap.game);
     if (room.game && room.game.winner === null) room.scheduleCpu();
@@ -196,7 +217,9 @@ export class GameRoom {
   private roomInfo(clientId: string): RoomInfo {
     return {
       code: this.code,
-      seats: this.seats.map(s => (s ? { name: s.name, cpu: s.cpu } : null)),
+      seats: this.seats.map(s =>
+        s ? { name: s.name, cpu: s.cpu, difficulty: s.difficulty } : null,
+      ),
       youAreHost: this.hostId === clientId,
       yourSeat: this.clients.get(clientId) ?? null,
       started: this.game !== null,
@@ -236,8 +259,9 @@ export class GameRoom {
     this.cpuTimer = setTimeout(() => {
       this.cpuTimer = null;
       if (!this.game || this.game.winner !== null) return;
+      const acting = this.seats[this.game.current];
       try {
-        applyMove(this.game, chooseMove(this.game));
+        applyMove(this.game, chooseMove(this.game, acting?.difficulty ?? 'medium'));
       } catch (err) {
         console.error('CPU move failed:', err);
         return;

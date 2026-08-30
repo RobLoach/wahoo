@@ -1,5 +1,5 @@
 import type { ClientMsg, RoomInfo, ServerMsg, View } from './protocol.ts';
-import type { Move } from '../engine/types.ts';
+import type { Difficulty, Move } from '../engine/types.ts';
 
 export interface OnlineHandlers {
   onView(view: View): void;
@@ -41,7 +41,7 @@ export class OnlineSession {
   create(name: string, token?: string) { this.send({ t: 'create', name, token }); }
   join(code: string, name: string, token?: string) { this.send({ t: 'join', code, name, token }); }
   sit(seat: number) { this.send({ t: 'sit', seat }); }
-  cpu(seat: number, on: boolean) { this.send({ t: 'cpu', seat, on }); }
+  cpu(seat: number, on: boolean, difficulty?: Difficulty) { this.send({ t: 'cpu', seat, on, difficulty }); }
   startGame() { this.send({ t: 'start' }); }
   playAgain() { this.send({ t: 'again' }); }
   submit(move: Move) { this.send({ t: 'move', move }); }

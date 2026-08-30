@@ -295,7 +295,7 @@ describe('full games', () => {
       const g = createGame(seed);
       let guard = 0;
       while (g.winner === null && guard++ < 5000) {
-        const move: Move = chooseMove(g, () => 0.5);
+        const move: Move = chooseMove(g, 'hard', () => 0.5);
         applyMove(g, move);
       }
       expect(g.winner).not.toBeNull();

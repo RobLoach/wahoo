@@ -8,7 +8,7 @@ import type { OnlineHandlers } from './net/client.ts';
 import { P2PGuestSession, P2PHostSession, savedHostGame } from './net/p2p.ts';
 import type { RoomInfo, View } from './net/protocol.ts';
 import { backwardDest, forwardDest } from './engine/game.ts';
-import type { Bunny, Card, CardAction, Move, MoveEffect } from './engine/types.ts';
+import type { Bunny, Card, CardAction, Difficulty, Move, MoveEffect } from './engine/types.ts';
 import { PLAYER_NAMES, TEAMMATE_OF } from './engine/types.ts';
 import { playMoveSound } from './sounds.ts';
 
@@ -500,7 +500,13 @@ const app = new App();
 function buildSeatConfig() {
   const wrap = $('#seat-config');
   wrap.innerHTML = '';
-  const defaults: SeatKind[] = ['human', 'cpu', 'cpu', 'cpu'];
+  const defaults: SeatKind[] = ['human', 'cpu-medium', 'cpu-medium', 'cpu-medium'];
+  const kinds: [SeatKind, string][] = [
+    ['human', 'Human'],
+    ['cpu-easy', 'CPU · Easy'],
+    ['cpu-medium', 'CPU · Medium'],
+    ['cpu-hard', 'CPU · Hard'],
+  ];
   for (let i = 0; i < 4; i++) {
     const row = document.createElement('div');
     row.className = 'seat-row';
@@ -508,8 +514,9 @@ function buildSeatConfig() {
       `<span class="seat-dot" style="background:${PLAYER_COLORS_CSS[i]}"></span>` +
       `<span style="width:64px">${PLAYER_NAMES[i]}</span>` +
       `<select data-seat="${i}">` +
-      `<option value="human"${defaults[i] === 'human' ? ' selected' : ''}>Human</option>` +
-      `<option value="cpu"${defaults[i] === 'cpu' ? ' selected' : ''}>CPU</option>` +
+      kinds
+        .map(([v, label]) => `<option value="${v}"${defaults[i] === v ? ' selected' : ''}>${label}</option>`)
+        .join('') +
       `</select>` +
       `<span style="opacity:.6;font-size:.8rem">Team ${i % 2 === 0 ? 'Red/Green' : 'Blue/Yellow'}</span>`;
     wrap.appendChild(row);
@@ -644,6 +651,16 @@ function renderLobby(session: NetSession, room: RoomInfo) {
   lobby.hidden = false;
   lobby.innerHTML =
     `<p>Room code: <span class="code">${room.code}</span> — share it with friends.</p>`;
+  if (room.youAreHost && !room.started) {
+    const diffRow = document.createElement('label');
+    diffRow.className = 'hint';
+    diffRow.innerHTML =
+      'CPU difficulty for added seats <select id="lobby-diff">' +
+      '<option value="easy">Easy</option>' +
+      '<option value="medium" selected>Medium</option>' +
+      '<option value="hard">Hard</option></select>';
+    lobby.appendChild(diffRow);
+  }
   if (!(session instanceof OnlineSession)) {
     const url = `${location.origin}${location.pathname}?join=${room.code}`;
     const invite = document.createElement('p');
@@ -672,10 +689,15 @@ function renderLobby(session: NetSession, room: RoomInfo) {
     } else if (seat.cpu && room.youAreHost) {
       controls = `<button data-uncpu="${i}">Remove CPU</button>`;
     }
+    const seatLabel = seat
+      ? seat.cpu
+        ? `🤖 CPU (${seat.difficulty ?? 'medium'})`
+        : seat.name
+      : '—';
     row.innerHTML =
       `<span class="seat-dot" style="background:${PLAYER_COLORS_CSS[i]}"></span>` +
       `<span style="width:64px">${PLAYER_NAMES[i]}</span>` +
-      `<span style="flex:1">${seat ? (seat.cpu ? '🤖 CPU' : seat.name) : '—'}${
+      `<span style="flex:1">${seatLabel}${
         room.yourSeat === i ? ' (you)' : ''
       }</span>${controls}`;
     lobby.appendChild(row);
@@ -696,7 +718,10 @@ function renderLobby(session: NetSession, room: RoomInfo) {
     b.onclick = () => session.sit(Number(b.dataset.sit));
   });
   lobby.querySelectorAll<HTMLButtonElement>('[data-cpu]').forEach(b => {
-    b.onclick = () => session.cpu(Number(b.dataset.cpu), true);
+    b.onclick = () => {
+      const diff = (document.querySelector('#lobby-diff') as HTMLSelectElement | null)?.value;
+      session.cpu(Number(b.dataset.cpu), true, (diff ?? 'medium') as Difficulty);
+    };
   });
   lobby.querySelectorAll<HTMLButtonElement>('[data-uncpu]').forEach(b => {
     b.onclick = () => session.cpu(Number(b.dataset.uncpu), false);

@@ -3,7 +3,7 @@ import type { DataConnection } from 'peerjs';
 import { GameRoom } from './room.ts';
 import type { RoomSnapshot } from './room.ts';
 import type { ClientMsg, ServerMsg } from './protocol.ts';
-import type { Move } from '../engine/types.ts';
+import type { Difficulty, Move } from '../engine/types.ts';
 import type { OnlineHandlers } from './client.ts';
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -130,7 +130,7 @@ export class P2PHostSession {
   }
 
   sit(seat: number) { this.room.handle(HOST_ID, { t: 'sit', seat }); }
-  cpu(seat: number, on: boolean) { this.room.handle(HOST_ID, { t: 'cpu', seat, on }); }
+  cpu(seat: number, on: boolean, difficulty?: Difficulty) { this.room.handle(HOST_ID, { t: 'cpu', seat, on, difficulty }); }
   startGame() { this.room.handle(HOST_ID, { t: 'start' }); }
   playAgain() { this.room.handle(HOST_ID, { t: 'again' }); }
   submit(move: Move) { this.room.handle(HOST_ID, { t: 'move', move }); }
@@ -183,7 +183,7 @@ export class P2PGuestSession {
   }
 
   sit(seat: number) { this.send({ t: 'sit', seat }); }
-  cpu(seat: number, on: boolean) { this.send({ t: 'cpu', seat, on }); }
+  cpu(seat: number, on: boolean, difficulty?: Difficulty) { this.send({ t: 'cpu', seat, on, difficulty }); }
   startGame() { this.send({ t: 'start' }); }
   playAgain() { this.send({ t: 'again' }); }
   submit(move: Move) { this.send({ t: 'move', move }); }

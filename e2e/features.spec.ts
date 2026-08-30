@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { burrowPos, clickBoard, forceState, startLocal, trackErrors, trackPos, view } from './helpers.ts';
 
 test('hot-seat curtain hides the hand between human turns', async ({ page }) => {
-  await startLocal(page, ['human', 'human', 'cpu', 'cpu'], false);
+  await startLocal(page, ['human', 'human', 'cpu-medium', 'cpu-medium'], false);
   // First human turn also starts behind the curtain.
   await expect(page.locator('.curtain-btn')).toBeVisible();
   await expect(page.locator('#hand .card')).toHaveCount(0);

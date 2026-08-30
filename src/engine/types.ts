@@ -72,6 +72,9 @@ export const SIDE_LEN = 20;
 export const BURROW_SLOTS = 4;
 export const HAND_SIZE = 4;
 
+/** CPU strength: easy always picks the worst move, medium picks randomly, hard the best. */
+export type Difficulty = 'easy' | 'medium' | 'hard';
+
 export const PLAYER_NAMES = ['Red', 'Blue', 'Green', 'Yellow'];
 export const TEAM_OF = (seat: number) => seat % 2;
 export const TEAMMATE_OF = (seat: number) => (seat + 2) % 4;

@@ -1,4 +1,4 @@
-import type { Bunny, Card, GameState, Move, MoveEffect } from '../engine/types.ts';
+import type { Bunny, Card, Difficulty, GameState, Move, MoveEffect } from '../engine/types.ts';
 import { legalMoves } from '../engine/game.ts';
 
 /** Everything a client is allowed to see, plus its legal moves when acting. */
@@ -58,14 +58,14 @@ export type ClientMsg =
   | { t: 'create'; name: string; token?: string }
   | { t: 'join'; code: string; name: string; token?: string }
   | { t: 'sit'; seat: number }
-  | { t: 'cpu'; seat: number; on: boolean }
+  | { t: 'cpu'; seat: number; on: boolean; difficulty?: Difficulty }
   | { t: 'start' }
   | { t: 'again' }
   | { t: 'move'; move: Move };
 
 export interface RoomInfo {
   code: string;
-  seats: ({ name: string; cpu: boolean } | null)[];
+  seats: ({ name: string; cpu: boolean; difficulty?: Difficulty } | null)[];
   youAreHost: boolean;
   yourSeat: number | null;
   started: boolean;

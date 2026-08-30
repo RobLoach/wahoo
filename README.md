@@ -10,7 +10,8 @@ stomping anyone who gets in the way.
 
 - **Hot seat** — any mix of humans and CPU players on one device, with a
   pass-the-device curtain so nobody peeks at the next hand.
-- **CPU players** — heuristic AI opponents.
+- **CPU players** — AI opponents with three difficulties: Easy always picks
+  the worst move, Medium plays randomly, Hard plays the best move it can see.
 - **Animated moves** — bunnies hop space by space and the last move is
   highlighted, so you can always see what just happened.
 - **Installable PWA** — add it to a phone home screen; hot-seat and CPU games
@@ -52,9 +53,10 @@ stomping anyone who gets in the way.
 ```sh
 npm install
 npm run dev       # local dev server
-npm test          # rules engine tests (vitest)
+npm test          # unit tests: rules engine, AI difficulties, rooms, views (vitest)
 npm run build     # production build to dist/
 npm run test:e2e  # browser tests (Playwright; build first)
+npm run test:all  # everything: unit tests, build, then browser tests
 ```
 
 Move and squash sound effects live in `src/assets/hop.wav` and

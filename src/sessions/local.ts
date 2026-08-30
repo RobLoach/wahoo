@@ -2,10 +2,10 @@ import { applyMove, createGame } from '../engine/game.ts';
 import { chooseMove } from '../engine/ai.ts';
 import { makeView } from '../net/protocol.ts';
 import type { View } from '../net/protocol.ts';
-import type { Move } from '../engine/types.ts';
+import type { Difficulty, Move } from '../engine/types.ts';
 import { PLAYER_NAMES } from '../engine/types.ts';
 
-export type SeatKind = 'human' | 'cpu';
+export type SeatKind = 'human' | 'cpu-easy' | 'cpu-medium' | 'cpu-hard';
 
 const CPU_DELAY_MS = 650;
 
@@ -28,7 +28,7 @@ export class LocalSession {
 
   private names() {
     return this.seats.map((kind, i) =>
-      kind === 'cpu' ? `CPU ${PLAYER_NAMES[i]}` : PLAYER_NAMES[i],
+      kind === 'human' ? PLAYER_NAMES[i] : `CPU ${PLAYER_NAMES[i]}`,
     );
   }
 
@@ -56,10 +56,12 @@ export class LocalSession {
   }
 
   private maybeCpu() {
-    if (this.state.winner !== null || this.seats[this.state.current] !== 'cpu') return;
+    const kind = this.seats[this.state.current];
+    if (this.state.winner !== null || kind === 'human') return;
+    const difficulty = kind.slice(4) as Difficulty;
     this.timer = setTimeout(() => {
-      if (this.state.winner !== null) return;
-      applyMove(this.state, chooseMove(this.state));
+      if (this.state.winner !== null || this.seats[this.state.current] === 'human') return;
+      applyMove(this.state, chooseMove(this.state, difficulty));
       this.push();
       this.maybeCpu();
     }, CPU_DELAY_MS);
