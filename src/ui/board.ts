@@ -85,10 +85,14 @@ export interface BoardCallbacks {
   onReserve(player: number): void;
 }
 
+/** Pause before a move starts animating, so the played card registers first. */
+const MOVE_START_DELAY_MS = 500;
+
 interface MovePath {
   pts: { x: number; y: number }[];
   segLens: number[];
   total: number;
+  /** Starts negative: the delay counts up to zero before motion begins. */
   elapsed: number;
   duration: number;
 }
@@ -314,7 +318,7 @@ export class BoardView {
       total += len;
     }
     const duration = Math.min(2200, 350 + (total / CELL) * 110);
-    piece.path = { pts, segLens, total, elapsed: 0, duration };
+    piece.path = { pts, segLens, total, elapsed: -MOVE_START_DELAY_MS, duration };
   }
 
   render(view: View, hi: Highlights, effects?: MoveEffect[]) {
@@ -425,7 +429,7 @@ export class BoardView {
         // Follow the move path with ease-in-out: build up speed, then
         // slow gently into the final position.
         path.elapsed += dtMs;
-        const t = Math.min(1, path.elapsed / path.duration);
+        const t = Math.min(1, Math.max(0, path.elapsed / path.duration));
         let remaining = easeInOut(t) * path.total;
         let seg = 0;
         while (seg < path.segLens.length - 1 && remaining > path.segLens[seg]) {
