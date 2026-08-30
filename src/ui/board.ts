@@ -103,6 +103,9 @@ interface Piece {
 
 export class BoardView {
   app = new Application();
+  /** Honor the OS-level "reduce motion" preference: moves snap into place. */
+  private reducedMotion =
+    typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
   private staticLayer = new Container();
   private highlightLayer = new Container();
   private pieceLayer = new Container();
@@ -290,6 +293,10 @@ export class BoardView {
 
   /** Begin an eased movement along the effect's path to the piece's target. */
   private startPath(piece: Piece, effect: MoveEffect, player: number) {
+    if (this.reducedMotion) {
+      piece.path = null;
+      return;
+    }
     const pts = [
       { x: piece.root.x, y: piece.root.y },
       ...this.waypointsFor(effect, player),
@@ -408,6 +415,11 @@ export class BoardView {
     const easeInOut = (t: number) =>
       t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
     for (const piece of this.pieces.values()) {
+      if (this.reducedMotion) {
+        piece.path = null;
+        piece.root.position.set(piece.tx, piece.ty);
+        continue;
+      }
       const path = piece.path;
       if (path) {
         // Follow the move path with ease-in-out: build up speed, then

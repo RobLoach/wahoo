@@ -93,12 +93,37 @@
         <div id="piles"></div>
         <div id="log"></div>
         <div id="controls-bottom">
+          <button id="btn-rules">❓ Rules</button>
           <button id="btn-fullscreen">⤢ Full screen</button>
           <button id="btn-mute"></button>
           <button id="btn-menu">↩ Menu</button>
         </div>
       </aside>
     </section>
+
+    <div id="rules-modal" hidden>
+      <div class="rules-card">
+        <button id="rules-close">✕ Close</button>
+        <h2>How to play</h2>
+        <ul>
+          <li>Teams of two sit opposite each other (✦ Red &amp; Green vs ● Blue &amp; Yellow). First team to get all 8 bunnies into their burrows wins.</li>
+          <li>Each round every player is dealt 4 cards. On your turn, play one card and do what it says — no drawing back up. If nothing in your hand is playable, you fold for the round.</li>
+          <li>Landing on any bunny stomps it back to its owner's reserve; passing through is safe. Burrow entry needs an exact count, with no jumping inside the burrow — the slots you pass must be open. Bunnies in burrows are safe from everything.</li>
+          <li>Once your own 4 bunnies are home you keep receiving cards and move your teammate's bunnies on your turn.</li>
+        </ul>
+        <h3>Card reference</h3>
+        <table>
+          <tr><th>A</th><td>Spawn a bunny onto your corner space, or move one bunny forward 1.</td></tr>
+          <tr><th>2</th><td>Spawn a bunny or move 2 — then flip the top card of the draw pile and play it too.</td></tr>
+          <tr><th>3 5 6 8 9 10</th><td>Move one bunny forward that many spaces.</td></tr>
+          <tr><th>4</th><td>Move one bunny backward 4 spaces (stays on the track).</td></tr>
+          <tr><th>7</th><td>Move one bunny 7, or split the 7 between two bunnies.</td></tr>
+          <tr><th>J</th><td>Swap one of your bunnies with any other bunny on the track.</td></tr>
+          <tr><th>Q</th><td>Move one bunny forward 12 spaces.</td></tr>
+          <tr><th>K</th><td>Move one bunny forward 13, or spawn from your reserve onto another player's bunny, stomping it.</td></tr>
+        </table>
+      </div>
+    </div>
   </div>
   <script type="module" src="/src/main.ts"></script>
 </body>

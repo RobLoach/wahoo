@@ -173,3 +173,28 @@ button:disabled { opacity: 0.45; cursor: default; }
   max-height: 240px; overflow-y: auto; line-height: 1.5;
 }
 #log div:first-child { color: #c25a2e; font-weight: bold; }
+
+/* ------- in-game rules reference ------- */
+#rules-modal {
+  position: fixed; inset: 0; z-index: 20; overflow-y: auto;
+  background: rgba(47, 61, 79, 0.45); padding: 24px 12px;
+}
+.rules-card {
+  background: #f8fbfd; border-radius: 14px; padding: 20px 26px;
+  max-width: 640px; margin: 0 auto; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+.rules-card h2 { margin-top: 0; }
+.rules-card li { margin: 6px 0; font-size: 0.92rem; }
+.rules-card table { border-collapse: collapse; font-size: 0.9rem; }
+.rules-card th {
+  text-align: left; padding: 4px 12px 4px 0; vertical-align: top; white-space: nowrap;
+}
+.rules-card td { padding: 4px 0; }
+.rules-card tr + tr th, .rules-card tr + tr td { border-top: 1px solid #d5e3ee; }
+#rules-close { float: right; margin-left: 12px; }
+
+/* Respect users who ask their OS for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  .confetti { display: none; }
+  .card, .card:hover, .card.selected { transition: none; transform: none; }
+}

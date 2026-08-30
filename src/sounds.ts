@@ -41,6 +41,13 @@ export function playMoveSound(effects: MoveEffect[]): void {
       (e.from.kind === 'reserve' && e.to.kind === 'track') || // came out
       (e.kind === 'jump' && e.from.kind === 'track' && e.to.kind === 'track'), // swapped
   );
+  if (squashed) {
+    try {
+      navigator.vibrate?.(60); // a little haptic thump on phones
+    } catch {
+      /* ignore */
+    }
+  }
   const sound = squashed ? squash : special ? hop : null;
   if (!sound) return;
   try {
