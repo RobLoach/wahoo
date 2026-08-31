@@ -249,6 +249,19 @@ describe('house rules and emotes', () => {
     room.dispose();
   });
 
+  it('lets a player rename themselves and broadcasts the new name', () => {
+    const { room, last } = makeRoom(60_000);
+    room.addClient('a', 'Alice');
+    room.addClient('b', 'Bob');
+    room.handle('b', { t: 'rename', name: 'Bobby <b>' });
+    expect(last('a', 'room').room.seats[1].name).toBe('Bobby b');
+    // Renaming mid-game refreshes the views too.
+    room.handle('a', { t: 'start' });
+    room.handle('b', { t: 'rename', name: 'Robert' });
+    expect(last('a', 'state').view.seatNames[1]).toBe('Robert');
+    room.dispose();
+  });
+
   it('broadcasts emotes from seated players and rejects unknown emoji', () => {
     const { room, last } = makeRoom(60_000);
     room.addClient('a', 'Alice');

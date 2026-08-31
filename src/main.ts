@@ -224,6 +224,12 @@ function playerName(): string {
 }
 ($('#online-name') as HTMLInputElement).value = localStorage.getItem('wahoo-name') ?? '';
 
+// Renaming after joining (e.g. via an invite link) updates your seat for everyone.
+$('#online-name').addEventListener('change', () => {
+  const session = pendingOnline ?? app.session;
+  if (session && 'rename' in session) session.rename(playerName());
+});
+
 $('#p2p-host').onclick = () => {
   pendingOnline?.leave();
   lastGuestCode = null;

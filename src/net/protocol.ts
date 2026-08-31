@@ -68,6 +68,7 @@ export type ClientMsg =
   | { t: 'cpu'; seat: number; on: boolean; difficulty?: Difficulty }
   | { t: 'start'; rules?: Partial<HouseRules> }
   | { t: 'again' }
+  | { t: 'rename'; name: string }
   | { t: 'emote'; emoji: string }
   | { t: 'move'; move: Move };
 

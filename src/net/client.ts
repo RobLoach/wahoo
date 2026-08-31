@@ -46,6 +46,7 @@ export class OnlineSession {
   cpu(seat: number, on: boolean, difficulty?: Difficulty) { this.send({ t: 'cpu', seat, on, difficulty }); }
   startGame(rules?: Partial<HouseRules>) { this.send({ t: 'start', rules }); }
   emote(emoji: string) { this.send({ t: 'emote', emoji }); }
+  rename(name: string) { this.send({ t: 'rename', name }); }
   playAgain() { this.send({ t: 'again' }); }
   submit(move: Move) { this.send({ t: 'move', move }); }
 

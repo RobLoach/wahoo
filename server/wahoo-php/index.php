@@ -451,6 +451,29 @@ $app->post('/api/rooms/{code}/emote', function (Request $request, Response $resp
     return jsonResponse($response, ['ok' => true, 'emoteN' => (int) $n->fetchColumn()]);
 });
 
+// Rename yourself; works in the lobby and mid-game.
+$app->post('/api/rooms/{code}/rename', function (Request $request, Response $response, array $args): Response {
+    $pdo = db();
+    $body = (array) $request->getParsedBody();
+    $clientId = (string) ($body['clientId'] ?? '');
+    $pdo->beginTransaction();
+    $room = loadRoom($pdo, $args['code']);
+    if ($room === null || clientRow($pdo, $clientId, $args['code']) === null) {
+        $pdo->rollBack();
+        return errorResponse($response, 'Room not found.', 404);
+    }
+    $seat = seatOf($room, $clientId);
+    if ($seat === null) {
+        $pdo->rollBack();
+        return errorResponse($response, 'Not seated.', 403);
+    }
+    $room['seats'][$seat]['name'] = sanitizeName($body['name'] ?? null);
+    touchClient($pdo, $clientId);
+    saveRoom($pdo, $room);
+    $pdo->commit();
+    return jsonResponse($response, snapshot(loadRoom($pdo, $args['code']), $clientId));
+});
+
 // Change seats before the game starts.
 $app->post('/api/rooms/{code}/sit', function (Request $request, Response $response, array $args): Response {
     $pdo = db();

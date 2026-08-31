@@ -141,6 +141,14 @@ export class GameRoom {
         this.scheduleCpu();
         break;
       }
+      case 'rename': {
+        const seat = this.clients.get(id);
+        if (seat === null || seat === undefined || !this.seats[seat]) return;
+        this.seats[seat]!.name = sanitizeName(msg.name);
+        this.broadcastRoom();
+        if (this.game) this.broadcastState(); // views carry player names
+        break;
+      }
       case 'emote': {
         const seat = this.clients.get(id);
         if (seat === null || seat === undefined) return;

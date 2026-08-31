@@ -227,6 +227,13 @@ export class HttpSession {
       .catch(e => this.fail(e));
   }
 
+  rename(name: string) {
+    if (this.closed) return;
+    void this.api<Snapshot>(`/api/rooms/${this.code}/rename`, { clientId: this.clientId, name })
+      .then(d => this.accept(d))
+      .catch(() => { /* stale name is cosmetic; the next poll reconciles */ });
+  }
+
   emote(emoji: string) {
     const seat = this.last?.yourSeat;
     if (seat === null || seat === undefined || this.closed) return;
