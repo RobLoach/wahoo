@@ -138,10 +138,13 @@ function joinP2P(code: string) {
   pendingOnline = session;
 }
 
+let activeDedicatedServer: string | null = null;
+
 function connectOnline(afterOpen: (s: OnlineSession | HttpSession) => void) {
   const url =
     ($('#online-server') as HTMLInputElement).value.trim() || 'https://wahoo.robloach.net';
   localStorage.setItem('wahoo-server', url);
+  activeDedicatedServer = url;
   pendingOnline?.leave();
   // http(s):// servers use the PHP polling relay; ws(s):// the Node WebSocket server.
   let session: OnlineSession | HttpSession;
@@ -235,8 +238,13 @@ function renderLobby(session: NetSession, room: RoomInfo) {
       '<option value="insane">Insane</option></select>';
     lobby.appendChild(diffRow);
   }
-  if (!(session instanceof OnlineSession)) {
-    const url = `${location.origin}${location.pathname}?join=${room.code}`;
+  {
+    const dedicated = session instanceof OnlineSession || session instanceof HttpSession;
+    const serverParam =
+      dedicated && activeDedicatedServer
+        ? `&server=${encodeURIComponent(activeDedicatedServer)}`
+        : '';
+    const url = `${location.origin}${location.pathname}?join=${room.code}${serverParam}`;
     const invite = document.createElement('p');
     invite.className = 'hint invite';
     invite.textContent = 'Invite link: ';
@@ -361,12 +369,19 @@ $('#btn-again').onclick = () => {
   else session.playAgain();
 };
 
-// ?join=CODE deep link: prefill and join the browser-hosted room right away.
+// ?join=CODE deep link joins a browser-hosted room; with &server=… it joins
+// that dedicated server instead.
 {
-  const joinCode = new URLSearchParams(location.search).get('join');
-  if (joinCode) {
-    ($('#p2p-code') as HTMLInputElement).value = joinCode.toUpperCase();
-    setTimeout(() => joinP2P(joinCode.toUpperCase()), 50);
+  const params = new URLSearchParams(location.search);
+  const joinCode = params.get('join')?.toUpperCase();
+  const server = params.get('server');
+  if (joinCode && server && /^(https?|wss?):\/\//i.test(server)) {
+    ($('#online-server') as HTMLInputElement).value = server;
+    ($('#online-code') as HTMLInputElement).value = joinCode;
+    setTimeout(() => connectOnline(s => s.join(joinCode, playerName(), clientToken())), 50);
+  } else if (joinCode) {
+    ($('#p2p-code') as HTMLInputElement).value = joinCode;
+    setTimeout(() => joinP2P(joinCode), 50);
   }
 }
 

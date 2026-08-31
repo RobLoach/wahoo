@@ -66,4 +66,28 @@ test.describe('PHP relay server', () => {
     const log = await page.evaluate(() => (window as any).__wahoo.app.view.log);
     expect(log.length).toBeGreaterThanOrEqual(4); // deal + our move + CPU moves
   });
+
+  test('invite links carry the server and auto-join it', async ({ page }) => {
+    // Create a room directly against the relay.
+    const created = await (
+      await fetch(`http://127.0.0.1:${PHP_PORT}/api/rooms`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'Host', token: 'link-tok' }),
+      })
+    ).json();
+
+    // Open the deep link: it should join that dedicated server, not P2P.
+    await page.goto(`./?join=${created.code}&server=http://127.0.0.1:${PHP_PORT}`);
+    await page.waitForFunction(
+      () => document.querySelector('#lobby')?.textContent?.includes('(you)'),
+      undefined,
+      { timeout: 15_000 },
+    );
+    await expect(page.locator('#lobby .code')).toHaveText(created.code);
+    // And the lobby's own invite link points back at this server.
+    await expect(page.locator('#lobby .invite code')).toContainText(
+      `join=${created.code}&server=`,
+    );
+  });
 });
