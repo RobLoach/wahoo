@@ -38,19 +38,26 @@
         <div class="panel" id="online-panel">
           <h2>Online Game</h2>
           <label>Your name <input id="online-name" maxlength="12" placeholder="Player" /></label>
-          <div class="row">
-            <button id="p2p-host" class="primary">Host a Game</button>
-            <input id="p2p-code" maxlength="6" placeholder="CODE" style="text-transform:uppercase" />
-            <button id="p2p-join">Join</button>
+          <div class="tabs" role="tablist">
+            <button id="tab-p2p" class="tab active" role="tab" aria-selected="true"
+              aria-controls="tab-panel-p2p">In Your Browser</button>
+            <button id="tab-server" class="tab" role="tab" aria-selected="false"
+              aria-controls="tab-panel-server">Dedicated Server</button>
           </div>
-          <button id="p2p-resume" hidden></button>
-          <p class="hint">Hosted right in your browser — share the code with friends. A free relay
-            sets up the connection; on the same network the game then runs peer-to-peer.</p>
-          <details>
-            <summary>Use a dedicated server instead</summary>
+          <div id="tab-panel-p2p" role="tabpanel">
+            <div class="row">
+              <button id="p2p-host" class="primary">Host a Game</button>
+              <input id="p2p-code" maxlength="6" placeholder="CODE" style="text-transform:uppercase" />
+              <button id="p2p-join">Join</button>
+            </div>
+            <button id="p2p-resume" hidden></button>
+            <p class="hint">Hosted right in your browser — share the code with friends. A free relay
+              sets up the connection; on the same network the game then runs peer-to-peer.</p>
+          </div>
+          <div id="tab-panel-server" role="tabpanel" hidden>
             <label>Server <input id="online-server" placeholder="https://wahoo.robloach.net" /></label>
             <div class="row">
-              <button id="online-create">Create Room</button>
+              <button id="online-create" class="primary">Create Room</button>
               <input id="online-code" maxlength="6" placeholder="CODE" style="text-transform:uppercase" />
               <button id="online-join">Join</button>
             </div>
@@ -58,7 +65,7 @@
               You can also self-host: the PHP server from <code>server/wahoo-php</code> on any
               web host, or the Node WebSocket server via <code>npm run server</code>
               (use a <code>ws://</code> address for that one).</p>
-          </details>
+          </div>
           <div id="lobby" hidden></div>
         </div>
       </div>
@@ -75,7 +82,7 @@
 
       <p class="menu-footer">
         <a href="https://github.com/RobLoach/wahoo">Source on GitHub</a>
-        · GPL-3.0 · assisted by Claude Fable
+        · GPL-3.0
       </p>
     </section>
 

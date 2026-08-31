@@ -7,7 +7,7 @@ export const PLAYER_COLORS = [0xd95d5d, 0x4a7fd4, 0x57a15e, 0xe0a83f];
 export const PLAYER_COLORS_CSS = ['#d95d5d', '#4a7fd4', '#57a15e', '#e0a83f'];
 
 const SIZE = 820;
-const CELLS = 26.6; // 20 track cells + outward room for reserves and labels
+const CELLS = 27.2; // 20 track cells + outward room for reserves and labels
 const CELL = SIZE / CELLS;
 const PAD = ((CELLS - 20) / 2) * CELL;
 
@@ -150,7 +150,7 @@ export class BoardView {
 
   private drawStatic() {
     const bg = new Graphics();
-    bg.roundRect(6, 6, SIZE - 12, SIZE - 12, 24).fill(0xecdfc3);
+    bg.roundRect(3, 3, SIZE - 6, SIZE - 6, 14).fill(0xecdfc3);
     this.staticLayer.addChild(bg);
 
     for (let i = 0; i < TRACK_LEN; i++) {

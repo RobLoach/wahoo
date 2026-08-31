@@ -238,6 +238,19 @@ button:disabled { opacity: 0.45; cursor: default; }
   #play-banner.show { animation: none; opacity: 1; }
 }
 
+/* ------- online panel tabs ------- */
+.tabs {
+  display: flex; gap: 0; margin: 10px 0 12px;
+  border-bottom: 2px solid #b9cddd;
+}
+.tab {
+  flex: 1; background: none; border: none; border-radius: 0;
+  padding: 8px 4px; font-size: 0.88rem; color: #4a5f76;
+  border-bottom: 3px solid transparent; margin-bottom: -2px;
+}
+.tab:hover { background: #e2edf6; }
+.tab.active { color: #3a6cbd; font-weight: bold; border-bottom-color: #4a7fd4; }
+
 /* ------- house rules ------- */
 #local-rules { margin: 10px 0; font-size: 0.85rem; }
 #local-rules summary, .lobby-rules summary { cursor: pointer; font-weight: bold; }

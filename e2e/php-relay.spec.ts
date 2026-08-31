@@ -43,7 +43,7 @@ test.describe('PHP relay server', () => {
   test('rooms work end to end over HTTP polling', async ({ page }) => {
     await page.goto('./');
     await page.fill('#online-name', 'Tester');
-    await page.click('#online-panel details summary');
+    await page.click('#tab-server');
     await page.fill('#online-server', `http://127.0.0.1:${PHP_PORT}`);
     await page.click('#online-create');
 

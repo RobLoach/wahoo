@@ -132,6 +132,19 @@ function defaultServerUrl(): string {
 }
 ($('#online-server') as HTMLInputElement).value = defaultServerUrl();
 
+function selectOnlineTab(which: 'p2p' | 'server') {
+  for (const t of ['p2p', 'server'] as const) {
+    const active = t === which;
+    $(`#tab-${t}`).classList.toggle('active', active);
+    $(`#tab-${t}`).setAttribute('aria-selected', String(active));
+    $(`#tab-panel-${t}`).hidden = !active;
+  }
+  localStorage.setItem('wahoo-online-tab', which);
+}
+$('#tab-p2p').onclick = () => selectOnlineTab('p2p');
+$('#tab-server').onclick = () => selectOnlineTab('server');
+if (localStorage.getItem('wahoo-online-tab') === 'server') selectOnlineTab('server');
+
 function netHandlers(getSession: () => NetSession): OnlineHandlers {
   return {
     onView: async view => {
@@ -447,6 +460,7 @@ $('#btn-again').onclick = () => {
   const joinCode = params.get('join')?.toUpperCase();
   const server = params.get('server');
   if (joinCode && server && /^(https?|wss?):\/\//i.test(server)) {
+    selectOnlineTab('server');
     ($('#online-server') as HTMLInputElement).value = server;
     ($('#online-code') as HTMLInputElement).value = joinCode;
     setTimeout(() => connectOnline(s => s.join(joinCode, playerName(), clientToken())), 50);
