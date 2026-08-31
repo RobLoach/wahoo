@@ -37,5 +37,6 @@ Then point the game client's dedicated-server URL at `http://127.0.0.1:8099`.
 - `GET /api/rooms/{code}?clientId=…` → poll the room snapshot
 - `POST /api/rooms/{code}/sit|cpu|start|again|state|leave`
 
-Rooms idle for a day are pruned; players silent for ~75s are handed to a CPU
-(reclaimable by rejoining with the same browser).
+Rooms untouched for a week are cleared automatically to make room for new
+lobbies; players silent for ~75s are handed to a CPU (reclaimable by rejoining
+with the same browser).

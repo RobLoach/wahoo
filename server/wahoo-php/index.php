@@ -25,7 +25,7 @@ require __DIR__ . '/vendor/autoload.php';
 require __DIR__ . '/words.php';
 
 const GAME_URL = 'https://robloach.github.io/wahoo';
-const ROOM_IDLE_SECONDS = 86400;   // prune rooms untouched for a day
+const ROOM_IDLE_SECONDS = 604800;  // prune rooms untouched for a week
 const CLIENT_STALE_SECONDS = 75;   // a client silent this long is treated as gone
 const MAX_STATE_BYTES = 300000;
 
@@ -200,6 +200,15 @@ function looksLikeGameState(mixed $state): bool
     return strlen(json_encode($state)) <= MAX_STATE_BYTES;
 }
 
+/** Clear rooms nobody has touched for a week, making space for new lobbies. */
+function pruneIdleRooms(PDO $pdo): void
+{
+    $cutoff = time() - ROOM_IDLE_SECONDS;
+    $pdo->prepare('DELETE FROM clients WHERE room_code IN (SELECT code FROM rooms WHERE updated_at < ?)')
+        ->execute([$cutoff]);
+    $pdo->prepare('DELETE FROM rooms WHERE updated_at < ?')->execute([$cutoff]);
+}
+
 /** Anyone silent too long is folded into a CPU so the game keeps moving. */
 function reapStaleClients(PDO $pdo, array &$room): bool
 {
@@ -295,10 +304,7 @@ $app->post('/api/rooms', function (Request $request, Response $response): Respon
     $name = sanitizeName($body['name'] ?? null);
     $token = is_string($body['token'] ?? null) ? substr($body['token'], 0, 64) : null;
 
-    // Lazy housekeeping: forget rooms nobody has touched in a day.
-    $pdo->prepare('DELETE FROM clients WHERE room_code IN (SELECT code FROM rooms WHERE updated_at < ?)')
-        ->execute([time() - ROOM_IDLE_SECONDS]);
-    $pdo->prepare('DELETE FROM rooms WHERE updated_at < ?')->execute([time() - ROOM_IDLE_SECONDS]);
+    pruneIdleRooms($pdo);
 
     $code = newRoomCode($pdo);
     $clientId = bin2hex(random_bytes(12));
@@ -319,6 +325,7 @@ $app->post('/api/rooms', function (Request $request, Response $response): Respon
 // Join (or rejoin): reclaim a seat by token, take a free seat, or spectate.
 $app->post('/api/rooms/{code}/join', function (Request $request, Response $response, array $args): Response {
     $pdo = db();
+    pruneIdleRooms($pdo);
     $pdo->beginTransaction();
     $room = loadRoom($pdo, $args['code']);
     if ($room === null) {
