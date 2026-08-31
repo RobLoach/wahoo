@@ -351,7 +351,7 @@ function renderLobby(session: NetSession, room: RoomInfo) {
     if (!room.started) {
       const rulesBox = document.createElement('details');
       rulesBox.className = 'lobby-rules';
-      rulesBox.innerHTML = '<summary>House rules</summary>' + rulesControlsHtml('lobby');
+      rulesBox.innerHTML = '<summary>House Rules</summary>' + rulesControlsHtml('lobby');
       lobby.appendChild(rulesBox);
       watchRules(rulesBox, 'lobby');
     }

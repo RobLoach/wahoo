@@ -252,6 +252,10 @@ button:disabled { opacity: 0.45; cursor: default; }
 .tab.active { color: #3a6cbd; font-weight: bold; border-bottom-color: #4a7fd4; }
 
 /* ------- house rules ------- */
+/* Checkboxes are inline controls: exempt them from the panel's full-width inputs. */
+.panel input[type="checkbox"] {
+  width: auto; margin: 0 6px 0 0; vertical-align: middle;
+}
 #local-rules { margin: 10px 0; font-size: 0.85rem; }
 #local-rules summary, .lobby-rules summary { cursor: pointer; font-weight: bold; }
 #local-rules label, .lobby-rules label { display: block; margin: 6px 0; }
