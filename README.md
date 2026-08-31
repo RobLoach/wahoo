@@ -31,7 +31,7 @@ stomping anyone who gets in the way.
 - **Dedicated server option** — the same rooms can run on a Node WebSocket
   server for always-on hosting.
 
-## The rules in brief
+## The Rules in Brief
 
 - Teams sit opposite each other: **Red & Green** vs **Blue & Yellow**. First team
   to house all 8 combined bunnies in their burrows wins.
@@ -69,7 +69,7 @@ home). Replace those files (updating the imports in `src/sounds.ts` if the
 format changes) to customize them.
 
 
-## Online play
+## Online Play
 
 The default way to play online is **browser-hosted**: click *Host a Game* and
 share the room code — no server required. The internet is only needed for the
@@ -78,7 +78,7 @@ browsers. When a strict NAT or firewall blocks the direct path, the connection
 automatically falls back to a free TURN relay (traffic stays end-to-end
 encrypted); swap in your own TURN credentials in `src/net/p2p.ts` if needed.
 
-### Optional dedicated server
+### Optional Dedicated Server
 
 For an always-on room host, run the WebSocket server (Node ≥ 23.6):
 
@@ -100,7 +100,11 @@ Pushes to `main` build and deploy the client to GitHub Pages via
 [GPL-3.0-or-later](LICENSE). Free as in freedom: use it, change it, share it —
 derivatives stay free too.
 
-## AI disclaimer
+## Credits
+
+Game design and ruleset by Langzdin family and friends.
+
+## AI Disclaimer
 
 This game was built with AI assistance from Claude Fable (Anthropic), with
-direction, design decisions, and the Wahoo ruleset by Rob Loach.
+direction, design decisions, by Rob Loach and Drew.
