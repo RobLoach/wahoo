@@ -2,7 +2,7 @@ import { applyMove, createGame } from '../engine/game.ts';
 import { chooseMove } from '../engine/ai.ts';
 import { makeView } from '../net/protocol.ts';
 import type { View } from '../net/protocol.ts';
-import type { Difficulty, GameState, Move } from '../engine/types.ts';
+import type { Difficulty, GameState, HouseRules, Move } from '../engine/types.ts';
 import { PLAYER_NAMES } from '../engine/types.ts';
 
 export type SeatKind = 'human' | 'cpu-easy' | 'cpu-medium' | 'cpu-hard' | 'cpu-insane';
@@ -49,9 +49,12 @@ export class LocalSession {
     private onView: (view: View) => void,
     cpuDelay?: number,
     resume?: GameState,
+    rules?: Partial<HouseRules>,
   ) {
     this.cpuDelay = cpuDelay ?? DEFAULT_CPU_DELAY_MS;
-    this.state = resume ? structuredClone(resume) : createGame(Math.floor(Math.random() * 2 ** 31));
+    this.state = resume
+      ? structuredClone(resume)
+      : createGame(Math.floor(Math.random() * 2 ** 31), rules);
   }
 
   start() {
@@ -97,7 +100,7 @@ export class LocalSession {
   /** Rematch: fresh game, same seats. */
   restart() {
     if (this.timer) clearTimeout(this.timer);
-    this.state = createGame(Math.floor(Math.random() * 2 ** 31));
+    this.state = createGame(Math.floor(Math.random() * 2 ** 31), this.state.rules);
     this.push();
     this.maybeCpu();
   }

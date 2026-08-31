@@ -2,6 +2,8 @@ import { expect, test } from '@playwright/test';
 import { spawn, spawnSync } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const PHP_PORT = 8098;
 const hasPhp = spawnSync('php', ['-v']).status === 0;
@@ -14,9 +16,13 @@ test.describe('PHP relay server', () => {
   test.describe.configure({ timeout: 90_000 });
 
   test.beforeAll(async () => {
+    // A fresh DB per run: repeated local runs would otherwise trip the
+    // per-IP room-creation throttle.
+    const db = join(tmpdir(), `wahoo-e2e-${process.pid}.sqlite`);
     php = spawn('php', ['-S', `127.0.0.1:${PHP_PORT}`, 'index.php'], {
       cwd: 'server/wahoo-php',
       stdio: 'ignore',
+      env: { ...process.env, WAHOO_DB: db },
     });
     // Wait for the server to accept requests.
     for (let i = 0; i < 40; i++) {
@@ -37,7 +43,7 @@ test.describe('PHP relay server', () => {
   test('rooms work end to end over HTTP polling', async ({ page }) => {
     await page.goto('./');
     await page.fill('#online-name', 'Tester');
-    await page.click('details summary');
+    await page.click('#online-panel details summary');
     await page.fill('#online-server', `http://127.0.0.1:${PHP_PORT}`);
     await page.click('#online-create');
 

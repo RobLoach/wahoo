@@ -1,9 +1,22 @@
 import { applyMove, createGame } from '../engine/game.ts';
 import { chooseMove } from '../engine/ai.ts';
-import { makeView } from './protocol.ts';
+import { EMOTES, makeView } from './protocol.ts';
 import type { ClientMsg, RoomInfo, ServerMsg } from './protocol.ts';
-import type { Difficulty, GameState } from '../engine/types.ts';
+import type { Difficulty, GameState, HouseRules } from '../engine/types.ts';
 import { PLAYER_NAMES } from '../engine/types.ts';
+
+/** Keep only known, well-typed rule overrides from a client. */
+export function sanitizeRules(raw: unknown): Partial<HouseRules> {
+  const rules: Partial<HouseRules> = {};
+  if (typeof raw !== 'object' || raw === null) return rules;
+  const r = raw as Record<string, unknown>;
+  if (typeof r.friendlyFire === 'boolean') rules.friendlyFire = r.friendlyFire;
+  if (r.sevenMaxBunnies === 1 || r.sevenMaxBunnies === 2 || r.sevenMaxBunnies === 4) {
+    rules.sevenMaxBunnies = r.sevenMaxBunnies;
+  }
+  if (typeof r.burrowJump === 'boolean') rules.burrowJump = r.burrowJump;
+  return rules;
+}
 
 interface Seat {
   name: string;
@@ -113,19 +126,28 @@ export class GameRoom {
             };
           }
         }
-        this.game = createGame(Math.floor(Math.random() * 2 ** 31));
+        this.game = createGame(Math.floor(Math.random() * 2 ** 31), sanitizeRules(msg.rules));
         this.broadcastRoom();
         this.broadcastState();
         this.scheduleCpu();
         break;
       }
       case 'again': {
-        // Host starts a rematch with the same seats once a game has finished.
+        // Host starts a rematch with the same seats and rules.
         if (this.hostId !== id || !this.game || this.game.winner === null) return;
-        this.game = createGame(Math.floor(Math.random() * 2 ** 31));
+        this.game = createGame(Math.floor(Math.random() * 2 ** 31), this.game.rules);
         this.broadcastRoom();
         this.broadcastState();
         this.scheduleCpu();
+        break;
+      }
+      case 'emote': {
+        const seat = this.clients.get(id);
+        if (seat === null || seat === undefined) return;
+        if (!EMOTES.includes(msg.emoji)) return;
+        for (const clientId of this.clients.keys()) {
+          this.send(clientId, { t: 'emote', seat, emoji: msg.emoji });
+        }
         break;
       }
       case 'move': {

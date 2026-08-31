@@ -4,7 +4,7 @@ import { GameRoom } from './room.ts';
 import { randomRoomCode } from './words.ts';
 import type { RoomSnapshot } from './room.ts';
 import type { ClientMsg, ServerMsg } from './protocol.ts';
-import type { Difficulty, Move } from '../engine/types.ts';
+import type { Difficulty, HouseRules, Move } from '../engine/types.ts';
 import type { OnlineHandlers } from './client.ts';
 
 /** Namespaced PeerJS id so room codes don't collide with other apps. */
@@ -106,6 +106,7 @@ export class P2PHostSession {
     if (clientId === HOST_ID) {
       if (msg.t === 'state') this.handlers.onView(msg.view);
       else if (msg.t === 'room') this.handlers.onRoom(msg.room);
+      else if (msg.t === 'emote') this.handlers.onEmote?.(msg.seat, msg.emoji);
       else if (msg.t === 'err') this.handlers.onError(msg.msg);
     } else {
       this.conns.get(clientId)?.send(msg);
@@ -149,7 +150,8 @@ export class P2PHostSession {
 
   sit(seat: number) { this.room.handle(HOST_ID, { t: 'sit', seat }); }
   cpu(seat: number, on: boolean, difficulty?: Difficulty) { this.room.handle(HOST_ID, { t: 'cpu', seat, on, difficulty }); }
-  startGame() { this.room.handle(HOST_ID, { t: 'start' }); }
+  startGame(rules?: Partial<HouseRules>) { this.room.handle(HOST_ID, { t: 'start', rules }); }
+  emote(emoji: string) { this.room.handle(HOST_ID, { t: 'emote', emoji }); }
   playAgain() { this.room.handle(HOST_ID, { t: 'again' }); }
   submit(move: Move) { this.room.handle(HOST_ID, { t: 'move', move }); }
 
@@ -196,6 +198,7 @@ export class P2PGuestSession {
         if (!msg || typeof msg.t !== 'string') return;
         if (msg.t === 'state') this.handlers.onView(msg.view);
         else if (msg.t === 'room') this.handlers.onRoom(msg.room);
+        else if (msg.t === 'emote') this.handlers.onEmote?.(msg.seat, msg.emoji);
         else if (msg.t === 'err') this.handlers.onError(msg.msg);
       });
       conn.on('close', () => {
@@ -216,7 +219,8 @@ export class P2PGuestSession {
 
   sit(seat: number) { this.send({ t: 'sit', seat }); }
   cpu(seat: number, on: boolean, difficulty?: Difficulty) { this.send({ t: 'cpu', seat, on, difficulty }); }
-  startGame() { this.send({ t: 'start' }); }
+  startGame(rules?: Partial<HouseRules>) { this.send({ t: 'start', rules }); }
+  emote(emoji: string) { this.send({ t: 'emote', emoji }); }
   playAgain() { this.send({ t: 'again' }); }
   submit(move: Move) { this.send({ t: 'move', move }); }
 

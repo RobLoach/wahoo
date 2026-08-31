@@ -102,6 +102,18 @@ PORT=9000 npm run server
 Pushes to `main` build and deploy the client to GitHub Pages via
 `.github/workflows/deploy.yml`.
 
+### Publishing to itch.io
+
+```bash
+npm run build:itch
+cd dist-itch && zip -r ../wahoo-itch.zip . && cd ..
+```
+
+Upload `wahoo-itch.zip` to an itch.io **HTML** project, tick *"This file will
+be played in the browser"*, and set the viewport to at least 1080×800 (or
+enable fullscreen). The build uses relative paths so it runs from itch's CDN;
+online play works there too.
+
 ## License
 
 [GPL-3.0-or-later](LICENSE). Free as in freedom: use it, change it, share it —

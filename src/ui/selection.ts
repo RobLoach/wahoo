@@ -2,7 +2,7 @@
 // Selection state machine helpers: card -> (bunny) -> destination
 // ---------------------------------------------------------------------------
 import { forwardDest } from '../engine/game.ts';
-import type { Bunny, CardAction, Move } from '../engine/types.ts';
+import type { Bunny, CardAction, HouseRules, Move } from '../engine/types.ts';
 import { TEAMMATE_OF } from '../engine/types.ts';
 import type { View } from '../net/protocol.ts';
 
@@ -40,11 +40,11 @@ export function wrapAction(view: View, sel: Selection, action: CardAction): Move
 }
 
 /** Apply chosen 7-split parts to a copy of the bunny list (mirrors engine stomps). */
-export function simBunnies(bunnies: Bunny[], parts: SevenPart[]): Bunny[] {
+export function simBunnies(bunnies: Bunny[], parts: SevenPart[], rules?: HouseRules): Bunny[] {
   const sim: Bunny[] = structuredClone(bunnies);
   for (const part of parts) {
     const bunny = sim.find(b => b.id === part.bunny)!;
-    const dest = forwardDest({ bunnies: sim }, bunny, part.steps);
+    const dest = forwardDest({ bunnies: sim, rules }, bunny, part.steps);
     if (!dest) continue;
     if (dest.kind === 'track') {
       const victim = sim.find(

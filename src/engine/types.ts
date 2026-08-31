@@ -69,7 +69,25 @@ export interface GameState {
   lastPlay: { seat: number; card?: Card; desc?: string; bonus?: boolean; fold?: boolean } | null;
   /** Running tallies per seat, for the victory screen. */
   stats: { stomps: number[]; folds: number[] };
+  /** The variants this game was started with. */
+  rules: HouseRules;
 }
+
+/** Optional variants the host can toggle before a game starts. */
+export interface HouseRules {
+  /** May you stomp your own team — by landing on them or King-spawning onto them? */
+  friendlyFire: boolean;
+  /** How many bunnies a 7 may split across. */
+  sevenMaxBunnies: 1 | 2 | 4;
+  /** May bunnies jump over occupied burrow slots? */
+  burrowJump: boolean;
+}
+
+export const DEFAULT_RULES: HouseRules = {
+  friendlyFire: true,
+  sevenMaxBunnies: 2,
+  burrowJump: false,
+};
 
 export const TRACK_LEN = 80;
 export const SIDE_LEN = 20;

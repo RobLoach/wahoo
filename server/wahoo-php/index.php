@@ -28,6 +28,8 @@ const GAME_URL = 'https://robloach.github.io/wahoo';
 const ROOM_IDLE_SECONDS = 604800;  // prune rooms untouched for a week
 const CLIENT_STALE_SECONDS = 75;   // a client silent this long is treated as gone
 const MAX_STATE_BYTES = 300000;
+const MAX_ROOMS_PER_IP_PER_HOUR = 20;
+const EMOTES = ['👍', '😂', '😱', '🥕', '💥', '🐰'];
 
 // ---------------------------------------------------------------------------
 // Storage
@@ -37,11 +39,15 @@ function db(): PDO
 {
     static $pdo = null;
     if ($pdo === null) {
-        $dir = __DIR__ . '/data';
-        if (!is_dir($dir)) {
-            mkdir($dir, 0775, true);
+        $file = getenv('WAHOO_DB');
+        if ($file === false || $file === '') {
+            $dir = __DIR__ . '/data';
+            if (!is_dir($dir)) {
+                mkdir($dir, 0775, true);
+            }
+            $file = $dir . '/wahoo.sqlite';
         }
-        $pdo = new PDO('sqlite:' . $dir . '/wahoo.sqlite');
+        $pdo = new PDO('sqlite:' . $file);
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $pdo->exec('PRAGMA journal_mode = WAL');
         $pdo->exec('PRAGMA busy_timeout = 5000');
@@ -61,6 +67,17 @@ function db(): PDO
             token TEXT,
             last_seen INTEGER NOT NULL
         )');
+        $pdo->exec('CREATE TABLE IF NOT EXISTS rate_limits (
+            ip TEXT NOT NULL,
+            created_at INTEGER NOT NULL
+        )');
+        // Migrations for databases created before emotes existed.
+        try {
+            $pdo->exec('ALTER TABLE rooms ADD COLUMN emote TEXT');
+            $pdo->exec('ALTER TABLE rooms ADD COLUMN emote_n INTEGER NOT NULL DEFAULT 0');
+        } catch (PDOException) {
+            // columns already exist
+        }
     }
     return $pdo;
 }
@@ -268,6 +285,9 @@ function snapshot(array $room, string $clientId): array
         'hostIsYou' => $room['host_client'] === $clientId,
         'started' => $room['game'] !== null,
         'game' => $room['game'],
+        'emote' => isset($room['emote']) && $room['emote'] !== null
+            ? json_decode($room['emote'], true) : null,
+        'emoteN' => (int) ($room['emote_n'] ?? 0),
     ];
 }
 
@@ -305,6 +325,16 @@ $app->post('/api/rooms', function (Request $request, Response $response): Respon
     $token = is_string($body['token'] ?? null) ? substr($body['token'], 0, 64) : null;
 
     pruneIdleRooms($pdo);
+
+    // A light per-IP throttle so a script can't flood the database.
+    $ip = (string) ($request->getServerParams()['REMOTE_ADDR'] ?? 'unknown');
+    $pdo->prepare('DELETE FROM rate_limits WHERE created_at < ?')->execute([time() - 3600]);
+    $count = $pdo->prepare('SELECT COUNT(*) FROM rate_limits WHERE ip = ?');
+    $count->execute([$ip]);
+    if ((int) $count->fetchColumn() >= MAX_ROOMS_PER_IP_PER_HOUR) {
+        return errorResponse($response, 'Too many rooms created — try again later.', 429);
+    }
+    $pdo->prepare('INSERT INTO rate_limits (ip, created_at) VALUES (?, ?)')->execute([$ip, time()]);
 
     $code = newRoomCode($pdo);
     $clientId = bin2hex(random_bytes(12));
@@ -383,7 +413,42 @@ $app->get('/api/rooms/{code}', function (Request $request, Response $response, a
         $pdo->commit();
         $room = loadRoom($pdo, $args['code']);
     }
+    // Unchanged since the client's version: send a tiny heartbeat instead of
+    // the full snapshot (~95% less polling traffic while idle).
+    $since = $request->getQueryParams()['since'] ?? null;
+    if ($since !== null && (int) $since === (int) $room['version']) {
+        return jsonResponse($response, [
+            'version' => (int) $room['version'],
+            'ageMs' => max(0, time() - (int) $room['updated_at']) * 1000,
+            'emote' => isset($room['emote']) && $room['emote'] !== null
+                ? json_decode($room['emote'], true) : null,
+            'emoteN' => (int) ($room['emote_n'] ?? 0),
+        ]);
+    }
     return jsonResponse($response, snapshot($room, $clientId));
+});
+
+// Fling a reaction at the table. No version bump and no updated_at touch:
+// emotes must not restart the CPU-turn clock or re-trigger move animations.
+$app->post('/api/rooms/{code}/emote', function (Request $request, Response $response, array $args): Response {
+    $pdo = db();
+    $body = (array) $request->getParsedBody();
+    $clientId = (string) ($body['clientId'] ?? '');
+    $emoji = (string) ($body['emoji'] ?? '');
+    $room = loadRoom($pdo, $args['code']);
+    if ($room === null || clientRow($pdo, $clientId, $args['code']) === null) {
+        return errorResponse($response, 'Room not found.', 404);
+    }
+    $seat = seatOf($room, $clientId);
+    if ($seat === null || !in_array($emoji, EMOTES, true)) {
+        return errorResponse($response, 'Not allowed.', 403);
+    }
+    touchClient($pdo, $clientId);
+    $pdo->prepare('UPDATE rooms SET emote = ?, emote_n = emote_n + 1 WHERE code = ?')
+        ->execute([json_encode(['seat' => $seat, 'emoji' => $emoji]), $room['code']]);
+    $n = $pdo->prepare('SELECT emote_n FROM rooms WHERE code = ?');
+    $n->execute([$room['code']]);
+    return jsonResponse($response, ['ok' => true, 'emoteN' => (int) $n->fetchColumn()]);
 });
 
 // Change seats before the game starts.

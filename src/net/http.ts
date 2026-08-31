@@ -6,7 +6,7 @@
 import { applyMove, cloneState, createGame } from '../engine/game.ts';
 import { chooseMove } from '../engine/ai.ts';
 import { makeView } from './protocol.ts';
-import type { Difficulty, GameState, Move } from '../engine/types.ts';
+import type { Difficulty, GameState, HouseRules, Move } from '../engine/types.ts';
 import { PLAYER_NAMES } from '../engine/types.ts';
 import type { OnlineHandlers } from './client.ts';
 
@@ -22,6 +22,16 @@ interface Snapshot {
   hostIsYou: boolean;
   started: boolean;
   game: GameState | null;
+  emote?: { seat: number; emoji: string } | null;
+  emoteN?: number;
+}
+
+/** What an unchanged poll returns: just enough to keep clocks and emotes fresh. */
+interface Heartbeat {
+  version: number;
+  ageMs: number;
+  emote?: { seat: number; emoji: string } | null;
+  emoteN?: number;
 }
 
 export class HttpSession {
@@ -34,6 +44,7 @@ export class HttpSession {
   private busy = false;
   private closed = false;
   private missedPolls = 0;
+  private lastEmoteN = 0;
 
   constructor(url: string, private handlers: OnlineHandlers, onOpen: () => void) {
     this.base = url.replace(/\/+$/, '');
@@ -84,6 +95,7 @@ export class HttpSession {
   private enter(d: Snapshot & { clientId?: string }) {
     this.code = d.code;
     this.clientId = d.clientId ?? null;
+    this.lastEmoteN = d.emoteN ?? 0;
     this.accept(d);
     this.timer = setInterval(() => void this.poll(), POLL_MS);
   }
@@ -92,8 +104,19 @@ export class HttpSession {
     if (this.closed || !this.code || this.busy) return;
     this.busy = true;
     try {
-      const d = await this.api(`/api/rooms/${this.code}?clientId=${this.clientId}`);
+      const d = await this.api<Snapshot | Heartbeat>(
+        `/api/rooms/${this.code}?clientId=${this.clientId}&since=${this.version}`,
+      );
       this.missedPolls = 0;
+      this.acceptEmote(d);
+      if (!('seats' in d)) {
+        // Unchanged: a tiny heartbeat — refresh the CPU-turn clock only.
+        if (this.last) {
+          this.last.ageMs = d.ageMs;
+          await this.maybePlayCpu(this.last);
+        }
+        return;
+      }
       this.accept(d);
       await this.maybePlayCpu(d);
     } catch (err) {
@@ -117,6 +140,13 @@ export class HttpSession {
     return d.seats.map((seat, i) =>
       seat ? (seat.cpu ? `CPU ${seat.name}` : seat.name) : `CPU ${PLAYER_NAMES[i]}`,
     );
+  }
+
+  private acceptEmote(d: { emote?: { seat: number; emoji: string } | null; emoteN?: number }) {
+    if (typeof d.emoteN === 'number' && d.emoteN > this.lastEmoteN) {
+      this.lastEmoteN = d.emoteN;
+      if (d.emote) this.handlers.onEmote?.(d.emote.seat, d.emote.emoji);
+    }
   }
 
   private accept(d: Snapshot) {
@@ -183,18 +213,33 @@ export class HttpSession {
       .catch(e => this.fail(e));
   }
 
-  startGame() {
-    const state = createGame(Math.floor(Math.random() * 2 ** 31));
+  startGame(rules?: Partial<HouseRules>) {
+    const state = createGame(Math.floor(Math.random() * 2 ** 31), rules);
     void this.api(`/api/rooms/${this.code}/start`, { clientId: this.clientId, state })
       .then(d => this.accept(d))
       .catch(e => this.fail(e));
   }
 
   playAgain() {
-    const state = createGame(Math.floor(Math.random() * 2 ** 31));
+    const state = createGame(Math.floor(Math.random() * 2 ** 31), this.last?.game?.rules);
     void this.api(`/api/rooms/${this.code}/again`, { clientId: this.clientId, state })
       .then(d => this.accept(d))
       .catch(e => this.fail(e));
+  }
+
+  emote(emoji: string) {
+    const seat = this.last?.yourSeat;
+    if (seat === null || seat === undefined || this.closed) return;
+    // Show our own reaction immediately; skip the echo when it polls back.
+    this.handlers.onEmote?.(seat, emoji);
+    void this.api<{ emoteN?: number }>(`/api/rooms/${this.code}/emote`, {
+      clientId: this.clientId,
+      emoji,
+    })
+      .then(d => {
+        if (typeof d.emoteN === 'number') this.lastEmoteN = d.emoteN;
+      })
+      .catch(() => {});
   }
 
   /** Applies the move locally (throws on illegal) and posts the result. */
@@ -209,7 +254,15 @@ export class HttpSession {
       state: sim,
     })
       .then(next => this.accept(next))
-      .catch(e => this.fail(e));
+      .catch(e => {
+        if ((e as { status?: number }).status === 409) {
+          // Someone else's action landed first: quietly catch up instead of
+          // alarming the player — their turn state refreshes on the next view.
+          void this.poll();
+          return;
+        }
+        this.fail(e);
+      });
   }
 
   leave() {

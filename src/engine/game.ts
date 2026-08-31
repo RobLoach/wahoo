@@ -1,8 +1,8 @@
 import type {
-  Bunny, BunnyPlace, Card, CardAction, GameState, Move, MoveEffect, Rank, Suit,
+  Bunny, BunnyPlace, Card, CardAction, GameState, HouseRules, Move, MoveEffect, Rank, Suit,
 } from './types.ts';
 import {
-  BURROW_SLOTS, HAND_SIZE, SPAWN_INDEX, TEAMMATE_OF, TRACK_LEN,
+  BURROW_SLOTS, DEFAULT_RULES, HAND_SIZE, SPAWN_INDEX, TEAM_OF, TEAMMATE_OF, TRACK_LEN,
   PLAYER_NAMES,
 } from './types.ts';
 
@@ -39,7 +39,7 @@ export function buildDeck(): Card[] {
   return cards;
 }
 
-export function createGame(seed: number): GameState {
+export function createGame(seed: number, rules?: Partial<HouseRules>): GameState {
   const bunnies: Bunny[] = [];
   for (let p = 0; p < 4; p++) {
     for (let n = 0; n < 4; n++) {
@@ -62,6 +62,7 @@ export function createGame(seed: number): GameState {
     effects: [],
     lastPlay: null,
     stats: { stomps: [0, 0, 0, 0], folds: [0, 0, 0, 0] },
+    rules: { ...DEFAULT_RULES, ...rules },
   };
   shuffle(state, state.drawPile);
   startRound(state);
@@ -104,7 +105,19 @@ export function distOf(bunny: Bunny): number {
 }
 
 /** Minimal state slice needed for pure position queries (View satisfies it). */
-export interface BunnyField { bunnies: Bunny[] }
+export interface BunnyField { bunnies: Bunny[]; rules?: HouseRules }
+
+function rulesOf(state: BunnyField): HouseRules {
+  return state.rules ?? DEFAULT_RULES;
+}
+
+/** With friendly fire off, landing on your own team's bunny is illegal. */
+function landingBlocked(state: BunnyField, mover: Bunny, index: number): boolean {
+  if (rulesOf(state).friendlyFire) return false;
+  const occupant = bunnyAtTrack(state, index);
+  return occupant !== undefined && occupant.id !== mover.id &&
+    TEAM_OF(occupant.player) === TEAM_OF(mover.player);
+}
 
 export function bunnyAtTrack(state: BunnyField, index: number): Bunny | undefined {
   return state.bunnies.find(b => b.place.kind === 'track' && b.place.index === index);
@@ -153,29 +166,34 @@ function reserveBunny(state: GameState, player: number): Bunny | undefined {
  * passed through as well as the landing slot must be open.
  */
 export function forwardDest(state: BunnyField, bunny: Bunny, steps: number): BunnyPlace | null {
+  const jump = rulesOf(state).burrowJump;
   if (bunny.place.kind === 'track') {
     const total = distOf(bunny) + steps;
     if (total < TRACK_LEN) {
-      return { kind: 'track', index: (bunny.place.index + steps) % TRACK_LEN };
+      const index = (bunny.place.index + steps) % TRACK_LEN;
+      if (landingBlocked(state, bunny, index)) return null;
+      return { kind: 'track', index };
     }
     const slot = total - TRACK_LEN;
     if (slot >= BURROW_SLOTS) return null; // overshoots the burrow
-    if (!burrowSlotsFree(state, bunny.player, 0, slot)) return null;
+    if (!burrowSlotsFree(state, bunny.player, jump ? slot : 0, slot)) return null;
     return { kind: 'burrow', slot };
   }
   if (bunny.place.kind === 'burrow') {
     const slot = bunny.place.slot + steps;
     if (slot >= BURROW_SLOTS) return null;
-    if (!burrowSlotsFree(state, bunny.player, bunny.place.slot + 1, slot)) return null;
+    if (!burrowSlotsFree(state, bunny.player, jump ? slot : bunny.place.slot + 1, slot)) return null;
     return { kind: 'burrow', slot };
   }
   return null;
 }
 
 /** Destination of a backward-4: four spaces back along the track (never the burrow). */
-export function backwardDest(bunny: Bunny): BunnyPlace | null {
+export function backwardDest(state: BunnyField, bunny: Bunny): BunnyPlace | null {
   if (bunny.place.kind !== 'track') return null;
-  return { kind: 'track', index: (bunny.place.index - 4 + TRACK_LEN) % TRACK_LEN };
+  const index = (bunny.place.index - 4 + TRACK_LEN) % TRACK_LEN;
+  if (landingBlocked(state, bunny, index)) return null;
+  return { kind: 'track', index };
 }
 
 function forwardActions(state: GameState, ctrl: number, steps: number): CardAction[] {
@@ -188,19 +206,19 @@ function forwardActions(state: GameState, ctrl: number, steps: number): CardActi
 }
 
 function spawnAction(state: GameState, ctrl: number): CardAction[] {
-  return reserveBunny(state, ctrl) ? [{ kind: 'spawn' }] : [];
+  const bunny = reserveBunny(state, ctrl);
+  if (!bunny) return [];
+  if (landingBlocked(state, bunny, SPAWN_INDEX(ctrl))) return [];
+  return [{ kind: 'spawn' }];
 }
 
 function backwardActions(state: GameState, ctrl: number): CardAction[] {
   // Moving backward stays on the track (stomping any occupant); the burrow is
   // only entered by completing a lap forward.
   return state.bunnies
-    .filter(b => b.player === ctrl && b.place.kind === 'track')
+    .filter(b => b.player === ctrl && b.place.kind === 'track' && backwardDest(state, b) !== null)
     .map(b => ({ kind: 'backward', bunny: b.id }) as CardAction);
 }
-
-/** A 7 moves one bunny 7 tiles, or splits across at most two bunnies. */
-const SEVEN_MAX_BUNNIES = 2;
 
 /** Enumerate valid 7-splits (deduplicated by their part multiset). */
 function sevenActions(state: GameState, ctrl: number): CardAction[] {
@@ -222,7 +240,7 @@ function sevenActions(state: GameState, ctrl: number): CardAction[] {
       }
       return;
     }
-    if (used.length >= SEVEN_MAX_BUNNIES) return;
+    if (used.length >= rulesOf(state).sevenMaxBunnies) return;
     for (const b of movable) {
       if (used.includes(b.id)) continue;
       const simBunny = sim.bunnies.find(x => x.id === b.id)!;
@@ -251,9 +269,16 @@ function swapActions(state: GameState, ctrl: number): CardAction[] {
 
 function kingSpawnActions(state: GameState, ctrl: number): CardAction[] {
   if (!reserveBunny(state, ctrl)) return [];
-  // Spawn from reserve onto any other player's track bunny — teammates included.
+  // Spawn from reserve onto any other player's track bunny (teammates only
+  // when friendly fire is on).
+  const rules = rulesOf(state);
   return state.bunnies
-    .filter(b => b.player !== ctrl && b.place.kind === 'track')
+    .filter(
+      b =>
+        b.player !== ctrl &&
+        b.place.kind === 'track' &&
+        (rules.friendlyFire || TEAM_OF(b.player) !== TEAM_OF(ctrl)),
+    )
     .map(b => ({ kind: 'kingSpawn', target: b.id }) as CardAction);
 }
 
@@ -340,6 +365,9 @@ function applyAction(state: GameState, seat: number, action: CardAction): void {
     case 'spawn': {
       const bunny = reserveBunny(state, ctrl);
       if (!bunny) throw new Error('no bunny in reserve');
+      if (landingBlocked(state, bunny, SPAWN_INDEX(ctrl))) {
+        throw new Error('a teammate holds your spawn space');
+      }
       moveBunnyTo(state, bunny.id, { kind: 'track', index: SPAWN_INDEX(ctrl) }, 'jump');
       state.log.push(`${name} spawns a bunny.`);
       break;
@@ -356,8 +384,8 @@ function applyAction(state: GameState, seat: number, action: CardAction): void {
     case 'backward': {
       const bunny = state.bunnies.find(b => b.id === action.bunny)!;
       if (bunny.player !== ctrl) throw new Error('not your bunny');
-      const dest = backwardDest(bunny);
-      if (!dest) throw new Error('bunny not on track');
+      const dest = backwardDest(state, bunny);
+      if (!dest) throw new Error('illegal backward move');
       moveBunnyTo(state, bunny.id, dest, 'backward');
       break;
     }
@@ -368,8 +396,8 @@ function applyAction(state: GameState, seat: number, action: CardAction): void {
       }
       const ids = action.parts.map(p => p.bunny);
       if (new Set(ids).size !== ids.length) throw new Error('seven parts must use distinct bunnies');
-      if (ids.length > SEVEN_MAX_BUNNIES) {
-        throw new Error('seven may move at most two bunnies');
+      if (ids.length > rulesOf(state).sevenMaxBunnies) {
+        throw new Error('seven split across too many bunnies');
       }
       for (const part of action.parts) {
         const bunny = state.bunnies.find(b => b.id === part.bunny)!;
@@ -401,6 +429,9 @@ function applyAction(state: GameState, seat: number, action: CardAction): void {
       const target = state.bunnies.find(b => b.id === action.target)!;
       if (target.place.kind !== 'track' || target.player === ctrl) {
         throw new Error('king must stomp another player\'s track bunny');
+      }
+      if (!rulesOf(state).friendlyFire && TEAM_OF(target.player) === TEAM_OF(ctrl)) {
+        throw new Error('friendly fire is off: king cannot stomp a teammate');
       }
       const bunny = reserveBunny(state, ctrl);
       if (!bunny) throw new Error('no bunny in reserve');
@@ -444,7 +475,7 @@ function describeAction(state: GameState, seat: number, action: CardAction): str
       }
       case 'backward': {
         const bunny = state.bunnies.find(b => b.id === action.bunny)!;
-        const dest = backwardDest(bunny);
+        const dest = backwardDest(state, bunny);
         const v = dest?.kind === 'track' ? victimAt(dest.index) : null;
         return `moved ${whose} 4 backward${v ? `, stomping ${v}` : ''}`;
       }

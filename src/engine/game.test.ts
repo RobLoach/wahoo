@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  actionsForCard, applyMove, buildDeck, createGame, legalMoves,
+  actionsForCard, applyMove, buildDeck, createGame, forwardDest, legalMoves,
 } from './game.ts';
 import { chooseMove } from './ai.ts';
 import type { CardAction, GameState, Move } from './types.ts';
@@ -339,5 +339,63 @@ describe('full games', () => {
       }
       expect(g.winner).not.toBeNull();
     }
+  });
+});
+
+describe('house rules', () => {
+  it('blocks landing on a teammate when friendly fire is off', () => {
+    const strict = createGame(1, { friendlyFire: false });
+    expect(strict.rules.friendlyFire).toBe(false);
+    put(strict, 0, { kind: 'track', index: 0 });
+    put(strict, 8, { kind: 'track', index: 3 }); // Green, Red's teammate
+    expect(actionsForCard(strict, 0, '3')).toEqual([]);
+
+    const open = createGame(1); // default: friendly fire allowed
+    put(open, 0, { kind: 'track', index: 0 });
+    put(open, 8, { kind: 'track', index: 3 });
+    expect(actionsForCard(open, 0, '3')).toHaveLength(1);
+  });
+
+  it('excludes teammates from King stomps when friendly fire is off', () => {
+    const state = createGame(2, { friendlyFire: false });
+    put(state, 8, { kind: 'track', index: 10 }); // teammate
+    put(state, 4, { kind: 'track', index: 30 }); // Blue: enemy
+    const targets = actionsForCard(state, 0, 'K')
+      .filter(a => a.kind === 'kingSpawn')
+      .map(a => (a as { target: number }).target);
+    expect(targets).toEqual([4]);
+  });
+
+  it('blocks spawning onto a protected teammate', () => {
+    const state = createGame(3, { friendlyFire: false });
+    put(state, 8, { kind: 'track', index: SPAWN_INDEX(0) }); // parked on Red's spawn
+    expect(actionsForCard(state, 0, 'A')).toEqual([]);
+  });
+
+  it('lets bunnies jump occupied burrow slots when enabled', () => {
+    const jump = createGame(4, { burrowJump: true });
+    put(jump, 0, { kind: 'track', index: 78 });
+    put(jump, 1, { kind: 'burrow', slot: 0 });
+    expect(forwardDest(jump, bunny(jump, 0), 4)).toEqual({ kind: 'burrow', slot: 2 });
+
+    const strict = createGame(4); // default: no jumping in the burrow
+    put(strict, 0, { kind: 'track', index: 78 });
+    put(strict, 1, { kind: 'burrow', slot: 0 });
+    expect(forwardDest(strict, bunny(strict, 0), 4)).toBeNull();
+  });
+
+  it('honors the seven-split bunny limit', () => {
+    const partCounts = (max: 1 | 2 | 4) => {
+      const state = createGame(5, { sevenMaxBunnies: max });
+      put(state, 0, { kind: 'track', index: 5 });
+      put(state, 1, { kind: 'track', index: 40 });
+      put(state, 2, { kind: 'track', index: 60 });
+      return actionsForCard(state, 0, '7').map(
+        a => (a as { parts: unknown[] }).parts.length,
+      );
+    };
+    expect(Math.max(...partCounts(1))).toBe(1);
+    expect(Math.max(...partCounts(2))).toBe(2);
+    expect(Math.max(...partCounts(4))).toBe(3); // 7 split across all three
   });
 });

@@ -11,7 +11,9 @@ import { OnlineSession } from './net/client.ts';
 import { HttpSession } from './net/http.ts';
 import type { OnlineHandlers } from './net/client.ts';
 import { P2PGuestSession, P2PHostSession, savedHostGame } from './net/p2p.ts';
-import type { Difficulty } from './engine/types.ts';
+import type { Difficulty, HouseRules } from './engine/types.ts';
+import { DEFAULT_RULES } from './engine/types.ts';
+import { EMOTES } from './net/protocol.ts';
 import { PLAYER_NAMES } from './engine/types.ts';
 import { isMuted, setMuted } from './sounds.ts';
 
@@ -49,6 +51,51 @@ function buildSeatConfig() {
 }
 buildSeatConfig();
 
+// ---- House rules controls (shared between the local menu and the lobby) ----
+
+function savedRules(): HouseRules {
+  try {
+    return { ...DEFAULT_RULES, ...JSON.parse(localStorage.getItem('wahoo-rules') ?? '{}') };
+  } catch {
+    return { ...DEFAULT_RULES };
+  }
+}
+
+function rulesControlsHtml(prefix: string): string {
+  const r = savedRules();
+  return (
+    `<label><input type="checkbox" id="${prefix}-ff" ${r.friendlyFire ? 'checked' : ''}/>` +
+    ` Stomping teammates allowed</label>` +
+    `<label>7-split: <select id="${prefix}-seven">` +
+    `<option value="1" ${r.sevenMaxBunnies === 1 ? 'selected' : ''}>one bunny only</option>` +
+    `<option value="2" ${r.sevenMaxBunnies === 2 ? 'selected' : ''}>up to two bunnies</option>` +
+    `<option value="4" ${r.sevenMaxBunnies === 4 ? 'selected' : ''}>any split</option>` +
+    `</select></label>` +
+    `<label><input type="checkbox" id="${prefix}-jump" ${r.burrowJump ? 'checked' : ''}/>` +
+    ` Jumping over occupied burrow slots</label>`
+  );
+}
+
+function readRules(prefix: string): HouseRules {
+  const rules: HouseRules = {
+    friendlyFire: ($(`#${prefix}-ff`) as HTMLInputElement).checked,
+    sevenMaxBunnies: Number(($(`#${prefix}-seven`) as HTMLSelectElement).value) as 1 | 2 | 4,
+    burrowJump: ($(`#${prefix}-jump`) as HTMLInputElement).checked,
+  };
+  localStorage.setItem('wahoo-rules', JSON.stringify(rules));
+  return rules;
+}
+
+/** Persist on every change so lobby re-renders don't lose edits. */
+function watchRules(root: HTMLElement, prefix: string) {
+  root.querySelectorAll('input, select').forEach(el =>
+    el.addEventListener('change', () => readRules(prefix)),
+  );
+}
+
+$('#local-rules-body').innerHTML = rulesControlsHtml('local');
+watchRules($('#local-rules-body'), 'local');
+
 $('#start-local').onclick = async () => {
   const seats = Array.from(document.querySelectorAll<HTMLSelectElement>('#seat-config select'))
     .map(sel => sel.value as SeatKind);
@@ -58,6 +105,8 @@ $('#start-local').onclick = async () => {
     seats,
     view => app.onView(view),
     (window as unknown as Record<string, number>).__wahooCpuDelay,
+    undefined,
+    readRules('local'),
   );
   app.session = session;
   app.online = false;
@@ -99,6 +148,7 @@ function netHandlers(getSession: () => NetSession): OnlineHandlers {
       app.roomInfo = room;
       renderLobby(getSession(), room);
     },
+    onEmote: (seat, emoji) => app.showEmote(seat, emoji),
     onError: msg => {
       setNetPending(null);
       alert(msg);
@@ -285,10 +335,17 @@ function renderLobby(session: NetSession, room: RoomInfo) {
     lobby.appendChild(row);
   });
   if (room.youAreHost) {
+    if (!room.started) {
+      const rulesBox = document.createElement('details');
+      rulesBox.className = 'lobby-rules';
+      rulesBox.innerHTML = '<summary>House rules</summary>' + rulesControlsHtml('lobby');
+      lobby.appendChild(rulesBox);
+      watchRules(rulesBox, 'lobby');
+    }
     const start = document.createElement('button');
     start.className = 'primary';
     start.textContent = 'Start Game (empty seats become CPUs)';
-    start.onclick = () => session.startGame();
+    start.onclick = () => session.startGame(readRules('lobby'));
     lobby.appendChild(start);
   } else {
     const p = document.createElement('p');
@@ -361,6 +418,20 @@ $('#btn-fullscreen').onclick = () => {
     document.documentElement.requestFullscreen?.().catch(() => {});
   }
 };
+
+// Emote bar: online-only reactions.
+{
+  const bar = $('#emote-bar');
+  for (const emoji of EMOTES) {
+    const btn = document.createElement('button');
+    btn.textContent = emoji;
+    btn.onclick = () => {
+      const session = app.session;
+      if (session && 'emote' in session) session.emote(emoji);
+    };
+    bar.appendChild(btn);
+  }
+}
 
 $('#btn-again').onclick = () => {
   const session = app.session;

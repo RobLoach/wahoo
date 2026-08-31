@@ -217,3 +217,47 @@ describe('room codes', () => {
     expect(ROOM_WORDS).toContain(randomRoomCode());
   });
 });
+
+describe('house rules and emotes', () => {
+  it('applies sanitized house rules on start and keeps them for rematches', () => {
+    const { room } = makeRoom(60_000);
+    room.addClient('a', 'Alice');
+    room.handle('a', {
+      t: 'start',
+      rules: { friendlyFire: false, sevenMaxBunnies: 4, burrowJump: true, bogus: 1 } as never,
+    });
+    expect(room.game!.rules).toEqual({
+      friendlyFire: false,
+      sevenMaxBunnies: 4,
+      burrowJump: true,
+    });
+    room.game!.winner = 0;
+    room.handle('a', { t: 'again' });
+    expect(room.game!.rules.friendlyFire).toBe(false);
+    room.dispose();
+  });
+
+  it('ignores malformed rules and falls back to defaults', () => {
+    const { room } = makeRoom(60_000);
+    room.addClient('a', 'Alice');
+    room.handle('a', { t: 'start', rules: 'nonsense' as never });
+    expect(room.game!.rules).toEqual({
+      friendlyFire: true,
+      sevenMaxBunnies: 2,
+      burrowJump: false,
+    });
+    room.dispose();
+  });
+
+  it('broadcasts emotes from seated players and rejects unknown emoji', () => {
+    const { room, last } = makeRoom(60_000);
+    room.addClient('a', 'Alice');
+    room.addClient('b', 'Bob');
+    room.handle('b', { t: 'emote', emoji: '🥕' });
+    expect(last('a', 'emote')).toMatchObject({ seat: 1, emoji: '🥕' });
+    expect(last('b', 'emote')).toMatchObject({ seat: 1, emoji: '🥕' });
+    room.handle('a', { t: 'emote', emoji: '🖕' });
+    expect(last('a', 'emote')).toMatchObject({ emoji: '🥕' }); // unchanged
+    room.dispose();
+  });
+});

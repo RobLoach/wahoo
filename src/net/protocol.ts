@@ -1,4 +1,4 @@
-import type { Bunny, Card, Difficulty, GameState, Move, MoveEffect } from '../engine/types.ts';
+import type { Bunny, Card, Difficulty, GameState, HouseRules, Move, MoveEffect } from '../engine/types.ts';
 import { legalMoves } from '../engine/game.ts';
 
 /** Everything a client is allowed to see, plus its legal moves when acting. */
@@ -26,6 +26,7 @@ export interface View {
   /** The most recent play (fold = discarded hand), for display. */
   lastPlay: { seat: number; card?: Card; desc?: string; bonus?: boolean; fold?: boolean } | null;
   stats: { stomps: number[]; folds: number[] };
+  rules: HouseRules;
 }
 
 export function makeView(
@@ -54,6 +55,7 @@ export function makeView(
     effects: structuredClone(state.effects),
     lastPlay: structuredClone(state.lastPlay),
     stats: structuredClone(state.stats),
+    rules: { ...state.rules },
   };
 }
 
@@ -64,8 +66,9 @@ export type ClientMsg =
   | { t: 'join'; code: string; name: string; token?: string }
   | { t: 'sit'; seat: number }
   | { t: 'cpu'; seat: number; on: boolean; difficulty?: Difficulty }
-  | { t: 'start' }
+  | { t: 'start'; rules?: Partial<HouseRules> }
   | { t: 'again' }
+  | { t: 'emote'; emoji: string }
   | { t: 'move'; move: Move };
 
 export interface RoomInfo {
@@ -79,4 +82,8 @@ export interface RoomInfo {
 export type ServerMsg =
   | { t: 'room'; room: RoomInfo }
   | { t: 'state'; view: View }
+  | { t: 'emote'; seat: number; emoji: string }
   | { t: 'err'; msg: string };
+
+/** The reactions players may fling at each other. */
+export const EMOTES = ['👍', '😂', '😱', '🥕', '💥', '🐰'];

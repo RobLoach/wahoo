@@ -58,6 +58,16 @@ export class App {
   private lastHumanSeat: number | null = null;
   private curtain = false;
 
+  /** Float a reaction bubble over the seat's corner of the board. */
+  showEmote(seat: number, emoji: string) {
+    if (seat < 0 || seat > 3) return;
+    const bubble = document.createElement('span');
+    bubble.className = `emote-bubble seat-${seat}`;
+    bubble.textContent = emoji;
+    $('#board-wrap').appendChild(bubble);
+    setTimeout(() => bubble.remove(), 2600);
+  }
+
   startLocalMeta(humans: number) {
     this.localHumans = humans;
     this.lastHumanSeat = null;
@@ -189,7 +199,8 @@ export class App {
     if (!view || !view.canAct || this.sel.bunny === null) return;
     const actions = selectedActions(view, this.sel);
     const bunnyId = this.sel.bunny;
-    const sim = simBunnies(view.bunnies, this.sel.sevenParts);
+    const sim = simBunnies(view.bunnies, this.sel.sevenParts, view.rules);
+    const field = { bunnies: sim, rules: view.rules };
     const bunny = sim.find(b => b.id === bunnyId)!;
 
     const matches = (place: Bunny['place'] | null) => {
@@ -201,10 +212,10 @@ export class App {
     // Plain forward / queen / king-13 etc.
     for (const a of actions) {
       if (a.kind === 'forward' && a.bunny === bunnyId) {
-        if (matches(forwardDest({ bunnies: sim }, bunny, a.steps))) return this.submitAction(a);
+        if (matches(forwardDest(field, bunny, a.steps))) return this.submitAction(a);
       }
       if (a.kind === 'backward' && a.bunny === bunnyId) {
-        if (matches(backwardDest(bunny))) return this.submitAction(a);
+        if (matches(backwardDest(field, bunny))) return this.submitAction(a);
       }
     }
 
@@ -212,7 +223,7 @@ export class App {
     for (const candidate of sevenCandidates(actions, this.sel.sevenParts)) {
       for (const part of candidate.parts) {
         if (part.bunny !== bunnyId) continue;
-        if (matches(forwardDest({ bunnies: sim }, bunny, part.steps))) {
+        if (matches(forwardDest(field, bunny, part.steps))) {
           const parts = [...this.sel.sevenParts, { bunny: bunnyId, steps: part.steps }];
           const total = parts.reduce((s, p) => s + p.steps, 0);
           if (total === 7) return this.submitAction({ kind: 'seven', parts });
@@ -272,7 +283,8 @@ export class App {
     } else {
       const bunnyId = this.sel.bunny;
       hi.selected = bunnyId;
-      const sim = simBunnies(view.bunnies, this.sel.sevenParts);
+      const sim = simBunnies(view.bunnies, this.sel.sevenParts, view.rules);
+    const field = { bunnies: sim, rules: view.rules };
       const bunny = sim.find(b => b.id === bunnyId)!;
       const mark = (place: Bunny['place'] | null, player: number, label = '') => {
         if (!place) return;
@@ -281,11 +293,11 @@ export class App {
       };
       for (const a of actions) {
         if (a.kind === 'forward' && a.bunny === bunnyId) {
-          mark(forwardDest({ bunnies: sim }, bunny, a.steps), bunny.player);
+          mark(forwardDest(field, bunny, a.steps), bunny.player);
           hint = 'Choose the highlighted destination.';
         }
         if (a.kind === 'backward' && a.bunny === bunnyId) {
-          mark(backwardDest(bunny), bunny.player);
+          mark(backwardDest(field, bunny), bunny.player);
           hint = 'Choose the highlighted destination.';
         }
         if (a.kind === 'swap' && a.bunny === bunnyId) {
@@ -296,7 +308,7 @@ export class App {
       for (const c of sevenCandidates(actions, this.sel.sevenParts)) {
         for (const p of c.parts) {
           if (p.bunny === bunnyId) {
-            mark(forwardDest({ bunnies: sim }, bunny, p.steps), bunny.player, String(p.steps));
+            mark(forwardDest(field, bunny, p.steps), bunny.player, String(p.steps));
             hint = 'Choose how far this bunny hops.';
           }
         }
@@ -414,6 +426,9 @@ export class App {
 
     // Victory overlay with stats + rematch once a winner is decided.
     this.renderVictory(view);
+
+    // Reactions are online-only (hot seat players can heckle in person).
+    $('#emote-bar').hidden = !this.online || view.winner !== null;
 
     // Hand (or the pass-the-device curtain)
     const handEl = $('#hand');

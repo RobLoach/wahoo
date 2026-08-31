@@ -237,3 +237,32 @@ button:disabled { opacity: 0.45; cursor: default; }
   .card, .card:hover, .card.selected { transition: none; transform: none; }
   #play-banner.show { animation: none; opacity: 1; }
 }
+
+/* ------- house rules ------- */
+#local-rules { margin: 10px 0; font-size: 0.85rem; }
+#local-rules summary, .lobby-rules summary { cursor: pointer; font-weight: bold; }
+#local-rules label, .lobby-rules label { display: block; margin: 6px 0; }
+.lobby-rules { margin: 8px 0; font-size: 0.85rem; }
+
+/* ------- emotes ------- */
+#emote-bar { display: flex; gap: 6px; flex-wrap: wrap; }
+#emote-bar button { font-size: 1.2rem; padding: 4px 10px; }
+.emote-bubble {
+  position: absolute; z-index: 6; font-size: 2.4rem; pointer-events: none;
+  animation: emote-float 2.4s ease-out forwards;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+@keyframes emote-float {
+  0% { opacity: 0; transform: translateY(12px) scale(0.6); }
+  15% { opacity: 1; transform: translateY(0) scale(1.15); }
+  30% { transform: translateY(-6px) scale(1); }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-46px) scale(0.9); }
+}
+.emote-bubble.seat-0 { right: 12%; bottom: 14%; }
+.emote-bubble.seat-1 { left: 12%; bottom: 14%; }
+.emote-bubble.seat-2 { left: 12%; top: 14%; }
+.emote-bubble.seat-3 { right: 12%; top: 14%; }
+@media (prefers-reduced-motion: reduce) {
+  .emote-bubble { animation: none; opacity: 1; }
+}

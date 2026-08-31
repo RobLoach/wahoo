@@ -1,11 +1,12 @@
 import type { ClientMsg, RoomInfo, ServerMsg, View } from './protocol.ts';
-import type { Difficulty, Move } from '../engine/types.ts';
+import type { Difficulty, HouseRules, Move } from '../engine/types.ts';
 
 export interface OnlineHandlers {
   onView(view: View): void;
   onRoom(room: RoomInfo): void;
   onError(msg: string): void;
   onClose(): void;
+  onEmote?(seat: number, emoji: string): void;
 }
 
 export class OnlineSession {
@@ -24,6 +25,7 @@ export class OnlineSession {
       }
       if (msg.t === 'state') this.handlers.onView(msg.view);
       else if (msg.t === 'room') this.handlers.onRoom(msg.room);
+      else if (msg.t === 'emote') this.handlers.onEmote?.(msg.seat, msg.emoji);
       else if (msg.t === 'err') this.handlers.onError(msg.msg);
     };
     this.ws.onerror = () => {
@@ -42,7 +44,8 @@ export class OnlineSession {
   join(code: string, name: string, token?: string) { this.send({ t: 'join', code, name, token }); }
   sit(seat: number) { this.send({ t: 'sit', seat }); }
   cpu(seat: number, on: boolean, difficulty?: Difficulty) { this.send({ t: 'cpu', seat, on, difficulty }); }
-  startGame() { this.send({ t: 'start' }); }
+  startGame(rules?: Partial<HouseRules>) { this.send({ t: 'start', rules }); }
+  emote(emoji: string) { this.send({ t: 'emote', emoji }); }
   playAgain() { this.send({ t: 'again' }); }
   submit(move: Move) { this.send({ t: 'move', move }); }
 

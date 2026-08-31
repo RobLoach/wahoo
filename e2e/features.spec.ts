@@ -76,3 +76,18 @@ test('PWA manifest and service worker are served', async ({ page, request, baseU
   await page.goto('./');
   await expect(page.locator('link[rel="manifest"]')).toHaveAttribute('href', 'manifest.webmanifest');
 });
+
+test('house rules from the menu reach the game state', async ({ page }) => {
+  await page.goto('./');
+  await page.click('#local-rules summary');
+  await page.uncheck('#local-ff');
+  await page.selectOption('#local-seven', '4');
+  await page.evaluate(() => ((window as any).__wahooCpuDelay = 60_000));
+  await page.click('#start-local');
+  await page.waitForSelector('#game:not([hidden]) .board-canvas');
+  const rules = await page.evaluate(() => (window as any).__wahoo.app.view.rules);
+  expect(rules).toEqual({ friendlyFire: false, sevenMaxBunnies: 4, burrowJump: false });
+  // The choice persists for next time.
+  const saved = await page.evaluate(() => localStorage.getItem('wahoo-rules'));
+  expect(JSON.parse(saved!)).toMatchObject({ friendlyFire: false, sevenMaxBunnies: 4 });
+});

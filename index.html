@@ -27,6 +27,10 @@
           <h2>Local Game</h2>
           <p>Hot seat and/or CPU players on this device.</p>
           <div id="seat-config"></div>
+          <details id="local-rules">
+            <summary>House rules</summary>
+            <div id="local-rules-body"></div>
+          </details>
           <button id="start-local" class="primary">Start Game</button>
           <button id="local-resume" hidden></button>
         </div>
@@ -99,6 +103,7 @@
           <button id="btn-fold" hidden>Fold hand (no legal move)</button>
           <button id="btn-cancel" hidden>Cancel selection</button>
         </div>
+        <div id="emote-bar" hidden></div>
         <div id="piles"></div>
         <div id="log"></div>
         <div id="controls-bottom">
