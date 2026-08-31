@@ -1,7 +1,7 @@
 # 🐰 Wahoo
 
 A 4-player team race board game built with [Pixi.js](https://pixijs.com). Two teams
-of two maneuver their bunnies around the track and into their safe burrows —
+of two maneuver their bunnies around the track and into their safe burrows,
 stomping anyone who gets in the way.
 
 **Play it:** https://robloach.github.io/wahoo/
