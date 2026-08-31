@@ -8,6 +8,7 @@ import { emptySelection } from './ui/selection.ts';
 import { LocalSession, savedLocalGame } from './sessions/local.ts';
 import type { SeatKind } from './sessions/local.ts';
 import { OnlineSession } from './net/client.ts';
+import { HttpSession } from './net/http.ts';
 import type { OnlineHandlers } from './net/client.ts';
 import { P2PGuestSession, P2PHostSession, savedHostGame } from './net/p2p.ts';
 import type { Difficulty } from './engine/types.ts';
@@ -78,7 +79,7 @@ function clientToken(): string {
 let pendingOnline: NetSession | null = null;
 
 function defaultServerUrl(): string {
-  return localStorage.getItem('wahoo-server') ?? 'ws://localhost:8787';
+  return localStorage.getItem('wahoo-server') ?? 'https://wahoo.robloach.net';
 }
 ($('#online-server') as HTMLInputElement).value = defaultServerUrl();
 
@@ -137,12 +138,16 @@ function joinP2P(code: string) {
   pendingOnline = session;
 }
 
-function connectOnline(afterOpen: (s: OnlineSession) => void) {
-  const url = ($('#online-server') as HTMLInputElement).value.trim() || 'ws://localhost:8787';
+function connectOnline(afterOpen: (s: OnlineSession | HttpSession) => void) {
+  const url =
+    ($('#online-server') as HTMLInputElement).value.trim() || 'https://wahoo.robloach.net';
   localStorage.setItem('wahoo-server', url);
   pendingOnline?.leave();
-  let session: OnlineSession;
-  session = new OnlineSession(url, netHandlers(() => session), () => afterOpen(session));
+  // http(s):// servers use the PHP polling relay; ws(s):// the Node WebSocket server.
+  let session: OnlineSession | HttpSession;
+  session = /^https?:/i.test(url)
+    ? new HttpSession(url, netHandlers(() => session), () => afterOpen(session))
+    : new OnlineSession(url, netHandlers(() => session), () => afterOpen(session));
   pendingOnline = session;
 }
 

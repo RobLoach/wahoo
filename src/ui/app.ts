@@ -10,6 +10,7 @@ import {
 import type { Selection } from './selection.ts';
 import { LocalSession } from '../sessions/local.ts';
 import type { OnlineSession } from '../net/client.ts';
+import type { HttpSession } from '../net/http.ts';
 import type { P2PGuestSession, P2PHostSession } from '../net/p2p.ts';
 import type { RoomInfo, View } from '../net/protocol.ts';
 import { backwardDest, forwardDest } from '../engine/game.ts';
@@ -39,7 +40,7 @@ export const CARD_TOOLTIPS: Record<string, string> = {
   K: "King: move one bunny forward 13, or spawn from your reserve onto another player's bunny, stomping it.",
 };
 
-export type NetSession = OnlineSession | P2PHostSession | P2PGuestSession;
+export type NetSession = OnlineSession | HttpSession | P2PHostSession | P2PGuestSession;
 
 export class App {
   board = new BoardView();

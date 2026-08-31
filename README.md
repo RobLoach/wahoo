@@ -78,17 +78,24 @@ browsers. When a strict NAT or firewall blocks the direct path, the connection
 automatically falls back to a free TURN relay (traffic stays end-to-end
 encrypted); swap in your own TURN credentials in `src/net/p2p.ts` if needed.
 
-### Optional Dedicated Server
+### Optional Dedicated Servers
 
-For an always-on room host, run the WebSocket server (Node ≥ 23.6):
+Two interchangeable options; the client picks by URL scheme (`https://` = PHP
+relay, `ws://`/`wss://` = Node WebSocket). The default server URL is
+`https://wahoo.robloach.net`.
+
+**PHP relay** (`server/wahoo-php`) — runs on plain shared hosting: clients
+poll over HTTPS, state lives in SQLite, and the rules run in the clients (the
+server enforces seats, turn order, and versioning). See
+[server/wahoo-php/README.md](server/wahoo-php/README.md) for deployment.
+
+**Node WebSocket server** (`server/server.ts`) — fully authoritative, needs
+Node ≥ 23.6 and a host that allows long-running processes:
 
 ```sh
 npm run server           # listens on ws://localhost:8787
 PORT=9000 npm run server
 ```
-
-Then in the client's **Online Game** panel, enter the server address (for a
-server behind HTTPS use `wss://…`), create a room, and share the room code.
 
 ## Deployment
 

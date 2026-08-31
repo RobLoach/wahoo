@@ -44,13 +44,16 @@
             sets up the connection; on the same network the game then runs peer-to-peer.</p>
           <details>
             <summary>Use a dedicated server instead</summary>
-            <label>Server <input id="online-server" placeholder="ws://localhost:8787" /></label>
+            <label>Server <input id="online-server" placeholder="https://wahoo.robloach.net" /></label>
             <div class="row">
               <button id="online-create">Create Room</button>
               <input id="online-code" maxlength="6" placeholder="CODE" style="text-transform:uppercase" />
               <button id="online-join">Join</button>
             </div>
-            <p class="hint">Run <code>npm run server</code> from the repo and point players at its address.</p>
+            <p class="hint">Defaults to <code>https://wahoo.robloach.net</code> (PHP relay).
+              You can also self-host: the PHP server from <code>server/wahoo-php</code> on any
+              web host, or the Node WebSocket server via <code>npm run server</code>
+              (use a <code>ws://</code> address for that one).</p>
           </details>
           <div id="lobby" hidden></div>
         </div>

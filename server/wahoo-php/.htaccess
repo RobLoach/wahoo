@@ -1,0 +1,7 @@
+# Route everything through the Slim front controller.
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^ index.php [QSA,L]
+
+# Never serve the database or composer internals directly.
+RewriteRule ^(data|vendor)/ - [F,L]
