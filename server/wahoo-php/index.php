@@ -275,7 +275,12 @@ $app->add(function (Request $request, $handler): Response {
     return $response
         ->withHeader('Access-Control-Allow-Origin', '*')
         ->withHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        ->withHeader('Access-Control-Allow-Headers', 'Content-Type');
+        ->withHeader('Access-Control-Allow-Headers', 'Content-Type')
+        // Some hosts (e.g. DreamHost) inject long max-age defaults; polling
+        // breaks the moment a snapshot gets cached, so forbid it explicitly.
+        ->withHeader('Cache-Control', 'no-store, no-cache, must-revalidate')
+        ->withHeader('Pragma', 'no-cache')
+        ->withHeader('Expires', '0');
 });
 $app->options('/{routes:.*}', fn (Request $request, Response $response) => $response);
 

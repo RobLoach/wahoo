@@ -44,10 +44,17 @@ export class HttpSession {
     path: string,
     body?: Record<string, unknown>,
   ): Promise<T> {
-    const response = await fetch(`${this.base}${path}`, body === undefined ? undefined : {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
+    // no-store: shared hosts often inject long cache lifetimes, and a cached
+    // snapshot would freeze the poll loop at a stale version.
+    const response = await fetch(`${this.base}${path}`, {
+      cache: 'no-store',
+      ...(body === undefined
+        ? {}
+        : {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(body),
+          }),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
