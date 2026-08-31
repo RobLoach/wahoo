@@ -7,7 +7,7 @@ export const PLAYER_COLORS = [0xd95d5d, 0x4a7fd4, 0x57a15e, 0xe0a83f];
 export const PLAYER_COLORS_CSS = ['#d95d5d', '#4a7fd4', '#57a15e', '#e0a83f'];
 
 const SIZE = 820;
-const CELLS = 27.2; // 20 track cells + outward room for reserves and labels
+const CELLS = 24.9; // 20 track cells + outward room for the label/reserve rows
 const CELL = SIZE / CELLS;
 const PAD = ((CELLS - 20) / 2) * CELL;
 
@@ -49,13 +49,15 @@ export function burrowPos(player: number, slot: number) {
   return { x: corner.x - o.x * r, y: corner.y - o.y * r };
 }
 
-/** Reserve bunnies wait in a 2x2 cluster just outside their corner. */
+/** Reserve bunnies wait in a horizontal row beside the seat label,
+ * extending from the corner toward the board's centre. */
 export function reservePos(player: number, n: number) {
   const corner = trackPos(SPAWN_INDEX(player));
   const o = OUTWARD[player];
-  const ax = (0.95 + (n % 2) * 0.85) * CELL;
-  const ay = (0.95 + Math.floor(n / 2) * 0.85) * CELL;
-  return { x: corner.x + o.x * ax, y: corner.y + o.y * ay };
+  return {
+    x: corner.x - o.x * (3.9 + n * 0.78) * CELL,
+    y: corner.y + o.y * 1.25 * CELL,
+  };
 }
 
 export interface Highlights {
@@ -108,8 +110,6 @@ interface Piece {
 export class BoardView {
   app = new Application();
   /** Honor the OS-level "reduce motion" preference: moves snap into place. */
-  private reducedMotion =
-    typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
   private staticLayer = new Container();
   private highlightLayer = new Container();
   private pieceLayer = new Container();
@@ -175,8 +175,8 @@ export class BoardView {
         const { x, y } = reservePos(p, n);
         this.staticLayer.addChild(this.circle(x, y, CELL * 0.34, 0xd9c9a3, 0xbfae8d));
       }
-      // Seat label below/above the reserve cluster, growing toward the board
-      // center so long names never clip at the canvas edge.
+      // Seat label in the corner, on the same row as its reserve bunnies:
+      // anchored at the corner edge, growing toward the board centre.
       const corner = trackPos(SPAWN_INDEX(p));
       const o = OUTWARD[p];
       const pill = new Graphics();
@@ -193,7 +193,7 @@ export class BoardView {
         }),
       });
       label.anchor.set(o.x > 0 ? 1 : 0, 0.5);
-      label.position.set(corner.x + o.x * 2.8 * CELL, corner.y + o.y * 2.7 * CELL);
+      label.position.set(corner.x + o.x * 1.1 * CELL, corner.y + o.y * 1.25 * CELL);
       this.labelLayer.addChild(label);
       this.seatLabels.push(label);
     }
@@ -301,10 +301,6 @@ export class BoardView {
 
   /** Begin an eased movement along the effect's path to the piece's target. */
   private startPath(piece: Piece, effect: MoveEffect, player: number) {
-    if (this.reducedMotion) {
-      piece.path = null;
-      return;
-    }
     const pts = [
       { x: piece.root.x, y: piece.root.y },
       ...this.waypointsFor(effect, player),
@@ -417,6 +413,9 @@ export class BoardView {
       label.style.fill = PLAYER_COLORS[p];
       label.alpha = view.folded[p] ? 0.6 : 1;
       label.scale.set(active ? 1.12 : 1);
+      // Never let a long name run into the reserve row beside it.
+      const maxW = 4.3 * CELL;
+      if (label.width > maxW) label.scale.set((label.scale.x * maxW) / label.width);
       const pill = this.labelPills[p];
       pill.clear();
       if (active) {
@@ -438,11 +437,6 @@ export class BoardView {
     const easeInOut = (t: number) =>
       t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
     for (const piece of this.pieces.values()) {
-      if (this.reducedMotion) {
-        piece.path = null;
-        piece.root.position.set(piece.tx, piece.ty);
-        continue;
-      }
       const path = piece.path;
       if (path) {
         // Follow the move path with ease-in-out: build up speed, then

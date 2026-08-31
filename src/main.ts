@@ -270,7 +270,19 @@ $('#local-resume').onclick = async () => {
   app.online = false;
   session.start();
 };
-app.onMenuShown = refreshResumeButton;
+app.onMenuShown = () => {
+  refreshResumeButton();
+  setJoiningMode(false); // returning to the menu restores the full menu
+};
+
+/** Invite-link mode: only the name field and lobby, so joining is obvious. */
+function setJoiningMode(on: boolean) {
+  $('#local-panel').hidden = on;
+  (document.querySelector('.tabs') as HTMLElement).hidden = on;
+  $('#tab-panel-p2p').hidden = on;
+  $('#tab-panel-server').hidden = on || !$('#tab-server').classList.contains('active');
+  $('#join-note').hidden = !on;
+}
 refreshResumeButton();
 
 $('#p2p-resume').onclick = () => {
@@ -465,6 +477,10 @@ $('#btn-again').onclick = () => {
   const params = new URLSearchParams(location.search);
   const joinCode = params.get('join')?.toUpperCase();
   const server = params.get('server');
+  if (joinCode) {
+    setJoiningMode(true);
+    $('#join-note').textContent = `Joining room ${joinCode}…`;
+  }
   if (joinCode && server && /^(https?|wss?):\/\//i.test(server)) {
     selectOnlineTab('server');
     ($('#online-server') as HTMLInputElement).value = server;
