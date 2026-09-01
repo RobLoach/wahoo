@@ -11,6 +11,8 @@ export function trackErrors(page: Page): string[] {
 /** Start a local game. Seats default to 1 human + 3 CPUs. */
 export async function startLocal(page: Page, seats?: string[], dismissCurtain = true) {
   await page.goto('./');
+  // The first-game tour is covered by its own test; keep the others clean.
+  await page.evaluate(() => localStorage.setItem('wahoo-tour-done', '1'));
   if (seats) {
     await page.evaluate(kinds => {
       document

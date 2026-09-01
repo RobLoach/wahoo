@@ -16,6 +16,7 @@ import { DEFAULT_RULES } from './engine/types.ts';
 import { EMOTES } from './net/protocol.ts';
 import { PLAYER_NAMES } from './engine/types.ts';
 import { isMuted, setMuted } from './sounds.ts';
+import { maybeStartTour } from './ui/tour.ts';
 
 // ---------------------------------------------------------------------------
 // Menu wiring
@@ -111,6 +112,7 @@ $('#start-local').onclick = async () => {
   app.session = session;
   app.online = false;
   session.start();
+  if (seats.includes('human')) maybeStartTour();
 };
 
 /** Persistent identity so a reconnecting player can reclaim their seat. */
@@ -308,6 +310,12 @@ function renderLobby(session: NetSession, room: RoomInfo) {
   lobby.hidden = false;
   lobby.innerHTML =
     `<p>Room code: <span class="code">${room.code}</span> — share it with friends.</p>`;
+  if (room.yourSeat === null) {
+    const note = document.createElement('p');
+    note.className = 'hint';
+    note.textContent = "👀 You're spectating — take a seat to play.";
+    lobby.appendChild(note);
+  }
   if (room.youAreHost && !room.started) {
     const diffRow = document.createElement('label');
     diffRow.className = 'hint';
@@ -491,6 +499,43 @@ $('#btn-again').onclick = () => {
     setTimeout(() => joinP2P(joinCode), 50);
   }
 }
+
+// Keyboard play: 1-4 pick a card, arrows cycle board targets, Enter moves,
+// Escape cancels, F folds.
+document.addEventListener('keydown', e => {
+  if (!$('#rules-modal').hidden) {
+    if (e.key === 'Escape') $('#rules-modal').hidden = true;
+    return;
+  }
+  if ($('#game').hidden) return;
+  const t = e.target;
+  if (
+    t instanceof HTMLInputElement ||
+    t instanceof HTMLTextAreaElement ||
+    t instanceof HTMLSelectElement
+  ) {
+    return;
+  }
+  if (e.key >= '1' && e.key <= '4') {
+    const cards = document.querySelectorAll<HTMLButtonElement>('#hand .card');
+    cards[Number(e.key) - 1]?.click();
+  } else if (e.key === 'Escape') {
+    const cancel = $('#btn-cancel') as HTMLButtonElement;
+    if (!cancel.hidden) cancel.click();
+  } else if (e.key.toLowerCase() === 'f') {
+    const fold = $('#btn-fold') as HTMLButtonElement;
+    if (!fold.hidden) fold.click();
+  } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+    app.board.cycleFocus(-1);
+    e.preventDefault();
+  } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+    app.board.cycleFocus(1);
+    e.preventDefault();
+  } else if (e.key === 'Enter' && app.board.hasFocus()) {
+    app.board.activateFocus();
+    e.preventDefault();
+  }
+});
 
 // Offline/installable support (skipped during local development).
 if ('serviceWorker' in navigator && location.hostname !== 'localhost') {

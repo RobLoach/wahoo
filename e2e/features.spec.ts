@@ -91,3 +91,52 @@ test('house rules from the menu reach the game state', async ({ page }) => {
   const saved = await page.evaluate(() => localStorage.getItem('wahoo-rules'));
   expect(JSON.parse(saved!)).toMatchObject({ friendlyFire: false, sevenMaxBunnies: 4 });
 });
+
+test('first local game shows the tour once', async ({ page }) => {
+  await page.goto('./');
+  await page.evaluate(() => ((window as any).__wahooCpuDelay = 60_000));
+  await page.click('#start-local');
+  await page.waitForSelector('#tour-card');
+  for (let i = 0; i < 4; i++) {
+    await page.click('#tour-card button.primary');
+  }
+  await expect(page.locator('#tour-card')).toHaveCount(0);
+  expect(await page.evaluate(() => localStorage.getItem('wahoo-tour-done'))).toBe('1');
+  // Second game: no tour.
+  await page.click('#btn-menu');
+  await page.click('#start-local');
+  await page.waitForTimeout(600);
+  await expect(page.locator('#tour-card')).toHaveCount(0);
+});
+
+test('cards and moves work from the keyboard', async ({ page }) => {
+  await page.goto('./');
+  await page.evaluate(() => {
+    localStorage.setItem('wahoo-tour-done', '1');
+    (window as any).__wahooCpuDelay = 60_000; // freeze CPUs
+  });
+  await page.click('#start-local');
+  await page.waitForSelector('#game:not([hidden]) .board-canvas');
+  // Announcer live region exists for screen readers.
+  await expect(page.locator('#announcer')).toBeAttached();
+  // Deterministic position: one bunny on the track, a single 5 in hand.
+  await forceState(page, {
+    current: 0,
+    hand: [{ id: 0, rank: '5', suit: '♠' }],
+    bunnies: [{ id: 0, place: { kind: 'track', index: 5 } }],
+  });
+  await page.keyboard.press('1'); // select the 5
+  await expect(page.locator('#hand .card.selected')).toHaveCount(1);
+  await page.keyboard.press('ArrowRight'); // focus the bunny
+  await page.keyboard.press('Enter'); // pick it up
+  await page.keyboard.press('ArrowRight'); // focus the destination
+  await page.keyboard.press('Enter'); // move
+  await page.waitForFunction(() => {
+    const v = (window as any).__wahoo.app.view;
+    return v.lastPlay && v.lastPlay.seat === 0 && !v.lastPlay.fold;
+  });
+  const bunny = await page.evaluate(
+    () => (window as any).__wahoo.app.view.bunnies.find((b: any) => b.id === 0).place,
+  );
+  expect(bunny).toEqual({ kind: 'track', index: 10 });
+});

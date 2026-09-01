@@ -80,6 +80,8 @@ export const emptyHighlights = (): Highlights => ({
   reserves: new Set(),
 });
 
+type Candidate = { x: number; y: number; act: () => void };
+
 export interface BoardCallbacks {
   onBunny(id: number): void;
   onTrack(index: number): void;
@@ -114,6 +116,8 @@ export class BoardView {
   private highlightLayer = new Container();
   private pieceLayer = new Container();
   private labelLayer = new Container();
+  private focusLayer = new Container();
+  private focusIdx = -1;
   private pieces = new Map<number, Piece>();
   private cb!: BoardCallbacks;
   private seatLabels: Text[] = [];
@@ -129,7 +133,9 @@ export class BoardView {
     });
     this.app.canvas.classList.add('board-canvas');
     parent.appendChild(this.app.canvas);
-    this.app.stage.addChild(this.staticLayer, this.highlightLayer, this.labelLayer, this.pieceLayer);
+    this.app.stage.addChild(
+      this.staticLayer, this.highlightLayer, this.labelLayer, this.pieceLayer, this.focusLayer,
+    );
     this.drawStatic();
     // One stage-level tap handler: every tap snaps to the nearest legal
     // target, so touches don't need to land exactly on a piece or space.
@@ -219,14 +225,10 @@ export class BoardView {
 
   private lastHi: Highlights | null = null;
 
-  /**
-   * Snap a tap to the nearest actionable target (highlighted bunny, space,
-   * burrow slot, or reserve) within a generous radius.
-   */
-  private resolveTap(x: number, y: number) {
+  /** Every actionable target for the current highlights, in a stable order. */
+  private candidates(): Candidate[] {
     const hi = this.lastHi;
-    if (!hi) return;
-    type Candidate = { x: number; y: number; act: () => void };
+    if (!hi) return [];
     const candidates: Candidate[] = [];
     for (const id of hi.bunnies) {
       const piece = this.pieces.get(id);
@@ -247,6 +249,15 @@ export class BoardView {
         candidates.push({ x: p.x, y: p.y, act: () => this.cb.onReserve(player) });
       }
     }
+    return candidates;
+  }
+
+  /**
+   * Snap a tap to the nearest actionable target (highlighted bunny, space,
+   * burrow slot, or reserve) within a generous radius.
+   */
+  private resolveTap(x: number, y: number) {
+    const candidates = this.candidates();
     let best: Candidate | null = null;
     let bestDist = CELL * 1.9; // snap radius
     for (const c of candidates) {
@@ -257,6 +268,38 @@ export class BoardView {
       }
     }
     best?.act();
+  }
+
+  // ---- Keyboard access: arrow keys cycle the tap targets, Enter activates ----
+
+  hasFocus(): boolean {
+    return this.focusIdx >= 0;
+  }
+
+  cycleFocus(dir: 1 | -1) {
+    const c = this.candidates();
+    if (c.length === 0) return;
+    this.focusIdx =
+      this.focusIdx === -1
+        ? dir === 1 ? 0 : c.length - 1
+        : (this.focusIdx + dir + c.length) % c.length;
+    this.focusLayer.removeChildren().forEach(ch => ch.destroy());
+    const t = c[this.focusIdx];
+    const g = new Graphics();
+    g.circle(t.x, t.y, CELL * 0.68).stroke({ color: 0xffffff, width: 5 });
+    g.circle(t.x, t.y, CELL * 0.68).stroke({ color: 0x2f3d4f, width: 2 });
+    this.focusLayer.addChild(g);
+  }
+
+  activateFocus() {
+    const target = this.focusIdx >= 0 ? this.candidates()[this.focusIdx] : undefined;
+    this.clearFocus();
+    target?.act();
+  }
+
+  clearFocus() {
+    this.focusIdx = -1;
+    this.focusLayer.removeChildren().forEach(ch => ch.destroy());
   }
 
   private targetFor(bunny: Bunny, reserveOrder: number): { x: number; y: number } {
@@ -323,6 +366,7 @@ export class BoardView {
 
   render(view: View, hi: Highlights, effects?: MoveEffect[]) {
     this.lastHi = hi;
+    this.clearFocus(); // targets changed; stale keyboard focus would mislead
     const effectFor = effects && new Map(effects.map(e => [e.bunny, e]));
 
     // Pieces

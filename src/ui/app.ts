@@ -42,6 +42,10 @@ export const CARD_TOOLTIPS: Record<string, string> = {
 
 export type NetSession = OnlineSession | HttpSession | P2PHostSession | P2PGuestSession;
 
+const SUIT_NAMES: Record<string, string> = {
+  '♠': 'spades', '♥': 'hearts', '♦': 'diamonds', '♣': 'clubs',
+};
+
 export class App {
   board = new BoardView();
   boardReady = false;
@@ -51,6 +55,7 @@ export class App {
   sel: Selection = emptySelection();
   roomInfo: RoomInfo | null = null;
   onMenuShown: (() => void) | null = null;
+  private lastAnnounced = '';
   private pendingEffects: MoveEffect[] | undefined;
   private recentBunnies = new Set<number>();
   /** Hot-seat pass-the-device privacy. */
@@ -417,18 +422,29 @@ export class App {
           ? ` (moving <b style="color:${PLAYER_COLORS_CSS[ctrl]}">${PLAYER_NAMES[ctrl]}</b>'s bunnies)`
           : '';
       const who = `<b style="color:${PLAYER_COLORS_CSS[view.current]}">${name}</b>`;
+      const spectating = this.online && view.mySeat === null;
       this.setStatusHtml(
         view.canAct
           ? `Round ${view.round} — ${who}'s turn${controlling}. ${hint}`
-          : `Round ${view.round} — waiting for ${who}…`,
+          : spectating
+            ? `Round ${view.round} — 👀 spectating. ${who}'s turn.`
+            : `Round ${view.round} — waiting for ${who}…`,
       );
     }
 
     // Victory overlay with stats + rematch once a winner is decided.
     this.renderVictory(view);
 
-    // Reactions are online-only (hot seat players can heckle in person).
-    $('#emote-bar').hidden = !this.online || view.winner !== null;
+    // Reactions are online-only (hot seat players can heckle in person);
+    // spectators have no seat to react from.
+    $('#emote-bar').hidden = !this.online || view.winner !== null || view.mySeat === null;
+
+    // Screen readers hear each play and turn change through the live region.
+    const announcement = `${view.log[0] ?? ''}${view.canAct ? ' Your turn.' : ''}`;
+    if (announcement !== this.lastAnnounced) {
+      this.lastAnnounced = announcement;
+      $('#announcer').textContent = announcement;
+    }
 
     // Hand (or the pass-the-device curtain)
     const handEl = $('#hand');
@@ -457,6 +473,11 @@ export class App {
       el.innerHTML = `<span>${card.rank}</span><span class="suit">${card.suit}</span>` +
         `<span class="hintline">${CARD_HINTS[card.rank] ?? ''}</span>`;
       el.title = CARD_TOOLTIPS[card.rank] ?? '';
+      el.setAttribute(
+        'aria-label',
+        `${card.rank} of ${SUIT_NAMES[card.suit] ?? card.suit}` +
+          `${canPlay ? '' : ', not playable'}. ${CARD_TOOLTIPS[card.rank] ?? ''}`,
+      );
       el.onclick = () => {
         if (!canPlay) return;
         const wasSelected = this.sel.cardId === card.id;

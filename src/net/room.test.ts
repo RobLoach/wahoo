@@ -218,6 +218,33 @@ describe('room codes', () => {
   });
 });
 
+describe('spectators', () => {
+  it('seats four players and lets a fifth spectate with live views', () => {
+    const { room, last } = makeRoom(60_000);
+    for (const [id, name] of [['a', 'A'], ['b', 'B'], ['c', 'C'], ['d', 'D']] as const) {
+      room.addClient(id, name);
+    }
+    room.addClient('e', 'Eve');
+    expect(last('e', 'room').room.yourSeat).toBeNull();
+    room.handle('a', { t: 'start' });
+    const view = last('e', 'state').view;
+    expect(view.mySeat).toBeNull();
+    expect(view.myHand).toEqual([]);
+    expect(view.canAct).toBe(false);
+    room.dispose();
+  });
+
+  it('someone joining a started game spectates', () => {
+    const { room, last } = makeRoom(60_000);
+    room.addClient('a', 'A');
+    room.handle('a', { t: 'start' });
+    room.addClient('late', 'Larry');
+    expect(last('late', 'room').room.yourSeat).toBeNull();
+    expect(last('late', 'state').view.mySeat).toBeNull();
+    room.dispose();
+  });
+});
+
 describe('house rules and emotes', () => {
   it('applies sanitized house rules on start and keeps them for rematches', () => {
     const { room } = makeRoom(60_000);
