@@ -94,8 +94,8 @@ function watchRules(root: HTMLElement, prefix: string) {
   );
 }
 
-$('#local-rules-body').innerHTML = rulesControlsHtml('local');
-watchRules($('#local-rules-body'), 'local');
+$('#house-rules-body').innerHTML = rulesControlsHtml('local');
+watchRules($('#house-rules-body'), 'local');
 
 $('#start-local').onclick = async () => {
   const seats = Array.from(document.querySelectorAll<HTMLSelectElement>('#seat-config select'))
@@ -280,6 +280,7 @@ app.onMenuShown = () => {
 /** Invite-link mode: only the name field and lobby, so joining is obvious. */
 function setJoiningMode(on: boolean) {
   $('#local-panel').hidden = on;
+  $('#house-rules').hidden = on; // guests play by the host's rules
   (document.querySelector('.tabs') as HTMLElement).hidden = on;
   $('#tab-panel-p2p').hidden = on;
   $('#tab-panel-server').hidden = on || !$('#tab-server').classList.contains('active');

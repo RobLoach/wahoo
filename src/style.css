@@ -253,12 +253,16 @@ button:disabled { opacity: 0.45; cursor: default; }
 
 /* ------- house rules ------- */
 /* Checkboxes are inline controls: exempt them from the panel's full-width inputs. */
-.panel input[type="checkbox"] {
+.panel input[type="checkbox"], #house-rules input[type="checkbox"] {
   width: auto; margin: 0 6px 0 0; vertical-align: middle;
 }
-#local-rules { margin: 10px 0; font-size: 0.85rem; }
-#local-rules summary, .lobby-rules summary { cursor: pointer; font-weight: bold; }
-#local-rules label, .lobby-rules label { display: block; margin: 6px 0; }
+#house-rules {
+  max-width: 760px; margin: 20px auto 0; background: #eef4f9;
+  border-radius: 10px; padding: 10px 18px; font-size: 0.9rem;
+}
+#house-rules summary, .lobby-rules summary { cursor: pointer; font-weight: bold; }
+#house-rules label, .lobby-rules label { display: block; margin: 6px 0; }
+#house-rules .hint { margin: 8px 0 4px; }
 .lobby-rules { margin: 8px 0; font-size: 0.85rem; }
 
 /* ------- emotes ------- */

@@ -28,10 +28,6 @@
           <h2>Local Game</h2>
           <p>Hot seat and/or CPU players on this device.</p>
           <div id="seat-config"></div>
-          <details id="local-rules">
-            <summary>House Rules</summary>
-            <div id="local-rules-body"></div>
-          </details>
           <button id="start-local" class="primary">Start Game</button>
           <button id="local-resume" hidden></button>
         </div>
@@ -71,6 +67,12 @@
           <div id="lobby" hidden></div>
         </div>
       </div>
+
+      <details id="house-rules">
+        <summary>House Rules</summary>
+        <div id="house-rules-body"></div>
+        <p class="hint">Applies to games you start or host — guests play by the host's rules.</p>
+      </details>
 
       <details id="rules">
         <summary>How to play</summary>

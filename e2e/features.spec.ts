@@ -79,7 +79,7 @@ test('PWA manifest and service worker are served', async ({ page, request, baseU
 
 test('house rules from the menu reach the game state', async ({ page }) => {
   await page.goto('./');
-  await page.click('#local-rules summary');
+  await page.click('#house-rules summary');
   await page.uncheck('#local-ff');
   await page.selectOption('#local-seven', '4');
   await page.evaluate(() => ((window as any).__wahooCpuDelay = 60_000));
