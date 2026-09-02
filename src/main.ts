@@ -485,7 +485,18 @@ $('#btn-mute').onclick = () => {
 
 $('#victory-menu').onclick = () => ($('#btn-menu') as HTMLButtonElement).click();
 
+/** The in-game modal shows the rules THIS game is using (guests see the host's). */
+function renderModalHouseRules() {
+  const r = app.view?.rules ?? savedRules();
+  const seven = { 1: 'one bunny only', 2: 'may split across two bunnies', 4: 'may split freely' };
+  $('#rules-modal-house').innerHTML =
+    `<li>Stomping teammates: <b>${r.friendlyFire ? 'allowed' : 'not allowed'}</b></li>` +
+    `<li>The 7: <b>${seven[r.sevenMaxBunnies]}</b></li>` +
+    `<li>Jumping over occupied burrow slots: <b>${r.burrowJump ? 'allowed' : 'not allowed'}</b></li>`;
+}
+
 $('#btn-rules').onclick = () => {
+  renderModalHouseRules();
   $('#rules-modal').hidden = false;
 };
 $('#rules-close').onclick = () => {
