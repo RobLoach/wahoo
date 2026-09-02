@@ -264,10 +264,9 @@ button:disabled { opacity: 0.45; cursor: default; }
   max-width: 760px; margin: 20px auto 0; background: #eef4f9;
   border-radius: 10px; padding: 10px 18px; font-size: 0.9rem;
 }
-#house-rules summary, .lobby-rules summary { cursor: pointer; font-weight: bold; }
-#house-rules label, .lobby-rules label { display: block; margin: 6px 0; }
+#house-rules summary { cursor: pointer; font-weight: bold; }
+#house-rules label { display: block; margin: 6px 0; }
 #house-rules .hint { margin: 8px 0 4px; }
-.lobby-rules { margin: 8px 0; font-size: 0.85rem; }
 
 /* ------- emotes ------- */
 #emote-bar { display: flex; gap: 6px; flex-wrap: wrap; }

@@ -420,16 +420,18 @@ function renderLobby(session: NetSession, room: RoomInfo) {
   });
   if (room.youAreHost) {
     if (!room.started) {
-      const rulesBox = document.createElement('details');
-      rulesBox.className = 'lobby-rules';
-      rulesBox.innerHTML = '<summary>House Rules</summary>' + rulesControlsHtml('lobby');
-      lobby.appendChild(rulesBox);
-      watchRules(rulesBox, 'lobby');
+      const note = document.createElement('p');
+      note.className = 'hint';
+      note.textContent = 'The House Rules section below applies to this game.';
+      lobby.appendChild(note);
+      // A joining-mode guest can inherit hosting: give them the rules strip.
+      $('#house-rules').hidden = false;
     }
     const start = document.createElement('button');
     start.className = 'primary';
     start.textContent = 'Start Game (empty seats become CPUs)';
-    start.onclick = () => session.startGame(readRules('lobby'));
+    // Rules come from the shared House Rules strip below the panels.
+    start.onclick = () => session.startGame(readRules('local'));
     lobby.appendChild(start);
   } else {
     const p = document.createElement('p');
