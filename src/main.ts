@@ -420,10 +420,6 @@ function renderLobby(session: NetSession, room: RoomInfo) {
   });
   if (room.youAreHost) {
     if (!room.started) {
-      const note = document.createElement('p');
-      note.className = 'hint';
-      note.textContent = 'The House Rules section below applies to this game.';
-      lobby.appendChild(note);
       // A joining-mode guest can inherit hosting: give them the rules strip.
       $('#house-rules').hidden = false;
     }
