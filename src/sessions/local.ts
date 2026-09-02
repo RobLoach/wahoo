@@ -85,9 +85,13 @@ export class LocalSession {
     this.persist();
     const humanTurn =
       this.state.winner === null && this.seats[this.state.current] === 'human';
-    this.onView(
-      makeView(this.state, humanTurn ? this.state.current : null, this.names(), humanTurn),
-    );
+    // A lone human keeps seeing their (disabled) hand during CPU turns —
+    // there's no one else on this device to hide it from. With several
+    // humans, hands stay private between turns.
+    const solo =
+      this.seats.filter(s => s === 'human').length === 1 ? this.seats.indexOf('human') : -1;
+    const seat = humanTurn ? this.state.current : solo !== -1 ? solo : null;
+    this.onView(makeView(this.state, seat, this.names(), humanTurn));
   }
 
   submit(move: Move) {
