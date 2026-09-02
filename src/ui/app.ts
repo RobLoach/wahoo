@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // The in-game application: board, hand, status, and click handling.
 // ---------------------------------------------------------------------------
-import { $ } from './dom.ts';
+import { $, esc } from './dom.ts';
 import { BoardView, emptyHighlights, PLAYER_COLORS_CSS, TEAM_MARKS } from './board.ts';
 import type { Highlights } from './board.ts';
 import {
@@ -335,10 +335,10 @@ export class App {
       ? '<div class="play-banner-card fold">✕</div>'
       : `<div class="play-banner-card${
           card.suit === '♥' || card.suit === '♦' ? ' red' : ''
-        }">${card.rank}<span style="font-size:1.5rem">${card.suit}</span></div>`;
+        }">${esc(card.rank)}<span style="font-size:1.5rem">${esc(card.suit)}</span></div>`;
     el.innerHTML =
       cardHtml +
-      `<div class="play-banner-name" style="color:${PLAYER_COLORS_CSS[play.seat]}">${name}${
+      `<div class="play-banner-name" style="color:${PLAYER_COLORS_CSS[play.seat]}">${esc(name)}${
         play.fold ? ' folded' : ''
       }</div>`;
     el.hidden = false;
@@ -413,7 +413,7 @@ export class App {
     } else if (curtainUp) {
       this.setStatusHtml(
         `Round ${view.round} — pass the device to ` +
-          `<b style="color:${PLAYER_COLORS_CSS[view.current]}">${name}</b>.`,
+          `<b style="color:${PLAYER_COLORS_CSS[view.current]}">${esc(name)}</b>.`,
       );
     } else {
       const ctrl = ctrlPlayer(view);
@@ -421,7 +421,7 @@ export class App {
         view.mySeat !== null && ctrl !== view.mySeat
           ? ` (moving <b style="color:${PLAYER_COLORS_CSS[ctrl]}">${PLAYER_NAMES[ctrl]}</b>'s bunnies)`
           : '';
-      const who = `<b style="color:${PLAYER_COLORS_CSS[view.current]}">${name}</b>`;
+      const who = `<b style="color:${PLAYER_COLORS_CSS[view.current]}">${esc(name)}</b>`;
       const spectating = this.online && view.mySeat === null;
       this.setStatusHtml(
         view.canAct
@@ -500,9 +500,9 @@ export class App {
     const lastEl = $('#last-play');
     if (view.lastPlay) {
       const { seat, card, bonus, fold } = view.lastPlay;
-      const who = `<b style="color:${PLAYER_COLORS_CSS[seat]}">${
-        view.seatNames[seat] ?? PLAYER_NAMES[seat]
-      }</b>`;
+      const who = `<b style="color:${PLAYER_COLORS_CSS[seat]}">${esc(
+        view.seatNames[seat] ?? PLAYER_NAMES[seat],
+      )}</b>`;
       lastEl.hidden = false;
       if (fold || !card) {
         lastEl.innerHTML =
@@ -512,8 +512,8 @@ export class App {
         const red = card.suit === '♥' || card.suit === '♦' ? ' red' : '';
         const desc = view.lastPlay.desc || 'played';
         lastEl.innerHTML =
-          `<span class="mini-card${red}">${card.rank}${card.suit}</span>` +
-          `<span>${who} ${desc}${bonus ? ' <i>(flipped bonus card)</i>' : ''}</span>`;
+          `<span class="mini-card${red}">${esc(card.rank + card.suit)}</span>` +
+          `<span>${who} ${esc(desc)}${bonus ? ' <i>(flipped bonus card)</i>' : ''}</span>`;
       }
     } else {
       lastEl.hidden = true;
@@ -564,14 +564,14 @@ export class App {
 
     // Piles
     const shortName = (i: number) =>
-      (view.seatNames[i] ?? PLAYER_NAMES[i]).replace(/^CPU /, '');
+      esc((view.seatNames[i] ?? PLAYER_NAMES[i]).replace(/^CPU /, ''));
     const teamName = (i: number) =>
       `<span style="color:${PLAYER_COLORS_CSS[i]}">${shortName(i)}</span>`;
     $('#piles').innerHTML =
       `Teams: ${TEAM_MARKS[0]} ${teamName(0)} & ${teamName(2)} vs ` +
       `${TEAM_MARKS[1]} ${teamName(1)} & ${teamName(3)}<br/>` +
       `Draw pile: ${view.drawCount} · Discard: ${
-        view.discardTop ? view.discardTop.rank + view.discardTop.suit : '—'
+        view.discardTop ? esc(view.discardTop.rank + view.discardTop.suit) : '—'
       } · Hands: ` +
       view.handCounts
         .map((n, i) => `<span style="color:${PLAYER_COLORS_CSS[i]}">${shortName(i)} ${n}</span>`)
@@ -586,7 +586,7 @@ export class App {
     const logEl = $('#log');
     logEl.innerHTML = [...view.log]
       .reverse()
-      .map(line => `<div>${colorizeLog(line)}</div>`)
+      .map(line => `<div>${colorizeLog(esc(line))}</div>`)
       .join('');
     logEl.scrollTop = 0;
   }

@@ -1,5 +1,5 @@
 import './style.css';
-import { $ } from './ui/dom.ts';
+import { $, esc } from './ui/dom.ts';
 import { App } from './ui/app.ts';
 import type { NetSession } from './ui/app.ts';
 import type { RoomInfo } from './net/protocol.ts';
@@ -57,7 +57,7 @@ function buildSeatConfig() {
       row.innerHTML =
         `<span class="seat-dot" style="background:${PLAYER_COLORS_CSS[i]}"></span>` +
         `<span class="seat-label" data-label-seat="${i}">${PLAYER_NAMES[i]}</span>` +
-        `<input class="seat-name" data-name-seat="${i}" maxlength="12" value="${names[i]}"` +
+        `<input class="seat-name" data-name-seat="${i}" maxlength="12" value="${esc(names[i])}"` +
         ` aria-label="${PLAYER_NAMES[i]} player name" />` +
         `<select data-seat="${i}">` +
         kinds
@@ -407,8 +407,8 @@ function renderLobby(session: NetSession, room: RoomInfo) {
     }
     const seatLabel = seat
       ? seat.cpu
-        ? `🤖 CPU (${seat.difficulty ?? 'medium'})`
-        : seat.name
+        ? `🤖 CPU (${esc(seat.difficulty ?? 'medium')})`
+        : esc(seat.name)
       : '—';
     row.innerHTML =
       `<span class="seat-dot" style="background:${PLAYER_COLORS_CSS[i]}"></span>` +

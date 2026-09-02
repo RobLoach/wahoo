@@ -10,7 +10,7 @@ function makeRoom(cpuDelay = 1) {
     if (!inbox.has(id)) inbox.set(id, []);
     inbox.get(id)!.push(msg);
   };
-  const room = new GameRoom('TEST', send, cpuDelay);
+  const room = new GameRoom('TEST', send, cpuDelay, 0); // no cooldown in tests
   const last = (id: string, t: ServerMsg['t']) => {
     const msgs = inbox.get(id) ?? [];
     for (let i = msgs.length - 1; i >= 0; i--) if (msgs[i].t === t) return msgs[i] as any;
@@ -286,6 +286,25 @@ describe('house rules and emotes', () => {
     room.handle('a', { t: 'start' });
     room.handle('b', { t: 'rename', name: 'Robert' });
     expect(last('a', 'state').view.seatNames[1]).toBe('Robert');
+    room.dispose();
+  });
+
+  it('throttles rapid-fire emotes and renames per client', () => {
+    const inbox = new Map<string, ServerMsg[]>();
+    const send = (id: string, msg: ServerMsg) => {
+      if (!inbox.has(id)) inbox.set(id, []);
+      inbox.get(id)!.push(msg);
+    };
+    const room = new GameRoom('THRT', send, 60_000); // default cooldown
+    room.addClient('a', 'Alice');
+    room.handle('a', { t: 'emote', emoji: '🥕' });
+    room.handle('a', { t: 'emote', emoji: '💥' }); // instantly after: dropped
+    const emotes = (inbox.get('a') ?? []).filter(m => m.t === 'emote');
+    expect(emotes).toHaveLength(1);
+    room.handle('a', { t: 'rename', name: 'Al' });
+    room.handle('a', { t: 'rename', name: 'Bob' }); // dropped
+    const rooms = (inbox.get('a') ?? []).filter(m => m.t === 'room');
+    expect((rooms[rooms.length - 1] as any).room.seats[0].name).toBe('Al');
     room.dispose();
   });
 

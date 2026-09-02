@@ -29,6 +29,9 @@ const ROOM_IDLE_SECONDS = 604800;  // prune rooms untouched for a week
 const CLIENT_STALE_SECONDS = 75;   // a client silent this long is treated as gone
 const MAX_STATE_BYTES = 300000;
 const MAX_ROOMS_PER_IP_PER_HOUR = 20;
+const MAX_JOINS_PER_IP_PER_HOUR = 60;
+const ACTION_COOLDOWN_SECONDS = 1; // min gap between renames/emotes per client
+const MAX_BODY_BYTES = 400000;
 const EMOTES = ['👍', '😂', '😱', '🥕', '💥', '🐰'];
 
 // ---------------------------------------------------------------------------
@@ -44,6 +47,12 @@ function db(): PDO
             $dir = __DIR__ . '/data';
             if (!is_dir($dir)) {
                 mkdir($dir, 0775, true);
+            }
+            // Self-heal the Apache deny rule so the database (which holds
+            // every seat token) can never be downloaded over HTTP.
+            $ht = $dir . '/.htaccess';
+            if (!is_file($ht)) {
+                file_put_contents($ht, "Require all denied\n");
             }
             $file = $dir . '/wahoo.sqlite';
         }
@@ -75,6 +84,12 @@ function db(): PDO
         try {
             $pdo->exec('ALTER TABLE rooms ADD COLUMN emote TEXT');
             $pdo->exec('ALTER TABLE rooms ADD COLUMN emote_n INTEGER NOT NULL DEFAULT 0');
+        } catch (PDOException) {
+            // columns already exist
+        }
+        try {
+            $pdo->exec("ALTER TABLE rate_limits ADD COLUMN kind TEXT NOT NULL DEFAULT 'create'");
+            $pdo->exec('ALTER TABLE clients ADD COLUMN last_action INTEGER NOT NULL DEFAULT 0');
         } catch (PDOException) {
             // columns already exist
         }
@@ -187,6 +202,47 @@ function cpuSeat(string $name, string $difficulty = 'medium', ?string $token = n
 
 const SEAT_COLOR_NAMES = ['Red', 'Blue', 'Green', 'Yellow'];
 
+/** The seat credential: sent as a header (kept out of access logs), with
+ *  query/body fallbacks for older clients. */
+function clientIdOf(Request $request): string
+{
+    $header = trim($request->getHeaderLine('X-Wahoo-Client'));
+    if ($header !== '') {
+        return substr($header, 0, 64);
+    }
+    $body = (array) $request->getParsedBody();
+    $query = $request->getQueryParams();
+    return substr((string) ($body['clientId'] ?? $query['clientId'] ?? ''), 0, 64);
+}
+
+/** Per-IP sliding-hour throttle shared by room creation and joins. */
+function ipThrottled(PDO $pdo, Request $request, string $kind, int $max): bool
+{
+    $ip = (string) ($request->getServerParams()['REMOTE_ADDR'] ?? 'unknown');
+    $pdo->prepare('DELETE FROM rate_limits WHERE created_at < ?')->execute([time() - 3600]);
+    $count = $pdo->prepare('SELECT COUNT(*) FROM rate_limits WHERE ip = ? AND kind = ?');
+    $count->execute([$ip, $kind]);
+    if ((int) $count->fetchColumn() >= $max) {
+        return true;
+    }
+    $pdo->prepare('INSERT INTO rate_limits (ip, created_at, kind) VALUES (?, ?, ?)')
+        ->execute([$ip, time(), $kind]);
+    return false;
+}
+
+/** Min gap between chatty per-client actions (renames, emotes). */
+function actionThrottled(PDO $pdo, string $clientId): bool
+{
+    $stmt = $pdo->prepare('SELECT last_action FROM clients WHERE id = ?');
+    $stmt->execute([$clientId]);
+    $last = $stmt->fetchColumn();
+    if ($last !== false && time() - (int) $last < ACTION_COOLDOWN_SECONDS) {
+        return true;
+    }
+    $pdo->prepare('UPDATE clients SET last_action = ? WHERE id = ?')->execute([time(), $clientId]);
+    return false;
+}
+
 /** Shallow sanity check that a posted blob looks like a Wahoo GameState. */
 function looksLikeGameState(mixed $state): bool
 {
@@ -213,6 +269,35 @@ function looksLikeGameState(mixed $state): bool
     $winner = $state['winner'];
     if ($winner !== null && $winner !== 0 && $winner !== 1) {
         return false;
+    }
+    // The log and lastPlay strings are rendered by every other client in the
+    // room: type-check and bound them so a hostile client can't smuggle in
+    // oversized or non-string payloads.
+    $log = $state['log'] ?? null;
+    if (!is_array($log) || count($log) > 2000) {
+        return false;
+    }
+    foreach ($log as $line) {
+        if (!is_string($line) || strlen($line) > 400) {
+            return false;
+        }
+    }
+    if (($state['lastPlay'] ?? null) !== null) {
+        $lp = $state['lastPlay'];
+        if (!is_array($lp)) {
+            return false;
+        }
+        if (isset($lp['desc']) && (!is_string($lp['desc']) || strlen($lp['desc']) > 300)) {
+            return false;
+        }
+        if (($lp['card'] ?? null) !== null) {
+            $card = $lp['card'];
+            if (!is_array($card)
+                || !is_string($card['rank'] ?? null) || strlen($card['rank']) > 3
+                || !is_string($card['suit'] ?? null) || strlen($card['suit']) > 8) {
+                return false;
+            }
+        }
     }
     return strlen(json_encode($state)) <= MAX_STATE_BYTES;
 }
@@ -298,13 +383,24 @@ function snapshot(array $room, string $clientId): array
 $app = AppFactory::create();
 $app->addBodyParsingMiddleware();
 
+// Reject oversized requests before the JSON parser touches them.
+$app->add(function (Request $request, $handler): Response {
+    $length = (int) $request->getHeaderLine('Content-Length');
+    if ($length > MAX_BODY_BYTES) {
+        $response = new \Slim\Psr7\Response(413);
+        $response->getBody()->write(json_encode(['error' => 'Request too large.']));
+        return $response->withHeader('Content-Type', 'application/json');
+    }
+    return $handler->handle($request);
+});
+
 // CORS: the client is served from GitHub Pages on another origin.
 $app->add(function (Request $request, $handler): Response {
     $response = $handler->handle($request);
     return $response
         ->withHeader('Access-Control-Allow-Origin', '*')
         ->withHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        ->withHeader('Access-Control-Allow-Headers', 'Content-Type')
+        ->withHeader('Access-Control-Allow-Headers', 'Content-Type, X-Wahoo-Client')
         // Some hosts (e.g. DreamHost) inject long max-age defaults; polling
         // breaks the moment a snapshot gets cached, so forbid it explicitly.
         ->withHeader('Cache-Control', 'no-store, no-cache, must-revalidate')
@@ -312,6 +408,20 @@ $app->add(function (Request $request, $handler): Response {
         ->withHeader('Expires', '0');
 });
 $app->options('/{routes:.*}', fn (Request $request, Response $response) => $response);
+
+// Uncaught exceptions become a bare JSON 500 — never a stack trace.
+$errorMiddleware = $app->addErrorMiddleware(false, false, false);
+$errorMiddleware->setDefaultErrorHandler(
+    function (Request $request, Throwable $e) use ($app): Response {
+        $status = $e instanceof \Slim\Exception\HttpException ? $e->getCode() : 500;
+        $message = $e instanceof \Slim\Exception\HttpException ? $e->getMessage() : 'Server error.';
+        $response = $app->getResponseFactory()->createResponse($status);
+        $response->getBody()->write(json_encode(['error' => $message]));
+        return $response
+            ->withHeader('Content-Type', 'application/json')
+            ->withHeader('Access-Control-Allow-Origin', '*');
+    }
+);
 
 // A human visiting the API host lands on the game itself.
 $app->get('/', fn (Request $request, Response $response) =>
@@ -327,14 +437,9 @@ $app->post('/api/rooms', function (Request $request, Response $response): Respon
     pruneIdleRooms($pdo);
 
     // A light per-IP throttle so a script can't flood the database.
-    $ip = (string) ($request->getServerParams()['REMOTE_ADDR'] ?? 'unknown');
-    $pdo->prepare('DELETE FROM rate_limits WHERE created_at < ?')->execute([time() - 3600]);
-    $count = $pdo->prepare('SELECT COUNT(*) FROM rate_limits WHERE ip = ?');
-    $count->execute([$ip]);
-    if ((int) $count->fetchColumn() >= MAX_ROOMS_PER_IP_PER_HOUR) {
+    if (ipThrottled($pdo, $request, 'create', MAX_ROOMS_PER_IP_PER_HOUR)) {
         return errorResponse($response, 'Too many rooms created — try again later.', 429);
     }
-    $pdo->prepare('INSERT INTO rate_limits (ip, created_at) VALUES (?, ?)')->execute([$ip, time()]);
 
     $code = newRoomCode($pdo);
     $clientId = bin2hex(random_bytes(12));
@@ -356,6 +461,10 @@ $app->post('/api/rooms', function (Request $request, Response $response): Respon
 $app->post('/api/rooms/{code}/join', function (Request $request, Response $response, array $args): Response {
     $pdo = db();
     pruneIdleRooms($pdo);
+    // Codes are short dictionary words: throttle joins so bots can't scan rooms.
+    if (ipThrottled($pdo, $request, 'join', MAX_JOINS_PER_IP_PER_HOUR)) {
+        return errorResponse($response, 'Too many join attempts — try again later.', 429);
+    }
     $pdo->beginTransaction();
     $room = loadRoom($pdo, $args['code']);
     if ($room === null) {
@@ -401,7 +510,7 @@ $app->post('/api/rooms/{code}/join', function (Request $request, Response $respo
 // Poll for the room snapshot.
 $app->get('/api/rooms/{code}', function (Request $request, Response $response, array $args): Response {
     $pdo = db();
-    $clientId = (string) ($request->getQueryParams()['clientId'] ?? '');
+    $clientId = clientIdOf($request);
     $room = loadRoom($pdo, $args['code']);
     if ($room === null || clientRow($pdo, $clientId, $args['code']) === null) {
         return errorResponse($response, 'Room not found.', 404);
@@ -433,7 +542,7 @@ $app->get('/api/rooms/{code}', function (Request $request, Response $response, a
 $app->post('/api/rooms/{code}/emote', function (Request $request, Response $response, array $args): Response {
     $pdo = db();
     $body = (array) $request->getParsedBody();
-    $clientId = (string) ($body['clientId'] ?? '');
+    $clientId = clientIdOf($request);
     $emoji = (string) ($body['emoji'] ?? '');
     $room = loadRoom($pdo, $args['code']);
     if ($room === null || clientRow($pdo, $clientId, $args['code']) === null) {
@@ -442,6 +551,9 @@ $app->post('/api/rooms/{code}/emote', function (Request $request, Response $resp
     $seat = seatOf($room, $clientId);
     if ($seat === null || !in_array($emoji, EMOTES, true)) {
         return errorResponse($response, 'Not allowed.', 403);
+    }
+    if (actionThrottled($pdo, $clientId)) {
+        return errorResponse($response, 'Too fast.', 429);
     }
     touchClient($pdo, $clientId);
     $pdo->prepare('UPDATE rooms SET emote = ?, emote_n = emote_n + 1 WHERE code = ?')
@@ -455,7 +567,7 @@ $app->post('/api/rooms/{code}/emote', function (Request $request, Response $resp
 $app->post('/api/rooms/{code}/rename', function (Request $request, Response $response, array $args): Response {
     $pdo = db();
     $body = (array) $request->getParsedBody();
-    $clientId = (string) ($body['clientId'] ?? '');
+    $clientId = clientIdOf($request);
     $pdo->beginTransaction();
     $room = loadRoom($pdo, $args['code']);
     if ($room === null || clientRow($pdo, $clientId, $args['code']) === null) {
@@ -466,6 +578,10 @@ $app->post('/api/rooms/{code}/rename', function (Request $request, Response $res
     if ($seat === null) {
         $pdo->rollBack();
         return errorResponse($response, 'Not seated.', 403);
+    }
+    if (actionThrottled($pdo, $clientId)) {
+        $pdo->rollBack();
+        return errorResponse($response, 'Too fast.', 429);
     }
     $room['seats'][$seat]['name'] = sanitizeName($body['name'] ?? null);
     touchClient($pdo, $clientId);
@@ -478,7 +594,7 @@ $app->post('/api/rooms/{code}/rename', function (Request $request, Response $res
 $app->post('/api/rooms/{code}/sit', function (Request $request, Response $response, array $args): Response {
     $pdo = db();
     $body = (array) $request->getParsedBody();
-    $clientId = (string) ($body['clientId'] ?? '');
+    $clientId = clientIdOf($request);
     $target = (int) ($body['seat'] ?? -1);
     $pdo->beginTransaction();
     $room = loadRoom($pdo, $args['code']);
@@ -508,7 +624,7 @@ $app->post('/api/rooms/{code}/sit', function (Request $request, Response $respon
 $app->post('/api/rooms/{code}/cpu', function (Request $request, Response $response, array $args): Response {
     $pdo = db();
     $body = (array) $request->getParsedBody();
-    $clientId = (string) ($body['clientId'] ?? '');
+    $clientId = clientIdOf($request);
     $target = (int) ($body['seat'] ?? -1);
     $on = (bool) ($body['on'] ?? false);
     $difficulty = in_array($body['difficulty'] ?? null, ['easy', 'medium', 'hard', 'insane'], true)
@@ -538,7 +654,7 @@ $app->post('/api/rooms/{code}/cpu', function (Request $request, Response $respon
 $app->post('/api/rooms/{code}/start', function (Request $request, Response $response, array $args): Response {
     $pdo = db();
     $body = (array) $request->getParsedBody();
-    $clientId = (string) ($body['clientId'] ?? '');
+    $clientId = clientIdOf($request);
     $state = $body['state'] ?? null;
     $pdo->beginTransaction();
     $room = loadRoom($pdo, $args['code']);
@@ -570,7 +686,7 @@ $app->post('/api/rooms/{code}/start', function (Request $request, Response $resp
 $app->post('/api/rooms/{code}/again', function (Request $request, Response $response, array $args): Response {
     $pdo = db();
     $body = (array) $request->getParsedBody();
-    $clientId = (string) ($body['clientId'] ?? '');
+    $clientId = clientIdOf($request);
     $state = $body['state'] ?? null;
     $pdo->beginTransaction();
     $room = loadRoom($pdo, $args['code']);
@@ -598,7 +714,7 @@ $app->post('/api/rooms/{code}/again', function (Request $request, Response $resp
 $app->post('/api/rooms/{code}/state', function (Request $request, Response $response, array $args): Response {
     $pdo = db();
     $body = (array) $request->getParsedBody();
-    $clientId = (string) ($body['clientId'] ?? '');
+    $clientId = clientIdOf($request);
     $expected = (int) ($body['expectedVersion'] ?? -1);
     $forCpu = (bool) ($body['cpu'] ?? false);
     $state = $body['state'] ?? null;
@@ -643,7 +759,7 @@ $app->post('/api/rooms/{code}/state', function (Request $request, Response $resp
 $app->post('/api/rooms/{code}/leave', function (Request $request, Response $response, array $args): Response {
     $pdo = db();
     $body = (array) $request->getParsedBody();
-    $clientId = (string) ($body['clientId'] ?? '');
+    $clientId = clientIdOf($request);
     $pdo->beginTransaction();
     $room = loadRoom($pdo, $args['code']);
     if ($room === null) {

@@ -48,18 +48,35 @@ export class GameRoom {
   /** clientId -> seat index (null while spectating). */
   private clients = new Map<string, number | null>();
   private tokens = new Map<string, string | null>();
+  private lastAction = new Map<string, number>();
   private cpuTimer: ReturnType<typeof setTimeout> | null = null;
 
   readonly code: string;
   private send: (clientId: string, msg: ServerMsg) => void;
   private cpuDelay: number;
+  private actionCooldownMs: number;
 
   // No constructor parameter properties: this file also runs under Node's
   // strip-only TypeScript mode, which cannot transform them.
-  constructor(code: string, send: (clientId: string, msg: ServerMsg) => void, cpuDelay = 4000) {
+  constructor(
+    code: string,
+    send: (clientId: string, msg: ServerMsg) => void,
+    cpuDelay = 4000,
+    actionCooldownMs = 600,
+  ) {
     this.code = code;
     this.send = send;
     this.cpuDelay = cpuDelay;
+    this.actionCooldownMs = actionCooldownMs;
+  }
+
+  /** Rate limit for chatty actions (emotes, renames) so a client can't flood. */
+  private throttled(id: string, action: string): boolean {
+    const key = `${id}:${action}`;
+    const now = Date.now();
+    if (now - (this.lastAction.get(key) ?? 0) < this.actionCooldownMs) return true;
+    this.lastAction.set(key, now);
+    return false;
   }
 
   /** Add a connection: reclaims a seat by token, takes a free seat, or spectates. */
@@ -144,6 +161,7 @@ export class GameRoom {
       case 'rename': {
         const seat = this.clients.get(id);
         if (seat === null || seat === undefined || !this.seats[seat]) return;
+        if (this.throttled(id, 'rename')) return;
         this.seats[seat]!.name = sanitizeName(msg.name);
         this.broadcastRoom();
         if (this.game) this.broadcastState(); // views carry player names
@@ -153,6 +171,7 @@ export class GameRoom {
         const seat = this.clients.get(id);
         if (seat === null || seat === undefined) return;
         if (!EMOTES.includes(msg.emoji)) return;
+        if (this.throttled(id, 'emote')) return;
         for (const clientId of this.clients.keys()) {
           this.send(clientId, { t: 'emote', seat, emoji: msg.emoji });
         }

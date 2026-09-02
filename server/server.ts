@@ -69,7 +69,9 @@ const http = createServer((_req, res) => {
   res.writeHead(200, { 'content-type': 'text/plain' });
   res.end('Wahoo server is running. Connect with the Wahoo web client.\n');
 });
-const wss = new WebSocketServer({ server: http });
+// Clients only ever send small messages (moves, names); a 64 KB cap stops
+// anyone from streaming megabytes at the parser.
+const wss = new WebSocketServer({ server: http, maxPayload: 64 * 1024 });
 
 wss.on('connection', ws => {
   const clientId = `c${nextClient++}`;

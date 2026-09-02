@@ -40,3 +40,15 @@ Then point the game client's dedicated-server URL at `http://127.0.0.1:8099`.
 Rooms untouched for a week are cleared automatically to make room for new
 lobbies; players silent for ~75s are handed to a CPU (reclaimable by rejoining
 with the same browser).
+
+## Security notes
+
+- `data/` (the SQLite file holds every seat token) is blocked from the web by
+  the root `.htaccess` **and** a self-healing `data/.htaccess`. On non-Apache
+  hosts, set the `WAHOO_DB` environment variable to an absolute path outside
+  the docroot instead.
+- Requests larger than ~400 KB are rejected before parsing; posted game states
+  are size- and shape-checked (including the log strings other clients render).
+- Room creation (20/h), joins (60/h) are throttled per IP; renames and emotes
+  have a per-client cooldown.
+- Errors return bare JSON — no stack traces.

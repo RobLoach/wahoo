@@ -57,13 +57,18 @@ export class HttpSession {
   ): Promise<T> {
     // no-store: shared hosts often inject long cache lifetimes, and a cached
     // snapshot would freeze the poll loop at a stale version.
+    // The clientId travels in a header, not the query string, so the seat
+    // credential never lands in server access logs.
+    const auth: Record<string, string> = this.clientId
+      ? { 'x-wahoo-client': this.clientId }
+      : {};
     const response = await fetch(`${this.base}${path}`, {
       cache: 'no-store',
       ...(body === undefined
-        ? {}
+        ? { headers: auth }
         : {
             method: 'POST',
-            headers: { 'content-type': 'application/json' },
+            headers: { 'content-type': 'application/json', ...auth },
             body: JSON.stringify(body),
           }),
     });
@@ -105,7 +110,7 @@ export class HttpSession {
     this.busy = true;
     try {
       const d = await this.api<Snapshot | Heartbeat>(
-        `/api/rooms/${this.code}?clientId=${this.clientId}&since=${this.version}`,
+        `/api/rooms/${this.code}?since=${this.version}`,
       );
       this.missedPolls = 0;
       this.acceptEmote(d);
