@@ -10,7 +10,6 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "build:itch": "tsc --noEmit && vite build --base=./ --outDir=dist-itch",
     "preview": "vite preview",
     "test": "vitest run",
     "test:e2e": "playwright test",
