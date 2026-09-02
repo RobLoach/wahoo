@@ -14,6 +14,27 @@ function sessionAt(seats: SeatKind[], current: number) {
   return { session, view: () => views[views.length - 1] };
 }
 
+describe('custom names', () => {
+  it('humans use their entered name; CPU seats keep colour names', () => {
+    const state = createGame(1);
+    state.current = 0;
+    const views: View[] = [];
+    const session = new LocalSession(
+      ['human', 'cpu-medium', 'cpu-medium', 'cpu-medium'],
+      v => views.push(v),
+      60_000,
+      state,
+      undefined,
+      ['Rob', 'ignored', '  ', 'ignored'],
+    );
+    session.start();
+    expect(views[views.length - 1].seatNames).toEqual([
+      'Rob', 'CPU Blue', 'CPU Green', 'CPU Yellow',
+    ]);
+    session.leave();
+  });
+});
+
 describe('local hand visibility', () => {
   it('a lone human keeps seeing their hand during CPU turns', () => {
     const { session, view } = sessionAt(['human', 'cpu-medium', 'cpu-medium', 'cpu-medium'], 1);

@@ -24,10 +24,20 @@ import { maybeStartTour } from './ui/tour.ts';
 
 const app = new App();
 
+function savedSeatNames(): string[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem('wahoo-local-names') ?? '[]');
+    return [0, 1, 2, 3].map(i => (typeof raw[i] === 'string' ? raw[i] : PLAYER_NAMES[i]));
+  } catch {
+    return [...PLAYER_NAMES];
+  }
+}
+
 function buildSeatConfig() {
   const wrap = $('#seat-config');
   wrap.innerHTML = '';
   const defaults: SeatKind[] = ['human', 'cpu-medium', 'cpu-medium', 'cpu-medium'];
+  const names = savedSeatNames();
   const kinds: [SeatKind, string][] = [
     ['human', 'Human'],
     ['cpu-easy', 'CPU · Easy'],
@@ -46,15 +56,38 @@ function buildSeatConfig() {
       row.className = 'seat-row';
       row.innerHTML =
         `<span class="seat-dot" style="background:${PLAYER_COLORS_CSS[i]}"></span>` +
-        `<span style="width:64px">${PLAYER_NAMES[i]}</span>` +
+        `<span class="seat-label" data-label-seat="${i}">${PLAYER_NAMES[i]}</span>` +
+        `<input class="seat-name" data-name-seat="${i}" maxlength="12" value="${names[i]}"` +
+        ` aria-label="${PLAYER_NAMES[i]} player name" />` +
         `<select data-seat="${i}">` +
         kinds
           .map(([v, label]) => `<option value="${v}"${defaults[i] === v ? ' selected' : ''}>${label}</option>`)
           .join('') +
         `</select>`;
       wrap.appendChild(row);
+      // Humans get a name field; CPU seats just show the colour label.
+      const sel = row.querySelector('select')!;
+      const sync = () => {
+        const human = sel.value === 'human';
+        (row.querySelector('.seat-name') as HTMLElement).hidden = !human;
+        (row.querySelector('.seat-label') as HTMLElement).hidden = human;
+      };
+      sel.addEventListener('change', sync);
+      row.querySelector('.seat-name')!.addEventListener('change', () => {
+        localStorage.setItem('wahoo-local-names', JSON.stringify(readSeatNames()));
+      });
+      sync();
     }
   }
+}
+
+function readSeatNames(): string[] {
+  const names = [...PLAYER_NAMES];
+  for (const el of document.querySelectorAll<HTMLInputElement>('#seat-config .seat-name')) {
+    const i = Number(el.dataset.nameSeat);
+    names[i] = el.value.trim() || PLAYER_NAMES[i];
+  }
+  return names;
 }
 buildSeatConfig();
 
@@ -116,6 +149,7 @@ $('#start-local').onclick = async () => {
     (window as unknown as Record<string, number>).__wahooCpuDelay,
     undefined,
     readRules('local'),
+    readSeatNames(),
   );
   app.session = session;
   app.online = false;
@@ -275,6 +309,8 @@ $('#local-resume').onclick = async () => {
     view => app.onView(view),
     (window as unknown as Record<string, number>).__wahooCpuDelay,
     saved.state,
+    undefined,
+    saved.names,
   );
   app.session = session;
   app.online = false;

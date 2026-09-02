@@ -49,6 +49,8 @@ button:disabled { opacity: 0.45; cursor: default; }
 .team-head { font-weight: bold; margin: 12px 0 2px; }
 .team-head:first-child { margin-top: 4px; }
 .seat-row { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+.seat-row .seat-label { width: 96px; }
+.seat-row input.seat-name { width: 96px; padding: 4px 6px; margin: 0; }
 .seat-dot { width: 16px; height: 16px; border-radius: 50%; display: inline-block; }
 .seat-row select {
   background: #f8fbfd; color: #2f3d4f; border: 1px solid #9db6cb; border-radius: 6px; padding: 4px;

@@ -12,6 +12,7 @@ const SAVE_KEY = 'wahoo-local-game';
 export interface LocalSave {
   seats: SeatKind[];
   state: GameState;
+  names?: string[];
 }
 
 /** The unfinished local game saved by the last session, if any. */
@@ -50,6 +51,7 @@ export class LocalSession {
     cpuDelay?: number,
     resume?: GameState,
     rules?: Partial<HouseRules>,
+    private customNames?: string[],
   ) {
     this.cpuDelay = cpuDelay ?? DEFAULT_CPU_DELAY_MS;
     this.state = resume
@@ -64,7 +66,9 @@ export class LocalSession {
 
   private names() {
     return this.seats.map((kind, i) =>
-      kind === 'human' ? PLAYER_NAMES[i] : `CPU ${PLAYER_NAMES[i]}`,
+      kind === 'human'
+        ? this.customNames?.[i]?.trim() || PLAYER_NAMES[i]
+        : `CPU ${PLAYER_NAMES[i]}`,
     );
   }
 
@@ -72,7 +76,10 @@ export class LocalSession {
   private persist() {
     try {
       if (this.state.winner === null) {
-        localStorage.setItem(SAVE_KEY, JSON.stringify({ seats: this.seats, state: this.state }));
+        localStorage.setItem(
+          SAVE_KEY,
+          JSON.stringify({ seats: this.seats, state: this.state, names: this.customNames }),
+        );
       } else {
         clearLocalGame();
       }
