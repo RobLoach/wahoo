@@ -268,25 +268,25 @@ button:disabled { opacity: 0.45; cursor: default; }
 /* ------- emotes ------- */
 #emote-bar { display: flex; gap: 6px; flex-wrap: wrap; }
 #emote-bar button { font-size: 1.2rem; padding: 4px 10px; }
+/* Reactions pop out of the reacting player's corner, drift toward the
+   board centre, then fade away. --dx/--dy give each seat its diagonal. */
 .emote-bubble {
-  position: absolute; z-index: 6; font-size: 2.4rem; pointer-events: none;
-  animation: emote-float 2.4s ease-out forwards;
+  position: absolute; z-index: 6; font-size: 2.6rem; pointer-events: none;
+  opacity: 0;
+  animation: emote-pop 2.6s ease-in-out forwards;
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
-@keyframes emote-float {
-  0% { opacity: 0; transform: translateY(12px) scale(0.6); }
-  15% { opacity: 1; transform: translateY(0) scale(1.15); }
-  30% { transform: translateY(-6px) scale(1); }
-  80% { opacity: 1; }
-  100% { opacity: 0; transform: translateY(-46px) scale(0.9); }
+@keyframes emote-pop {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.3); }
+  18% { opacity: 1; transform: translate(calc(var(--dx) * 0.65), calc(var(--dy) * 0.65)) scale(1.25); }
+  35% { transform: translate(var(--dx), var(--dy)) scale(1); }
+  78% { opacity: 1; transform: translate(var(--dx), var(--dy)) scale(1); }
+  100% { opacity: 0; transform: translate(calc(var(--dx) * 1.35), calc(var(--dy) * 1.35)) scale(0.75); }
 }
-.emote-bubble.seat-0 { right: 12%; bottom: 14%; }
-.emote-bubble.seat-1 { left: 12%; bottom: 14%; }
-.emote-bubble.seat-2 { left: 12%; top: 14%; }
-.emote-bubble.seat-3 { right: 12%; top: 14%; }
-@media (prefers-reduced-motion: reduce) {
-  .emote-bubble { animation: none; opacity: 1; }
-}
+.emote-bubble.seat-0 { right: 4%; bottom: 4%; --dx: -64px; --dy: -64px; }
+.emote-bubble.seat-1 { left: 4%; bottom: 4%; --dx: 64px; --dy: -64px; }
+.emote-bubble.seat-2 { left: 4%; top: 4%; --dx: 64px; --dy: 64px; }
+.emote-bubble.seat-3 { right: 4%; top: 4%; --dx: -64px; --dy: 64px; }
 
 /* ------- accessibility ------- */
 .sr-only {
