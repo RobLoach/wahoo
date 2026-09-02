@@ -93,6 +93,11 @@ function db(): PDO
         } catch (PDOException) {
             // columns already exist
         }
+        try {
+            $pdo->exec('ALTER TABLE rooms ADD COLUMN rules TEXT');
+        } catch (PDOException) {
+            // column already exists
+        }
     }
     return $pdo;
 }
@@ -158,13 +163,15 @@ function loadRoom(PDO $pdo, string $code): ?array
 function saveRoom(PDO $pdo, array $room, bool $bumpVersion = true): void
 {
     $stmt = $pdo->prepare(
-        'UPDATE rooms SET seats = ?, game = ?, version = ?, host_client = ?, updated_at = ? WHERE code = ?'
+        'UPDATE rooms SET seats = ?, game = ?, version = ?, host_client = ?, rules = ?, updated_at = ?
+         WHERE code = ?'
     );
     $stmt->execute([
         json_encode($room['seats']),
         $room['game'] === null ? null : json_encode($room['game']),
         $room['version'] + ($bumpVersion ? 1 : 0),
         $room['host_client'],
+        $room['rules'] ?? null,
         time(),
         $room['code'],
     ]);
@@ -201,6 +208,24 @@ function cpuSeat(string $name, string $difficulty = 'medium', ?string $token = n
 }
 
 const SEAT_COLOR_NAMES = ['Red', 'Blue', 'Green', 'Yellow'];
+
+/** Keep only known house-rule keys with valid values. */
+function sanitizeRules(mixed $raw): array
+{
+    $rules = ['friendlyFire' => true, 'sevenMaxBunnies' => 2, 'burrowJump' => false];
+    if (is_array($raw)) {
+        if (is_bool($raw['friendlyFire'] ?? null)) {
+            $rules['friendlyFire'] = $raw['friendlyFire'];
+        }
+        if (in_array($raw['sevenMaxBunnies'] ?? null, [1, 2, 4], true)) {
+            $rules['sevenMaxBunnies'] = $raw['sevenMaxBunnies'];
+        }
+        if (is_bool($raw['burrowJump'] ?? null)) {
+            $rules['burrowJump'] = $raw['burrowJump'];
+        }
+    }
+    return $rules;
+}
 
 /** The seat credential: sent as a header (kept out of access logs), with
  *  query/body fallbacks for older clients. */
@@ -369,6 +394,8 @@ function snapshot(array $room, string $clientId): array
         'yourSeat' => seatOf($room, $clientId),
         'hostIsYou' => $room['host_client'] === $clientId,
         'started' => $room['game'] !== null,
+        'rules' => isset($room['rules']) && $room['rules'] !== null
+            ? json_decode($room['rules'], true) : null,
         'game' => $room['game'],
         'emote' => isset($room['emote']) && $room['emote'] !== null
             ? json_decode($room['emote'], true) : null,
@@ -584,6 +611,28 @@ $app->post('/api/rooms/{code}/rename', function (Request $request, Response $res
         return errorResponse($response, 'Too fast.', 429);
     }
     $room['seats'][$seat]['name'] = sanitizeName($body['name'] ?? null);
+    touchClient($pdo, $clientId);
+    saveRoom($pdo, $room);
+    $pdo->commit();
+    return jsonResponse($response, snapshot(loadRoom($pdo, $args['code']), $clientId));
+});
+
+// Host publishes the house rules for the upcoming game (display in lobbies).
+$app->post('/api/rooms/{code}/rules', function (Request $request, Response $response, array $args): Response {
+    $pdo = db();
+    $body = (array) $request->getParsedBody();
+    $clientId = clientIdOf($request);
+    $pdo->beginTransaction();
+    $room = loadRoom($pdo, $args['code']);
+    if ($room === null) {
+        $pdo->rollBack();
+        return errorResponse($response, 'Room not found.', 404);
+    }
+    if ($room['host_client'] !== $clientId || $room['game'] !== null) {
+        $pdo->rollBack();
+        return errorResponse($response, 'Not allowed.', 403);
+    }
+    $room['rules'] = json_encode(sanitizeRules($body['rules'] ?? null));
     touchClient($pdo, $clientId);
     saveRoom($pdo, $room);
     $pdo->commit();

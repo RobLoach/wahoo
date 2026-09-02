@@ -21,6 +21,7 @@ interface Snapshot {
   yourSeat: number | null;
   hostIsYou: boolean;
   started: boolean;
+  rules?: HouseRules | null;
   game: GameState | null;
   emote?: { seat: number; emoji: string } | null;
   emoteN?: number;
@@ -167,6 +168,7 @@ export class HttpSession {
       youAreHost: d.hostIsYou,
       yourSeat: d.yourSeat,
       started: d.started,
+      rules: d.rules ?? undefined,
     });
     if (d.game) {
       const canAct =
@@ -230,6 +232,13 @@ export class HttpSession {
     void this.api(`/api/rooms/${this.code}/again`, { clientId: this.clientId, state })
       .then(d => this.accept(d))
       .catch(e => this.fail(e));
+  }
+
+  setRules(rules: Partial<HouseRules>) {
+    if (this.closed) return;
+    void this.api<Snapshot>(`/api/rooms/${this.code}/rules`, { clientId: this.clientId, rules })
+      .then(d => this.accept(d))
+      .catch(() => { /* display-only; old servers lack the route */ });
   }
 
   rename(name: string) {

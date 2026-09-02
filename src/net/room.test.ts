@@ -246,6 +246,28 @@ describe('spectators', () => {
 });
 
 describe('house rules and emotes', () => {
+  it('host-published rules reach every lobby member', () => {
+    const { room, last } = makeRoom(60_000);
+    room.addClient('a', 'Alice');
+    room.addClient('b', 'Bob');
+    room.handle('a', { t: 'rules', rules: { friendlyFire: false, sevenMaxBunnies: 4 } });
+    for (const id of ['a', 'b']) {
+      expect(last(id, 'room').room.rules).toEqual({
+        friendlyFire: false,
+        sevenMaxBunnies: 4,
+        burrowJump: false,
+      });
+    }
+    // Non-hosts can't publish; started games are locked.
+    room.handle('b', { t: 'rules', rules: { burrowJump: true } });
+    expect(last('a', 'room').room.rules.burrowJump).toBe(false);
+    room.handle('a', { t: 'start' });
+    room.handle('a', { t: 'rules', rules: { burrowJump: true } });
+    expect(last('a', 'room').room.rules.burrowJump).toBe(false);
+    room.dispose();
+  });
+
+
   it('applies sanitized house rules on start and keeps them for rematches', () => {
     const { room } = makeRoom(60_000);
     room.addClient('a', 'Alice');

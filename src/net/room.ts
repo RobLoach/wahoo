@@ -3,7 +3,7 @@ import { chooseMove } from '../engine/ai.ts';
 import { EMOTES, makeView } from './protocol.ts';
 import type { ClientMsg, RoomInfo, ServerMsg } from './protocol.ts';
 import type { Difficulty, GameState, HouseRules } from '../engine/types.ts';
-import { PLAYER_NAMES } from '../engine/types.ts';
+import { DEFAULT_RULES, PLAYER_NAMES } from '../engine/types.ts';
 
 /** Keep only known, well-typed rule overrides from a client. */
 export function sanitizeRules(raw: unknown): Partial<HouseRules> {
@@ -49,6 +49,8 @@ export class GameRoom {
   private clients = new Map<string, number | null>();
   private tokens = new Map<string, string | null>();
   private lastAction = new Map<string, number>();
+  /** Host's chosen rules for the next game, shown to everyone in the lobby. */
+  private pendingRules: HouseRules = { ...DEFAULT_RULES };
   private cpuTimer: ReturnType<typeof setTimeout> | null = null;
 
   readonly code: string;
@@ -156,6 +158,12 @@ export class GameRoom {
         this.broadcastRoom();
         this.broadcastState();
         this.scheduleCpu();
+        break;
+      }
+      case 'rules': {
+        if (this.hostId !== id || this.game) return;
+        this.pendingRules = { ...DEFAULT_RULES, ...sanitizeRules(msg.rules) };
+        this.broadcastRoom();
         break;
       }
       case 'rename': {
@@ -272,6 +280,7 @@ export class GameRoom {
       youAreHost: this.hostId === clientId,
       yourSeat: this.clients.get(clientId) ?? null,
       started: this.game !== null,
+      rules: this.pendingRules,
     };
   }
 

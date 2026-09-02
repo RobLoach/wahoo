@@ -69,6 +69,7 @@ export type ClientMsg =
   | { t: 'start'; rules?: Partial<HouseRules> }
   | { t: 'again' }
   | { t: 'rename'; name: string }
+  | { t: 'rules'; rules?: Partial<HouseRules> }
   | { t: 'emote'; emoji: string }
   | { t: 'move'; move: Move };
 
@@ -78,6 +79,8 @@ export interface RoomInfo {
   youAreHost: boolean;
   yourSeat: number | null;
   started: boolean;
+  /** The host's chosen house rules for the upcoming game (lobby only). */
+  rules?: HouseRules;
 }
 
 export type ServerMsg =

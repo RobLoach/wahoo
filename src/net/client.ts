@@ -47,6 +47,7 @@ export class OnlineSession {
   startGame(rules?: Partial<HouseRules>) { this.send({ t: 'start', rules }); }
   emote(emoji: string) { this.send({ t: 'emote', emoji }); }
   rename(name: string) { this.send({ t: 'rename', name }); }
+  setRules(rules: Partial<HouseRules>) { this.send({ t: 'rules', rules }); }
   playAgain() { this.send({ t: 'again' }); }
   submit(move: Move) { this.send({ t: 'move', move }); }
 

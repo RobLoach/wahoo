@@ -153,6 +153,7 @@ export class P2PHostSession {
   startGame(rules?: Partial<HouseRules>) { this.room.handle(HOST_ID, { t: 'start', rules }); }
   emote(emoji: string) { this.room.handle(HOST_ID, { t: 'emote', emoji }); }
   rename(name: string) { this.room.handle(HOST_ID, { t: 'rename', name }); }
+  setRules(rules: Partial<HouseRules>) { this.room.handle(HOST_ID, { t: 'rules', rules }); }
   playAgain() { this.room.handle(HOST_ID, { t: 'again' }); }
   submit(move: Move) { this.room.handle(HOST_ID, { t: 'move', move }); }
 
@@ -223,6 +224,7 @@ export class P2PGuestSession {
   startGame(rules?: Partial<HouseRules>) { this.send({ t: 'start', rules }); }
   emote(emoji: string) { this.send({ t: 'emote', emoji }); }
   rename(name: string) { this.send({ t: 'rename', name }); }
+  setRules(rules: Partial<HouseRules>) { this.send({ t: 'rules', rules }); }
   playAgain() { this.send({ t: 'again' }); }
   submit(move: Move) { this.send({ t: 'move', move }); }
 

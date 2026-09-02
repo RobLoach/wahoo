@@ -101,40 +101,55 @@ function savedRules(): HouseRules {
   }
 }
 
-function rulesControlsHtml(prefix: string): string {
+function describeRules(r: HouseRules): string {
+  const seven = { 1: '7 moves one bunny', 2: '7 splits up to two bunnies', 4: '7 splits freely' }[
+    r.sevenMaxBunnies
+  ];
+  return [
+    r.friendlyFire ? 'teammate stomping allowed' : 'no teammate stomping',
+    seven,
+    r.burrowJump ? 'burrow jumping allowed' : 'no burrow jumping',
+  ].join(' · ');
+}
+
+function rulesControlsHtml(): string {
   const r = savedRules();
   return (
-    `<label><input type="checkbox" id="${prefix}-ff" ${r.friendlyFire ? 'checked' : ''}/>` +
+    `<label><input type="checkbox" id="hr-ff" ${r.friendlyFire ? 'checked' : ''}/>` +
     ` Stomping teammates allowed</label>` +
-    `<label>7-split: <select id="${prefix}-seven">` +
+    `<label>7-split: <select id="hr-seven">` +
     `<option value="1" ${r.sevenMaxBunnies === 1 ? 'selected' : ''}>one bunny only</option>` +
     `<option value="2" ${r.sevenMaxBunnies === 2 ? 'selected' : ''}>up to two bunnies</option>` +
     `<option value="4" ${r.sevenMaxBunnies === 4 ? 'selected' : ''}>any split</option>` +
     `</select></label>` +
-    `<label><input type="checkbox" id="${prefix}-jump" ${r.burrowJump ? 'checked' : ''}/>` +
+    `<label><input type="checkbox" id="hr-jump" ${r.burrowJump ? 'checked' : ''}/>` +
     ` Jumping over occupied burrow slots</label>`
   );
 }
 
-function readRules(prefix: string): HouseRules {
+function readRules(): HouseRules {
   const rules: HouseRules = {
-    friendlyFire: ($(`#${prefix}-ff`) as HTMLInputElement).checked,
-    sevenMaxBunnies: Number(($(`#${prefix}-seven`) as HTMLSelectElement).value) as 1 | 2 | 4,
-    burrowJump: ($(`#${prefix}-jump`) as HTMLInputElement).checked,
+    friendlyFire: ($('#hr-ff') as HTMLInputElement).checked,
+    sevenMaxBunnies: Number(($('#hr-seven') as HTMLSelectElement).value) as 1 | 2 | 4,
+    burrowJump: ($('#hr-jump') as HTMLInputElement).checked,
   };
   localStorage.setItem('wahoo-rules', JSON.stringify(rules));
   return rules;
 }
 
-/** Persist on every change so lobby re-renders don't lose edits. */
-function watchRules(root: HTMLElement, prefix: string) {
-  root.querySelectorAll('input, select').forEach(el =>
-    el.addEventListener('change', () => readRules(prefix)),
+$('#house-rules-body').innerHTML = rulesControlsHtml();
+$('#house-rules-body')
+  .querySelectorAll('input, select')
+  .forEach(el =>
+    el.addEventListener('change', () => {
+      const rules = readRules(); // persist immediately
+      // Hosting a lobby: publish the change so guests see the rules live.
+      const session = pendingOnline ?? app.session;
+      if (app.roomInfo?.youAreHost && !app.roomInfo.started && session && 'setRules' in session) {
+        session.setRules(rules);
+      }
+    }),
   );
-}
-
-$('#house-rules-body').innerHTML = rulesControlsHtml('local');
-watchRules($('#house-rules-body'), 'local');
 
 $('#start-local').onclick = async () => {
   const seats: SeatKind[] = ['cpu-medium', 'cpu-medium', 'cpu-medium', 'cpu-medium'];
@@ -148,7 +163,7 @@ $('#start-local').onclick = async () => {
     view => app.onView(view),
     (window as unknown as Record<string, number>).__wahooCpuDelay,
     undefined,
-    readRules('local'),
+    readRules(),
     readSeatNames(),
   );
   app.session = session;
@@ -395,6 +410,12 @@ function renderLobby(session: NetSession, room: RoomInfo) {
     invite.appendChild(copy);
     lobby.appendChild(invite);
   }
+  if (room.rules && !room.started) {
+    const line = document.createElement('p');
+    line.className = 'hint';
+    line.textContent = `House rules: ${describeRules(room.rules)}`;
+    lobby.appendChild(line);
+  }
   room.seats.forEach((seat, i) => {
     const row = document.createElement('div');
     row.className = 'seat-row';
@@ -422,12 +443,18 @@ function renderLobby(session: NetSession, room: RoomInfo) {
     if (!room.started) {
       // A joining-mode guest can inherit hosting: give them the rules strip.
       $('#house-rules').hidden = false;
+      // Publish the strip's rules so every lobby shows them (loop-safe: only
+      // when the room doesn't already carry the same values).
+      const current = readRules();
+      if (JSON.stringify(room.rules ?? null) !== JSON.stringify(current) && 'setRules' in session) {
+        session.setRules(current);
+      }
     }
     const start = document.createElement('button');
     start.className = 'primary';
     start.textContent = 'Start Game (empty seats become CPUs)';
     // Rules come from the shared House Rules strip below the panels.
-    start.onclick = () => session.startGame(readRules('local'));
+    start.onclick = () => session.startGame(readRules());
     lobby.appendChild(start);
   } else {
     const p = document.createElement('p');
