@@ -3,7 +3,7 @@ import { $ } from './ui/dom.ts';
 import { App } from './ui/app.ts';
 import type { NetSession } from './ui/app.ts';
 import type { RoomInfo } from './net/protocol.ts';
-import { PLAYER_COLORS_CSS, trackPos, burrowPos, reservePos } from './ui/board.ts';
+import { PLAYER_COLORS_CSS, TEAM_MARKS, trackPos, burrowPos, reservePos } from './ui/board.ts';
 import { emptySelection } from './ui/selection.ts';
 import { LocalSession, savedLocalGame } from './sessions/local.ts';
 import type { SeatKind } from './sessions/local.ts';
@@ -35,19 +35,25 @@ function buildSeatConfig() {
     ['cpu-hard', 'CPU · Hard'],
     ['cpu-insane', 'CPU · Insane'],
   ];
-  for (let i = 0; i < 4; i++) {
-    const row = document.createElement('div');
-    row.className = 'seat-row';
-    row.innerHTML =
-      `<span class="seat-dot" style="background:${PLAYER_COLORS_CSS[i]}"></span>` +
-      `<span style="width:64px">${PLAYER_NAMES[i]}</span>` +
-      `<select data-seat="${i}">` +
-      kinds
-        .map(([v, label]) => `<option value="${v}"${defaults[i] === v ? ' selected' : ''}>${label}</option>`)
-        .join('') +
-      `</select>` +
-      `<span style="opacity:.6;font-size:.8rem">Team ${i % 2 === 0 ? 'Red/Green' : 'Blue/Yellow'}</span>`;
-    wrap.appendChild(row);
+  const teams: [number, number[]][] = [[0, [0, 2]], [1, [1, 3]]];
+  for (const [team, members] of teams) {
+    const head = document.createElement('div');
+    head.className = 'team-head';
+    head.textContent = `Team ${team + 1} ${TEAM_MARKS[team]}`;
+    wrap.appendChild(head);
+    for (const i of members) {
+      const row = document.createElement('div');
+      row.className = 'seat-row';
+      row.innerHTML =
+        `<span class="seat-dot" style="background:${PLAYER_COLORS_CSS[i]}"></span>` +
+        `<span style="width:64px">${PLAYER_NAMES[i]}</span>` +
+        `<select data-seat="${i}">` +
+        kinds
+          .map(([v, label]) => `<option value="${v}"${defaults[i] === v ? ' selected' : ''}>${label}</option>`)
+          .join('') +
+        `</select>`;
+      wrap.appendChild(row);
+    }
   }
 }
 buildSeatConfig();
@@ -98,8 +104,10 @@ $('#house-rules-body').innerHTML = rulesControlsHtml('local');
 watchRules($('#house-rules-body'), 'local');
 
 $('#start-local').onclick = async () => {
-  const seats = Array.from(document.querySelectorAll<HTMLSelectElement>('#seat-config select'))
-    .map(sel => sel.value as SeatKind);
+  const seats: SeatKind[] = ['cpu-medium', 'cpu-medium', 'cpu-medium', 'cpu-medium'];
+  for (const sel of document.querySelectorAll<HTMLSelectElement>('#seat-config select')) {
+    seats[Number(sel.dataset.seat)] = sel.value as SeatKind;
+  }
   app.startLocalMeta(seats.filter(s => s === 'human').length);
   await app.showGame();
   const session = new LocalSession(

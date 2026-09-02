@@ -17,7 +17,7 @@ export async function startLocal(page: Page, seats?: string[], dismissCurtain = 
     await page.evaluate(kinds => {
       document
         .querySelectorAll<HTMLSelectElement>('#seat-config select')
-        .forEach((sel, i) => (sel.value = kinds[i]));
+        .forEach(sel => (sel.value = kinds[Number(sel.dataset.seat)]));
     }, seats);
   }
   await page.evaluate(() => ((window as any).__wahooCpuDelay = 40));

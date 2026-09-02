@@ -46,6 +46,8 @@ button.primary { background: #4a7fd4; border-color: #3a6cbd; color: #ffffff; fon
 button.primary:hover { background: #3a6cbd; }
 button:disabled { opacity: 0.45; cursor: default; }
 
+.team-head { font-weight: bold; margin: 12px 0 2px; }
+.team-head:first-child { margin-top: 4px; }
 .seat-row { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
 .seat-dot { width: 16px; height: 16px; border-radius: 50%; display: inline-block; }
 .seat-row select {
