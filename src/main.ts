@@ -541,18 +541,21 @@ $('#btn-again').onclick = () => {
   const params = new URLSearchParams(location.search);
   const joinCode = params.get('join')?.toUpperCase();
   const server = params.get('server');
+  const dedicated = joinCode !== undefined && !!server && /^(https?|wss?):\/\//i.test(server);
   if (joinCode) {
+    if (dedicated) {
+      // Remember the tab BEFORE entering joining mode: joining mode hides the
+      // whole Server section (Create Room etc.) so the guest only sees the lobby.
+      selectOnlineTab('server');
+      ($('#online-server') as HTMLInputElement).value = server!;
+      ($('#online-code') as HTMLInputElement).value = joinCode;
+      setTimeout(() => connectOnline(s => s.join(joinCode, playerName(), clientToken())), 50);
+    } else {
+      ($('#p2p-code') as HTMLInputElement).value = joinCode;
+      setTimeout(() => joinP2P(joinCode), 50);
+    }
     setJoiningMode(true);
     $('#join-note').textContent = `Joining room ${joinCode}…`;
-  }
-  if (joinCode && server && /^(https?|wss?):\/\//i.test(server)) {
-    selectOnlineTab('server');
-    ($('#online-server') as HTMLInputElement).value = server;
-    ($('#online-code') as HTMLInputElement).value = joinCode;
-    setTimeout(() => connectOnline(s => s.join(joinCode, playerName(), clientToken())), 50);
-  } else if (joinCode) {
-    ($('#p2p-code') as HTMLInputElement).value = joinCode;
-    setTimeout(() => joinP2P(joinCode), 50);
   }
 }
 

@@ -91,6 +91,10 @@ test.describe('PHP relay server', () => {
       { timeout: 15_000 },
     );
     await expect(page.locator('#lobby .code')).toHaveText(created.code);
+    // Joining mode: only the lobby — no Local panel, tabs, or Server section.
+    await expect(page.locator('#local-panel')).toBeHidden();
+    await expect(page.locator('#tab-panel-server')).toBeHidden();
+    await expect(page.locator('.tabs')).toBeHidden();
     // And the lobby's own invite link points back at this server.
     await expect(page.locator('#lobby .invite code')).toContainText(
       `join=${created.code}&server=`,
