@@ -222,8 +222,10 @@ function backwardActions(state: GameState, ctrl: number): CardAction[] {
 
 /** Enumerate valid 7-splits (deduplicated by their part multiset). */
 function sevenActions(state: GameState, ctrl: number): CardAction[] {
+  // Track AND burrow bunnies: part of a 7 may shuffle a bunny deeper into
+  // the burrow (exact-count and no-jumping rules still apply).
   const movable = state.bunnies.filter(
-    b => b.player === ctrl && b.place.kind === 'track',
+    b => b.player === ctrl && b.place.kind !== 'reserve',
   );
   const results: CardAction[] = [];
   const seen = new Set<string>();
@@ -244,7 +246,7 @@ function sevenActions(state: GameState, ctrl: number): CardAction[] {
     for (const b of movable) {
       if (used.includes(b.id)) continue;
       const simBunny = sim.bunnies.find(x => x.id === b.id)!;
-      if (simBunny.place.kind !== 'track') continue; // got stomped mid-split
+      if (simBunny.place.kind === 'reserve') continue; // got stomped mid-split
       for (let steps = 1; steps <= remaining; steps++) {
         const dest = forwardDest(sim, simBunny, steps);
         if (!dest) continue;
@@ -401,8 +403,8 @@ function applyAction(state: GameState, seat: number, action: CardAction): void {
       }
       for (const part of action.parts) {
         const bunny = state.bunnies.find(b => b.id === part.bunny)!;
-        if (bunny.player !== ctrl || bunny.place.kind !== 'track') {
-          throw new Error('seven may only move your active track bunnies');
+        if (bunny.player !== ctrl || bunny.place.kind === 'reserve') {
+          throw new Error('seven may only move your active bunnies');
         }
         const dest = forwardDest(state, bunny, part.steps);
         if (!dest) throw new Error('illegal seven part');

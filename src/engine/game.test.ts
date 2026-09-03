@@ -342,6 +342,38 @@ describe('full games', () => {
   });
 });
 
+describe('seven with burrow bunnies', () => {
+  it('a 7 can split between a burrow bunny and a track bunny', () => {
+    const state = createGame(1);
+    put(state, 0, { kind: 'burrow', slot: 0 });
+    put(state, 1, { kind: 'track', index: 5 });
+    const sevens = actionsForCard(state, 0, '7') as Extract<CardAction, { kind: 'seven' }>[];
+    // Deepening the burrow bunny 3 (slot 0 -> 3) plus 4 on the track bunny.
+    const combo = sevens.find(a =>
+      a.parts.some(p => p.bunny === 0 && p.steps === 3) &&
+      a.parts.some(p => p.bunny === 1 && p.steps === 4));
+    expect(combo).toBeTruthy();
+    applyMove(state, { type: 'play', card: state.players[0].hand[0].id, action: combo! });
+    expect(bunny(state, 0).place).toEqual({ kind: 'burrow', slot: 3 });
+    expect(bunny(state, 1).place).toEqual({ kind: 'track', index: 9 });
+  });
+
+  it('burrow parts still obey no-jumping and exact-count limits', () => {
+    const state = createGame(2);
+    put(state, 0, { kind: 'burrow', slot: 0 });
+    put(state, 1, { kind: 'burrow', slot: 2 }); // blocks slot 2
+    put(state, 2, { kind: 'track', index: 10 });
+    const sevens = actionsForCard(state, 0, '7') as Extract<CardAction, { kind: 'seven' }>[];
+    // Bunny 0 can only advance 1 (slot 1): slots 2/3 are blocked or beyond.
+    for (const a of sevens) {
+      for (const p of a.parts) {
+        if (p.bunny === 0) expect(p.steps).toBe(1);
+        if (p.bunny === 1) expect(p.steps).toBe(1); // slot 2 -> 3 only
+      }
+    }
+  });
+});
+
 describe('house rules', () => {
   it('blocks landing on a teammate when friendly fire is off', () => {
     const strict = createGame(1, { friendlyFire: false });
