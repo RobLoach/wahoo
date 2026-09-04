@@ -32,7 +32,7 @@ test('winning shows the rematch button and restarts with fresh reserves', async 
   await page.click('#hand .card'); // seat 0 controls the teammate
   await clickBoard(page, await trackPos(page, 39)); // pick the last bunny
   await clickBoard(page, await burrowPos(page, 2, 0)); // step it home
-  await expect(page.locator('#status')).toContainText('wins');
+  await expect(page.locator('#status')).toContainText('win the game');
   await expect(page.locator('#btn-again')).toBeVisible();
   await page.click('#btn-again');
   await expect(page.locator('#status')).toContainText('Round 1');

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Wahoo</title>
-  <meta name="theme-color" content="#d6e4f0" />
+  <meta name="theme-color" content="#2c5045" />
   <meta name="description" content="A free 4-player team race board game. Hot seat, CPU opponents, or host a game right in your browser and share a room code." />
   <meta property="og:title" content="Wahoo — the bunny board game" />
   <meta property="og:description" content="A free 4-player team race. Hot seat, CPU opponents, or host a game right in your browser and share a room code." />
@@ -20,43 +20,61 @@
   <div id="announcer" class="sr-only" role="status" aria-live="polite"></div>
   <div id="app">
     <section id="menu">
-      <h1>🐰 Wahoo</h1>
-      <p class="tagline">A 4-player team race. Stomp your rivals, tuck your bunnies safely into the burrow.</p>
+      <div class="masthead">
+        <div class="masthead-inner">
+          <div class="eyebrow eyebrow-lit">The Langzdin family game of</div>
+          <h1>Wahoo</h1>
+        </div>
+        <p class="tagline">Four bunnies each. Stomp your rivals, tuck your own safely home.</p>
+      </div>
 
       <div class="menu-panels">
-        <div class="panel" id="local-panel">
-          <h2>Local Game</h2>
-          <p>Hot seat and/or CPU players on this device.</p>
+        <div class="panel paper tilt-left" id="local-panel">
+          <div class="paper-rule rule-red"></div>
+          <div class="panel-head">
+            <h2>Local Game</h2>
+            <span class="folio">No.&nbsp;1</span>
+          </div>
+          <p class="panel-sub">Hot seat and CPU players on this device.</p>
           <div id="seat-config"></div>
-          <button id="start-local" class="primary">Start Game</button>
-          <button id="local-resume" hidden></button>
+          <div class="btn-row">
+            <button id="start-local" class="primary">Start Game</button>
+            <button id="local-resume" hidden></button>
+          </div>
         </div>
 
-        <div class="panel" id="online-panel">
-          <h2>Online Game</h2>
-          <label>Your name <input id="online-name" maxlength="12" placeholder="Player" /></label>
-          <p id="join-note" class="hint" hidden></p>
+        <div class="panel paper tilt-right" id="online-panel">
+          <div class="paper-rule rule-blue"></div>
+          <div class="panel-head">
+            <h2>Online Game</h2>
+            <span class="folio">No.&nbsp;2</span>
+          </div>
+          <p class="panel-sub">Host in your browser, or use a server.</p>
+          <label class="field"><span class="eyebrow">Your name</span>
+            <input id="online-name" maxlength="12" placeholder="Player" /></label>
+          <p id="join-note" hidden></p>
           <div class="tabs" role="tablist">
             <button id="tab-p2p" class="tab active" role="tab" aria-selected="true"
-              aria-controls="tab-panel-p2p">In Your Browser</button>
+              aria-controls="tab-panel-p2p">In your browser</button>
             <button id="tab-server" class="tab" role="tab" aria-selected="false"
-              aria-controls="tab-panel-server">Dedicated Server</button>
+              aria-controls="tab-panel-server">Dedicated server</button>
           </div>
           <div id="tab-panel-p2p" role="tabpanel">
             <div class="row">
-              <button id="p2p-host" class="primary">Host a Game</button>
-              <input id="p2p-code" maxlength="6" placeholder="CODE" style="text-transform:uppercase" />
+              <button id="p2p-host" class="host">Host a Game</button>
+              <input id="p2p-code" class="code-input" maxlength="6" placeholder="CODE" autocapitalize="characters" />
               <button id="p2p-join">Join</button>
             </div>
             <button id="p2p-resume" hidden></button>
-            <p class="hint">Hosted right in your browser — share the code with friends. A free relay
-              sets up the connection; on the same network the game then runs peer-to-peer.</p>
+            <p class="hint">Hosted right in your browser — share the five-letter code. A free relay
+              sets up the connection, then the game runs peer-to-peer. Empty seats are filled by CPUs.</p>
           </div>
           <div id="tab-panel-server" role="tabpanel" hidden>
-            <label>Server <input id="online-server" placeholder="https://wahoo.robloach.net" /></label>
+            <label class="field"><span class="eyebrow">Server</span>
+              <input id="online-server" placeholder="https://wahoo.robloach.net" /></label>
             <div class="row">
-              <button id="online-create" class="primary">Create Room</button>
-              <input id="online-code" maxlength="6" placeholder="CODE" style="text-transform:uppercase" />
+              <button id="online-create" class="host">Create Room</button>
+              <input id="online-code" class="code-input" maxlength="6" placeholder="CODE" autocapitalize="characters" />
               <button id="online-join">Join</button>
             </div>
             <p class="hint">Defaults to <code>https://wahoo.robloach.net</code> (PHP relay).
@@ -68,21 +86,32 @@
         </div>
       </div>
 
-      <details id="house-rules">
-        <summary>House Rules</summary>
-        <div id="house-rules-body"></div>
-        <p class="hint">Applies to games you start or host — guests play by the host's rules.</p>
-      </details>
+      <div class="menu-pills">
+        <details id="house-rules" class="pill-details">
+          <summary class="pill">House Rules</summary>
+          <div class="paper pill-card">
+            <div class="paper-rule rule-gold"></div>
+            <h2>House Rules</h2>
+            <p class="panel-sub">Applies to games you start or host — guests play by the host's rules.</p>
+            <div id="house-rules-body"></div>
+          </div>
+        </details>
 
-      <details id="rules">
-        <summary>How to play</summary>
-        <ul>
-          <li>Teams of two sit opposite each other (Red &amp; Green vs Blue &amp; Yellow). First team to get all 8 bunnies home wins.</li>
-          <li>Each round you're dealt 4 cards. On your turn, play one card and do what it says — no drawing back up. If nothing in your hand is playable, you fold for the round.</li>
-          <li><b>A / 2</b>: spawn a bunny (2 also flips a bonus card). <b>4</b>: move backward 4 spaces (staying on the track). <b>7</b>: move one bunny 7, or split the 7 between two bunnies. <b>J</b>: swap with any bunny. <b>Q</b>: 12 forward. <b>K</b>: move 13 forward, or spawn from your reserve onto any other player's bunny — even a teammate's — stomping it. Other cards move their face value.</li>
-          <li>Landing on any bunny stomps it back to its reserve. Burrow entry needs an exact count, and there's no jumping inside the burrow — the slots you pass must be open. Bunnies in burrows are safe from everything.</li>
-        </ul>
-      </details>
+        <details id="rules" class="pill-details">
+          <summary class="pill">How to play</summary>
+          <div class="paper pill-card">
+            <div class="paper-rule rule-quad"></div>
+            <h2>How to play</h2>
+            <p class="panel-sub">The rules in brief. The full card reference is one tap away in every game.</p>
+            <ul>
+              <li>Teams of two sit opposite each other — <b class="c-red">Red</b> &amp; <b class="c-green">Green</b> against <b class="c-blue">Blue</b> &amp; <b class="c-yellow">Yellow</b>. First team to get all eight bunnies home wins.</li>
+              <li>Every round you're dealt four cards. Play one on your turn and do what it says — no drawing back up. If nothing is playable, you fold for the round.</li>
+              <li><b>A / 2</b>: spawn a bunny (2 also flips a bonus card). <b>4</b>: move backward 4 spaces, staying on the track. <b>7</b>: move one bunny 7, or split the 7 between two bunnies. <b>J</b>: swap with any bunny. <b>Q</b>: 12 forward. <b>K</b>: move 13 forward, or spawn from your reserve onto any other player's bunny — even a teammate's — stomping it. Other cards move their face value.</li>
+              <li>Landing on any bunny stomps it back to its reserve; passing through is safe. Burrow entry needs an exact count, and there's no jumping inside — every slot you pass must be open. Bunnies in the burrow are safe from everything.</li>
+            </ul>
+          </div>
+        </details>
+      </div>
 
       <p class="menu-footer">
         <a href="https://github.com/RobLoach/wahoo">Source on GitHub</a>
@@ -92,14 +121,19 @@
 
     <section id="game" hidden>
       <div id="board-wrap">
+        <div id="board-frame" class="board-frame"></div>
         <div id="play-banner" hidden></div>
+        <div id="curtain" hidden></div>
         <div id="victory" hidden>
-          <div class="victory-card">
+          <div class="victory-card paper">
+            <div id="victory-rule" class="paper-rule rule-team0"></div>
+            <div class="eyebrow">All eight bunnies home</div>
             <h2 id="victory-title"></h2>
-            <p id="victory-stats"></p>
-            <div class="row" style="justify-content:center">
-              <button id="btn-again" class="primary" hidden>🔄 Play again</button>
-              <button id="victory-menu">↩ Menu</button>
+            <div class="divider"></div>
+            <div id="victory-stats" class="victory-stats"></div>
+            <div class="btn-row">
+              <button id="btn-again" class="primary" hidden>Play again</button>
+              <button id="victory-menu">Menu</button>
             </div>
           </div>
         </div>
@@ -111,41 +145,49 @@
         <div id="hand"></div>
         <div id="card-help" hidden></div>
         <div id="controls">
-          <button id="btn-fold" hidden>Fold hand (no legal move)</button>
-          <button id="btn-cancel" hidden>Cancel selection</button>
+          <button id="btn-fold" class="ghost" hidden>Fold hand (no legal move)</button>
+          <button id="btn-cancel" class="ghost" hidden>Cancel selection</button>
         </div>
-        <div id="emote-bar" hidden></div>
+        <div id="emote-bar" hidden>
+          <span class="eyebrow">Reactions</span>
+          <div class="emotes"></div>
+        </div>
         <div id="piles"></div>
         <div id="log"></div>
         <div id="controls-bottom">
-          <button id="btn-rules">❓ Rules</button>
-          <button id="btn-fullscreen">⤢ Full screen</button>
-          <button id="btn-mute"></button>
-          <button id="btn-menu">↩ Menu</button>
+          <button id="btn-rules" class="ghost">Rules</button>
+          <button id="btn-fullscreen" class="ghost">Full screen</button>
+          <button id="btn-mute" class="ghost"></button>
+          <button id="btn-menu" class="ghost">Menu</button>
         </div>
       </aside>
     </section>
 
     <div id="rules-modal" hidden>
-      <div class="rules-card">
-        <button id="rules-close">✕ Close</button>
-        <h2>How to play</h2>
+      <div class="rules-card paper">
+        <div class="paper-rule rule-quad"></div>
+        <div class="rules-head">
+          <h2>How to play</h2>
+          <button id="rules-close">Close ✕</button>
+        </div>
+        <div class="divider"></div>
         <ul>
-          <li>Teams of two sit opposite each other (✦ Red &amp; Green vs ● Blue &amp; Yellow). First team to get all 8 bunnies into their burrows wins.</li>
-          <li>Each round every player is dealt 4 cards. On your turn, play one card and do what it says — no drawing back up. If nothing in your hand is playable, you fold for the round.</li>
-          <li>Landing on any bunny stomps it back to its owner's reserve; passing through is safe. Burrow entry needs an exact count, with no jumping inside the burrow — the slots you pass must be open. Bunnies in burrows are safe from everything.</li>
-          <li>Once your own 4 bunnies are home you keep receiving cards and move your teammate's bunnies on your turn.</li>
+          <li>Teams of two sit opposite each other — <b class="c-red">Red</b> &amp; <b class="c-green">Green</b> against <b class="c-blue">Blue</b> &amp; <b class="c-yellow">Yellow</b>. First team to get all eight bunnies home wins.</li>
+          <li>Every round you're dealt four cards. Play one on your turn and do what it says — no drawing back up. If nothing is playable, you fold for the round.</li>
+          <li>Landing on any bunny stomps it back to its reserve; passing through is safe.</li>
+          <li>Burrow entry needs an exact count, and there's no jumping inside — every slot you pass must be open. Bunnies in the burrow are safe from everything.</li>
+          <li>Once your own four bunnies are home you keep receiving cards and move your teammate's bunnies on your turn.</li>
         </ul>
         <h3>Card reference</h3>
         <table>
           <tr><th>A</th><td>Spawn a bunny onto your corner space, or move one bunny forward 1.</td></tr>
-          <tr><th>2</th><td>Spawn a bunny or move 2 — then flip the top card of the draw pile and play it too.</td></tr>
-          <tr><th>3 5 6 8 9 10</th><td>Move one bunny forward that many spaces.</td></tr>
-          <tr><th>4</th><td>Move one bunny backward 4 spaces (stays on the track).</td></tr>
+          <tr><th>2</th><td>Spawn or move 2 — then flip the top card of the draw pile and play that too.</td></tr>
+          <tr><th>3 5 6<br>8 9 10</th><td>Move one bunny forward that many spaces.</td></tr>
+          <tr><th>4</th><td>Move one bunny backward 4 spaces, staying on the track.</td></tr>
           <tr><th>7</th><td>Move one bunny 7, or split the 7 between two bunnies.</td></tr>
           <tr><th>J</th><td>Swap one of your bunnies with any other bunny on the track.</td></tr>
           <tr><th>Q</th><td>Move one bunny forward 12 spaces.</td></tr>
-          <tr><th>K</th><td>Move one bunny forward 13, or spawn from your reserve onto another player's bunny, stomping it.</td></tr>
+          <tr><th>K</th><td>Move forward 13, or spawn from your reserve onto another player's bunny, stomping it.</td></tr>
         </table>
         <h3>House Rules in this game</h3>
         <ul id="rules-modal-house"></ul>

@@ -2,7 +2,8 @@
 // The in-game application: board, hand, status, and click handling.
 // ---------------------------------------------------------------------------
 import { $, esc } from './dom.ts';
-import { BoardView, emptyHighlights, PLAYER_COLORS_CSS, TEAM_MARKS } from './board.ts';
+import { BoardView, emptyHighlights } from './board.ts';
+import { PLAYER_COLORS_CSS, PLAYER_COLORS_LIT_CSS } from './palette.ts';
 import type { Highlights } from './board.ts';
 import {
   ctrlPlayer, emptySelection, selectedActions, sevenCandidates, simBunnies, wrapAction,
@@ -19,10 +20,42 @@ import { PLAYER_NAMES } from '../engine/types.ts';
 import { playMoveSound } from '../sounds.ts';
 
 export const CARD_HINTS: Record<string, string> = {
-  A: 'spawn / +1', '2': 'spawn / +2 & flip', '3': '+3', '4': '−4',
+  A: 'spawn / +1', '2': 'spawn / flip', '3': '+3', '4': 'back 4',
   '5': '+5', '6': '+6', '7': 'split 7', '8': '+8', '9': '+9', '10': '+10',
-  J: 'swap', Q: '+12', K: 'stomp-spawn / +13',
+  J: 'swap', Q: '+12', K: 'stomp / +13',
 };
+
+const SUIT_NAMES: Record<string, string> = {
+  '♠': 'spades', '♥': 'hearts', '♦': 'diamonds', '♣': 'clubs',
+};
+
+const isRed = (card: { suit: string }) => card.suit === '♥' || card.suit === '♦';
+
+/** A playing-card face: corner indices, a big pip, and an optional note. */
+function cardFaceHtml(card: { rank: string; suit: string }, note = ''): string {
+  const idx = `<span class="index"><span>${esc(card.rank)}</span><span class="suit">${esc(card.suit)}</span></span>`;
+  return (
+    idx +
+    idx.replace('class="index"', 'class="index flip" aria-hidden="true"') +
+    `<span class="pip" aria-hidden="true">${esc(card.suit)}</span>` +
+    (note ? `<span class="hintline">${esc(note)}</span>` : '')
+  );
+}
+
+const NUMBER_WORDS = [
+  '', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
+  'eleven', 'twelve',
+];
+const roundWord = (n: number) => NUMBER_WORDS[n] ?? String(n);
+
+/** A short player name: custom names as given, CPUs without the "CPU " prefix. */
+const shortName = (view: View, seat: number) =>
+  (view.seatNames[seat] ?? PLAYER_NAMES[seat]).replace(/^CPU /, '');
+/** A player's name in their ink colour (paper) or lit colour (dark felt). */
+const inked = (view: View, seat: number, lit = false) =>
+  `<b style="color:${(lit ? PLAYER_COLORS_LIT_CSS : PLAYER_COLORS_CSS)[seat]}">${esc(
+    shortName(view, seat),
+  )}</b>`;
 
 export const CARD_TOOLTIPS: Record<string, string> = {
   A: 'Ace: spawn a bunny onto your corner space, or move one bunny forward 1.',
@@ -41,10 +74,6 @@ export const CARD_TOOLTIPS: Record<string, string> = {
 };
 
 export type NetSession = OnlineSession | HttpSession | P2PHostSession | P2PGuestSession;
-
-const SUIT_NAMES: Record<string, string> = {
-  '♠': 'spades', '♥': 'hearts', '♦': 'diamonds', '♣': 'clubs',
-};
 
 export class App {
   board = new BoardView();
@@ -84,7 +113,7 @@ export class App {
     $('#menu').hidden = true;
     $('#game').hidden = false;
     if (!this.boardReady) {
-      await this.board.init($('#board-wrap'), {
+      await this.board.init($('#board-frame'), {
         onBunny: id => this.clickBunny(id),
         onTrack: index => this.clickTrack(index),
         onBurrow: (p, s) => this.clickBurrow(p, s),
@@ -242,17 +271,20 @@ export class App {
 
   // ---- rendering ----
 
+  /** Plain-text status (errors): shown as the hint line of the status card. */
   setStatus(text: string, winner = false) {
     const el = $('#status');
-    el.textContent = text;
+    el.innerHTML = `<div class="status-hint">${esc(text)}</div>`;
     el.classList.toggle('winner', winner);
   }
 
-  /** Like setStatus, but the fragments are trusted markup (player names only). */
-  private setStatusHtml(html: string) {
+  /** The status card: eyebrow, headline (trusted markup: player names), hint. */
+  private setStatusCard(eyebrow: string, line: string, hint: string, winner = false) {
     const el = $('#status');
-    el.innerHTML = html;
-    el.classList.remove('winner');
+    el.innerHTML =
+      `<div class="eyebrow">${esc(eyebrow)}</div><div class="status-line">${line}</div>` +
+      (hint ? `<div class="status-hint">${hint}</div>` : '');
+    el.classList.toggle('winner', winner);
   }
 
   private highlightsAndHint(): { hi: Highlights; hint: string } {
@@ -329,16 +361,14 @@ export class App {
     const play = view.lastPlay;
     if (!play) return;
     const el = $('#play-banner');
-    const name = (view.seatNames[play.seat] ?? PLAYER_NAMES[play.seat]).replace(/^CPU /, '');
+    const name = shortName(view, play.seat);
     const card = play.card;
     const cardHtml = play.fold || !card
-      ? '<div class="play-banner-card fold">✕</div>'
-      : `<div class="play-banner-card${
-          card.suit === '♥' || card.suit === '♦' ? ' red' : ''
-        }">${esc(card.rank)}<span style="font-size:1.5rem">${esc(card.suit)}</span></div>`;
+      ? '<div class="play-banner-card fold"><span class="pip">✕</span></div>'
+      : `<div class="play-banner-card${isRed(card) ? ' red' : ''}">${cardFaceHtml(card)}</div>`;
     el.innerHTML =
       cardHtml +
-      `<div class="play-banner-name" style="color:${PLAYER_COLORS_CSS[play.seat]}">${esc(name)}${
+      `<div class="play-banner-name"><span style="color:${PLAYER_COLORS_CSS[play.seat]}">${esc(name)}</span>${
         play.fold ? ' folded' : ''
       }</div>`;
     el.hidden = false;
@@ -363,15 +393,18 @@ export class App {
     }
     $('#btn-again').hidden = this.online && this.roomInfo?.youAreHost !== true;
     const seats = view.winner === 0 ? [0, 2] : [1, 3];
-    const names = (pair: number[]) =>
-      pair.map(i => (view.seatNames[i] ?? PLAYER_NAMES[i]).replace(/^CPU /, '')).join(' & ');
-    $('#victory-title').textContent = `🏆 ${TEAM_MARKS[view.winner]} ${names(seats)} win!`;
-    const teamStomps = (pair: number[]) => pair.reduce((s, i) => s + view.stats.stomps[i], 0);
+    $('#victory-rule').className = `paper-rule rule-team${view.winner}`;
+    $('#victory-title').innerHTML = `${inked(view, seats[0])} &amp; ${inked(view, seats[1])} win`;
+    const teamStomps = seats.reduce((s, i) => s + view.stats.stomps[i], 0);
     const totalFolds = view.stats.folds.reduce((a, b) => a + b, 0);
-    $('#victory-stats').textContent =
-      `${view.round} round${view.round === 1 ? '' : 's'} · ` +
-      `stomps ${TEAM_MARKS[0]} ${teamStomps([0, 2])} — ${TEAM_MARKS[1]} ${teamStomps([1, 3])}` +
-      (totalFolds ? ` · ${totalFolds} fold${totalFolds === 1 ? '' : 's'}` : '');
+    const most = view.stats.stomps.indexOf(Math.max(...view.stats.stomps));
+    const stat = (value: string, label: string) =>
+      `<div><div class="stat-value">${value}</div><div class="stat-label">${label}</div></div>`;
+    $('#victory-stats').innerHTML =
+      stat(String(view.round), view.round === 1 ? 'Round' : 'Rounds') +
+      stat(String(teamStomps), 'Stomps') +
+      stat(String(totalFolds), totalFolds === 1 ? 'Fold' : 'Folds') +
+      (view.stats.stomps[most] > 0 ? stat(esc(shortName(view, most)), 'Most stomps') : '');
     overlay.hidden = false;
     if (!this.victoryShown) {
       this.victoryShown = true;
@@ -394,7 +427,7 @@ export class App {
     const view = this.view;
     if (!view || !this.boardReady) return;
 
-    const name = view.seatNames[view.current] ?? PLAYER_NAMES[view.current];
+    const name = shortName(view, view.current);
     const curtainUp = this.curtain && view.canAct && view.winner === null;
     const { hi, hint } = curtainUp
       ? (() => {
@@ -406,30 +439,32 @@ export class App {
     this.board.render(view, hi, this.pendingEffects);
     this.pendingEffects = undefined;
 
-    // Status line
+    // Status card: an eyebrow with the round, then whose turn it is and a hint.
+    const who = inked(view, view.current);
     if (view.winner !== null) {
-      const teams = view.winner === 0 ? 'Red & Green' : 'Blue & Yellow';
-      this.setStatus(`🏆 Team ${teams} wins!`, true);
-    } else if (curtainUp) {
-      this.setStatusHtml(
-        `Round ${view.round} — pass the device to ` +
-          `<b style="color:${PLAYER_COLORS_CSS[view.current]}">${esc(name)}</b>.`,
+      const seats = view.winner === 0 ? [0, 2] : [1, 3];
+      this.setStatusCard(
+        'All eight bunnies home',
+        `${inked(view, seats[0])} &amp; ${inked(view, seats[1])} win the game!`,
+        '',
+        true,
       );
+    } else if (curtainUp) {
+      this.setStatusCard(`Round ${view.round} · pass the device`, `${who}'s turn`, 'Hand the device over, then tap to see the cards.');
     } else {
       const ctrl = ctrlPlayer(view);
       const controlling =
         view.mySeat !== null && ctrl !== view.mySeat
-          ? ` (moving <b style="color:${PLAYER_COLORS_CSS[ctrl]}">${PLAYER_NAMES[ctrl]}</b>'s bunnies)`
+          ? ` — moving ${inked(view, ctrl)}'s bunnies`
           : '';
-      const who = `<b style="color:${PLAYER_COLORS_CSS[view.current]}">${esc(name)}</b>`;
       const spectating = this.online && view.mySeat === null;
-      this.setStatusHtml(
-        view.canAct
-          ? `Round ${view.round} — ${who}'s turn${controlling}. ${hint}`
-          : spectating
-            ? `Round ${view.round} — 👀 spectating. ${who}'s turn.`
-            : `Round ${view.round} — waiting for ${who}…`,
-      );
+      if (view.canAct) {
+        this.setStatusCard(`Round ${view.round} · your turn`, `${who}'s turn${controlling}`, hint);
+      } else if (spectating) {
+        this.setStatusCard(`Round ${view.round} · spectating`, `${who}'s turn`, 'Take a seat from the menu to play.');
+      } else {
+        this.setStatusCard(`Round ${view.round} · waiting`, `${who}'s turn`, `Waiting for ${esc(name)}…`);
+      }
     }
 
     // Victory overlay with stats + rematch once a winner is decided.
@@ -446,32 +481,44 @@ export class App {
       $('#announcer').textContent = announcement;
     }
 
-    // Hand (or the pass-the-device curtain)
-    const handEl = $('#hand');
-    handEl.innerHTML = '';
+    // Pass-the-device curtain over the board: fanned card backs and a reveal button.
+    const curtainEl = $('#curtain');
     if (curtainUp) {
+      curtainEl.hidden = false;
+      curtainEl.innerHTML =
+        '<div class="curtain-fan" aria-hidden="true"><div class="card-back"></div>' +
+        '<div class="card-back"></div><div class="card-back"></div></div>' +
+        '<div><div class="eyebrow">Pass the device</div>' +
+        `<div class="curtain-title">${esc(name)}'s turn</div>` +
+        '<p>Hand it over, then tap to see your cards.</p></div>';
       const reveal = document.createElement('button');
-      reveal.className = 'curtain-btn';
-      reveal.style.borderColor = PLAYER_COLORS_CSS[view.current];
-      reveal.textContent = `👀 Tap to show ${name}'s hand`;
+      reveal.className = 'curtain-btn primary';
+      reveal.textContent = "I'm ready";
+      reveal.setAttribute('aria-label', `Show ${name}'s hand`);
       reveal.onclick = () => {
         this.curtain = false;
         this.refresh();
       };
-      handEl.appendChild(reveal);
+      curtainEl.appendChild(reveal);
+    } else {
+      curtainEl.hidden = true;
+      curtainEl.innerHTML = '';
     }
+
+    // Hand
+    const handEl = $('#hand');
+    handEl.innerHTML = '';
     const playable = new Set(
       view.legal.filter(m => m.type === 'play').map(m => (m as any).card as number),
     );
     for (const card of curtainUp ? [] : view.myHand) {
       const el = document.createElement('button');
       el.className = 'card';
-      if (card.suit === '♥' || card.suit === '♦') el.classList.add('red');
+      if (isRed(card)) el.classList.add('red');
       if (this.sel.cardId === card.id) el.classList.add('selected');
       const canPlay = view.canAct && !view.pendingFlip && playable.has(card.id);
       if (!canPlay) el.classList.add('disabled');
-      el.innerHTML = `<span>${card.rank}</span><span class="suit">${card.suit}</span>` +
-        `<span class="hintline">${CARD_HINTS[card.rank] ?? ''}</span>`;
+      el.innerHTML = cardFaceHtml(card, CARD_HINTS[card.rank] ?? '');
       el.title = CARD_TOOLTIPS[card.rank] ?? '';
       el.setAttribute(
         'aria-label',
@@ -500,20 +547,17 @@ export class App {
     const lastEl = $('#last-play');
     if (view.lastPlay) {
       const { seat, card, bonus, fold } = view.lastPlay;
-      const who = `<b style="color:${PLAYER_COLORS_CSS[seat]}">${esc(
-        view.seatNames[seat] ?? PLAYER_NAMES[seat],
-      )}</b>`;
+      const whoLit = inked(view, seat, true);
       lastEl.hidden = false;
       if (fold || !card) {
         lastEl.innerHTML =
           `<span class="mini-card fold">✕</span>` +
-          `<span>${who} folded — no playable cards.</span>`;
+          `<span>${whoLit} folded — no playable cards.</span>`;
       } else {
-        const red = card.suit === '♥' || card.suit === '♦' ? ' red' : '';
         const desc = view.lastPlay.desc || 'played';
         lastEl.innerHTML =
-          `<span class="mini-card${red}">${esc(card.rank + card.suit)}</span>` +
-          `<span>${who} ${esc(desc)}${bonus ? ' <i>(flipped bonus card)</i>' : ''}</span>`;
+          `<span class="mini-card${isRed(card) ? ' red' : ''}">${esc(card.rank + card.suit)}</span>` +
+          `<span>${whoLit} ${esc(desc)}${bonus ? ' <i>(flipped bonus card)</i>' : ''}</span>`;
       }
     } else {
       lastEl.hidden = true;
@@ -528,25 +572,26 @@ export class App {
         : typeof this.sel.cardId === 'number'
           ? view.myHand.find(c => c.id === this.sel.cardId)?.rank
           : undefined;
-    if (selRank && !curtainUp) {
+    if (selRank && !curtainUp && this.sel.cardId !== 'flip') {
       helpEl.hidden = false;
       helpEl.textContent = CARD_TOOLTIPS[selRank] ?? '';
     } else {
       helpEl.hidden = true;
     }
 
-    // Pending flip display
+    // Bonus flip: the card a 2 turned over, waiting to be played.
     const flipEl = $('#flip-area');
     if (view.pendingFlip && !curtainUp) {
       flipEl.hidden = false;
       const c = view.pendingFlip;
-      const red = c.suit === '♥' || c.suit === '♦' ? ' red' : '';
       flipEl.innerHTML =
-        `<div class="card selected${red}" style="cursor:default"><span>${c.rank}</span>` +
-        `<span class="suit">${c.suit}</span></div>` +
-        `<div><b>Bonus card!</b><br/>The 2 flipped this card — ${
-          view.canAct ? 'you choose how to play it.' : 'being resolved…'
-        }</div>`;
+        `<div class="eyebrow">Bonus flip</div><div class="flip-body">` +
+        `<div class="flip-card${isRed(c) ? ' red' : ''}">${cardFaceHtml(c)}</div>` +
+        `<div class="flip-text">The 2 flipped a <b>${esc(c.rank + c.suit)}</b> — ${
+          view.canAct
+            ? `play it now. ${esc(CARD_TOOLTIPS[c.rank] ?? '')}`
+            : 'being resolved…'
+        }</div></div>`;
     } else {
       flipEl.hidden = true;
       flipEl.innerHTML = '';
@@ -562,32 +607,30 @@ export class App {
       this.sel.sevenParts.length > 0;
     $('#btn-cancel').hidden = !hasSelection;
 
-    // Piles
-    const shortName = (i: number) =>
-      esc((view.seatNames[i] ?? PLAYER_NAMES[i]).replace(/^CPU /, ''));
-    const teamName = (i: number) =>
-      `<span style="color:${PLAYER_COLORS_CSS[i]}">${shortName(i)}</span>`;
+    // Piles: the draw pile as a card back, with counts beside it.
     $('#piles').innerHTML =
-      `Teams: ${TEAM_MARKS[0]} ${teamName(0)} & ${teamName(2)} vs ` +
-      `${TEAM_MARKS[1]} ${teamName(1)} & ${teamName(3)}<br/>` +
-      `Draw pile: ${view.drawCount} · Discard: ${
+      `<div class="card-back small" aria-hidden="true"></div>` +
+      `<div>Draw ${view.drawCount} · Discard ${
         view.discardTop ? esc(view.discardTop.rank + view.discardTop.suit) : '—'
-      } · Hands: ` +
+      }<br/><span class="hands">Hands ` +
       view.handCounts
-        .map((n, i) => `<span style="color:${PLAYER_COLORS_CSS[i]}">${shortName(i)} ${n}</span>`)
-        .join(' ');
+        .map((n, i) => `<span style="color:${PLAYER_COLORS_LIT_CSS[i]}">${n}</span>`)
+        .join(' · ') +
+      `</span></div>`;
 
-    // Log, newest first, with player color names tinted for scanning.
+    // Log, newest first, with player names tinted for scanning.
     const colorizeLog = (line: string) =>
       line.replace(/\b(Red|Blue|Green|Yellow)\b/g, match => {
         const i = PLAYER_NAMES.indexOf(match);
-        return `<span style="color:${PLAYER_COLORS_CSS[i]};font-weight:600">${match}</span>`;
+        return `<b style="color:${PLAYER_COLORS_LIT_CSS[i]}">${match}</b>`;
       });
     const logEl = $('#log');
-    logEl.innerHTML = [...view.log]
-      .reverse()
-      .map(line => `<div>${colorizeLog(esc(line))}</div>`)
-      .join('');
+    logEl.innerHTML =
+      `<div class="eyebrow">Round ${roundWord(view.round)} — ${esc(shortName(view, view.dealer))} deals</div>` +
+      [...view.log]
+        .reverse()
+        .map(line => `<div class="entry">${colorizeLog(esc(line))}</div>`)
+        .join('');
     logEl.scrollTop = 0;
   }
 }

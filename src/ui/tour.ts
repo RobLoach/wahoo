@@ -29,9 +29,9 @@ const STEPS: Step[] = [
   {
     sel: '#status',
     text:
-      'This bar tells you whose turn it is and what to do next. Your teammate ' +
-      'sits at the opposite corner with the matching ✦ or ● mark — the first ' +
-      'team to tuck all 8 bunnies into their burrows wins. Have fun!',
+      'This card tells you whose turn it is and what to do next. Your teammate ' +
+      'sits at the opposite corner — Red & Green against Blue & Yellow. The ' +
+      'first team to tuck all 8 bunnies into their burrows wins. Have fun!',
   },
 ];
 
@@ -76,18 +76,22 @@ export function startTour() {
     card.innerHTML = `<p>${step.text}</p>`;
     const row = document.createElement('div');
     row.className = 'row';
+    const count = document.createElement('span');
+    count.className = 'eyebrow';
+    count.textContent = `${i + 1} of ${STEPS.length}`;
     const skip = document.createElement('button');
+    skip.className = 'ghost';
     skip.textContent = 'Skip';
     skip.onclick = done;
     const next = document.createElement('button');
     next.className = 'primary';
-    next.textContent = i === STEPS.length - 1 ? 'Got it!' : `Next (${i + 1}/${STEPS.length})`;
+    next.textContent = i === STEPS.length - 1 ? 'Got it!' : 'Next';
     next.onclick = () => {
       i++;
       if (i < STEPS.length) show();
       else done();
     };
-    row.append(skip, next);
+    row.append(count, skip, next);
     card.appendChild(row);
 
     // Sit just below the highlighted element (or above when out of room),

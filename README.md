@@ -6,7 +6,7 @@ stomping anyone who gets in the way.
 
 **Play it:** https://robloach.github.io/wahoo/
 
-![Wahoo mid-game: four bunnies race around a sand board on a calm blue table](docs/screenshot.png)
+![Wahoo mid-game: glossy tokens race around a laid-paper board in a wooden frame on green felt](docs/screenshot.png)
 
 ## Features
 
