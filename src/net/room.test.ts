@@ -319,8 +319,8 @@ describe('house rules and emotes', () => {
     };
     const room = new GameRoom('THRT', send, 60_000); // default cooldown
     room.addClient('a', 'Alice');
-    room.handle('a', { t: 'emote', emoji: '🥕' });
-    room.handle('a', { t: 'emote', emoji: '💥' }); // instantly after: dropped
+    room.handle('a', { t: 'emote', emoji: 'lol' });
+    room.handle('a', { t: 'emote', emoji: 'gasp' }); // instantly after: dropped
     const emotes = (inbox.get('a') ?? []).filter(m => m.t === 'emote');
     expect(emotes).toHaveLength(1);
     room.handle('a', { t: 'rename', name: 'Al' });
@@ -334,11 +334,11 @@ describe('house rules and emotes', () => {
     const { room, last } = makeRoom(60_000);
     room.addClient('a', 'Alice');
     room.addClient('b', 'Bob');
-    room.handle('b', { t: 'emote', emoji: '🥕' });
-    expect(last('a', 'emote')).toMatchObject({ seat: 1, emoji: '🥕' });
-    expect(last('b', 'emote')).toMatchObject({ seat: 1, emoji: '🥕' });
-    room.handle('a', { t: 'emote', emoji: '🖕' });
-    expect(last('a', 'emote')).toMatchObject({ emoji: '🥕' }); // unchanged
+    room.handle('b', { t: 'emote', emoji: 'lol' });
+    expect(last('a', 'emote')).toMatchObject({ seat: 1, emoji: 'lol' });
+    expect(last('b', 'emote')).toMatchObject({ seat: 1, emoji: 'lol' });
+    room.handle('a', { t: 'emote', emoji: '🥕' });
+    expect(last('a', 'emote')).toMatchObject({ emoji: 'lol' }); // unchanged
     room.dispose();
   });
 });

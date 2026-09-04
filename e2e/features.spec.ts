@@ -113,6 +113,7 @@ test('cards and moves work from the keyboard', async ({ page }) => {
   await page.goto('./');
   await page.evaluate(() => {
     localStorage.setItem('wahoo-tour-done', '1');
+    localStorage.setItem('wahoo-tips-seen', '["*"]');
     (window as any).__wahooCpuDelay = 60_000; // freeze CPUs
   });
   await page.click('#start-local');

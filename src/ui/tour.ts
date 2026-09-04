@@ -35,7 +35,7 @@ const STEPS: Step[] = [
   },
 ];
 
-/** Show the walkthrough on the first local game only. */
+/** Show the walkthrough the first time this device sits down to play, in any mode. */
 export function maybeStartTour() {
   try {
     if (localStorage.getItem(KEY)) return;

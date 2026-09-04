@@ -26,6 +26,16 @@ export const CORNER_GRADIENT: [number, number][] = [
   [0xf0bd4d, 0xbf8a15],
 ];
 
+/** Bunny token details: ear lining, nose, eyes. */
+export const EAR_PINK = 0xffd2d8;
+export const NOSE_PINK = 0xe8869a;
+export const EYE_INK = 0x25313c;
+
+/** Burrow earth: the dug tunnel and the dark holes along it. */
+export const EARTH = 0x8a6647;
+export const EARTH_DARK = 0x4e3521;
+export const HOLE = 0x2c1d12;
+
 /** Burrow slot tint per player: [light, dark, shadow ink]. */
 export const BURROW_TINT: [number, number, number][] = [
   [0xf3d3cc, 0xe0b3aa, 0x82322a],

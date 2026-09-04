@@ -1,8 +1,10 @@
-import '@fontsource/instrument-serif/400.css';
-import '@fontsource/instrument-serif/400-italic.css';
-import '@fontsource/karla/400.css';
-import '@fontsource/karla/500.css';
-import '@fontsource/karla/700.css';
+import '@fontsource/fredoka/500.css';
+import '@fontsource/fredoka/600.css';
+import '@fontsource/fredoka/700.css';
+import '@fontsource/nunito-sans/400.css';
+import '@fontsource/nunito-sans/400-italic.css';
+import '@fontsource/nunito-sans/600.css';
+import '@fontsource/nunito-sans/700.css';
 import './style.css';
 import { $, esc } from './ui/dom.ts';
 import { App } from './ui/app.ts';
@@ -19,6 +21,7 @@ import { P2PGuestSession, P2PHostSession, savedHostGame } from './net/p2p.ts';
 import type { Difficulty, HouseRules } from './engine/types.ts';
 import { DEFAULT_RULES } from './engine/types.ts';
 import { EMOTES } from './net/protocol.ts';
+import { EMOTE_LABELS, emoteHtml } from './ui/emotes.ts';
 import { PLAYER_NAMES } from './engine/types.ts';
 import { isMuted, setMuted } from './sounds.ts';
 import { maybeStartTour } from './ui/tour.ts';
@@ -213,6 +216,7 @@ function netHandlers(getSession: () => NetSession): OnlineHandlers {
         app.session = session;
         app.online = true;
         await app.showGame();
+        if (view.mySeat !== null) maybeStartTour();
       }
       app.onView(view);
     },
@@ -562,8 +566,10 @@ $('#btn-fullscreen').onclick = () => {
   for (const emoji of EMOTES) {
     const btn = document.createElement('button');
     btn.className = 'ghost';
-    btn.textContent = emoji;
-    btn.setAttribute('aria-label', `React with ${emoji}`);
+    btn.dataset.emote = emoji;
+    btn.innerHTML = emoteHtml(emoji);
+    btn.title = EMOTE_LABELS[emoji] ?? emoji;
+    btn.setAttribute('aria-label', `React: ${EMOTE_LABELS[emoji] ?? emoji}`);
     btn.onclick = () => {
       const session = app.session;
       if (session && 'emote' in session) session.emote(emoji);

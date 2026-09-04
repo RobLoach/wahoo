@@ -3,12 +3,17 @@ import type { View } from '../net/protocol.ts';
 import type { Bunny, MoveEffect } from '../engine/types.ts';
 import { PLAYER_NAMES, SPAWN_INDEX, TRACK_LEN } from '../engine/types.ts';
 import {
-  BURROW_TINT,
   CORNER_GRADIENT,
   CREAM,
+  EAR_PINK,
+  EARTH,
+  EARTH_DARK,
   ENGRAVE,
+  EYE_INK,
   GOLD,
+  HOLE,
   INK,
+  NOSE_PINK,
   PAPER,
   PAPER_DARK,
   PAPER_LIGHT,
@@ -24,9 +29,9 @@ const CELLS = 23.6; // 20 track cells + a thin outer margin for the reserve rows
 const CELL = SIZE / CELLS;
 const PAD = ((CELLS - 20) / 2) * CELL;
 
-/** Letterpress type: a serif for the plate and numbers, a grotesk for labels. */
-const SERIF = "'Instrument Serif', serif";
-const SANS = 'Karla, system-ui, sans-serif';
+/** Rounded display face for the plate, names and numbers; a quiet sans for small labels. */
+const DISPLAY = "'Fredoka', 'Nunito Sans', sans-serif";
+const BODY = "'Nunito Sans', system-ui, sans-serif";
 
 /** Space radii, in cells. */
 const TRACK_R = 0.38 * CELL;
@@ -175,7 +180,7 @@ export class BoardView {
   private pieces = new Map<number, Piece>();
   private cb!: BoardCallbacks;
   private seatLabels: Text[] = [];
-  private seatUnderlines: Graphics[] = [];
+  private seatPills: Graphics[] = [];
   private roundLabel: Text | null = null;
   /** One glossy token gradient per player, shared by all of that seat's pieces. */
   private pieceFills = PIECE_GRADIENT.map(([hi, base]) =>
@@ -191,8 +196,8 @@ export class BoardView {
     // Let the self-hosted faces land before Pixi measures any text.
     try {
       await Promise.all([
-        document.fonts.load("400 20px 'Instrument Serif'"),
-        document.fonts.load('400 14px Karla'),
+        document.fonts.load("600 20px 'Fredoka'"),
+        document.fonts.load("400 14px 'Nunito Sans'"),
       ]);
     } catch { /* fall back to the generic families */ }
     await this.app.init({
@@ -275,37 +280,100 @@ export class BoardView {
   }
 
   private drawSpaces() {
-    // Reserve slots sit on the margin: faint printed circles, nothing more.
-    const reserves = new Graphics();
+    // Hutches: a fenced pen on the margin where each seat's reserve bunnies wait.
     for (let p = 0; p < 4; p++) {
-      for (let n = 0; n < 4; n++) {
-        const { x, y } = reservePos(p, n);
-        reserves.circle(x, y, RESERVE_R);
+      const r0 = reservePos(p, 0);
+      const r3 = reservePos(p, 3);
+      const o = OUTWARD[p];
+      const x = Math.min(r0.x, r3.x) - 0.5 * CELL;
+      const w = Math.abs(r0.x - r3.x) + CELL;
+      const h = 0.98 * CELL;
+      const y = r0.y - h / 2;
+      const pen = new Graphics();
+      pen.roundRect(x, y + 1.5, w, h, h / 2).fill({ color: ENGRAVE, alpha: 0.18 });
+      pen.roundRect(x, y, w, h, h / 2).fill({ color: PAPER_LIGHT, alpha: 0.95 });
+      pen.roundRect(x, y, w, h, h / 2).stroke({ color: PLAYER_COLORS[p], alpha: 0.75, width: 2 });
+      // Pickets along the rail that faces the track.
+      const railY = o.y > 0 ? y : y + h;
+      const dir = o.y > 0 ? -1 : 1;
+      for (let px = x + 8; px < x + w - 6; px += 7) {
+        pen.roundRect(px - 1, railY + (dir > 0 ? -1 : -5), 2, 6, 1);
       }
-    }
-    reserves.fill({ color: ENGRAVE, alpha: 0.06 });
-    for (let p = 0; p < 4; p++) {
-      for (let n = 0; n < 4; n++) {
-        const { x, y } = reservePos(p, n);
-        reserves.circle(x, y, RESERVE_R);
-      }
-    }
-    reserves.stroke({ color: ENGRAVE, alpha: 0.28, width: 1 });
-    this.staticLayer.addChild(reserves);
+      pen.fill({ color: PLAYER_COLORS[p], alpha: 0.75 });
+      this.staticLayer.addChild(pen);
 
-    // Burrow slots: a tinted punched hole per seat.
-    for (let p = 0; p < 4; p++) {
-      const [light, dark, ink] = BURROW_TINT[p];
-      const g = new Graphics();
-      const slots = [0, 1, 2, 3].map(slot => burrowPos(p, slot));
-      for (const s of slots) g.circle(s.x, s.y, BURROW_R);
-      g.fill(radial(0.4, 0.3, [{ offset: 0, color: light }, { offset: 1, color: dark }]));
-      for (const s of slots) g.circle(s.x, s.y, BURROW_R);
-      g.stroke({ color: ink, alpha: 0.45, width: 1.5 });
-      for (const s of slots) g.circle(s.x, s.y + 1, BURROW_R);
-      g.stroke({ color: 0xffffff, alpha: 0.4, width: 1 });
-      this.staticLayer.addChild(g);
+      const spots = new Graphics();
+      for (let n = 0; n < 4; n++) {
+        const { x: sx, y: sy } = reservePos(p, n);
+        spots.circle(sx, sy, RESERVE_R);
+      }
+      spots.fill({ color: ENGRAVE, alpha: 0.07 });
+      for (let n = 0; n < 4; n++) {
+        const { x: sx, y: sy } = reservePos(p, n);
+        spots.circle(sx, sy, RESERVE_R);
+      }
+      spots.stroke({ color: ENGRAVE, alpha: 0.3, width: 1 });
+      this.staticLayer.addChild(spots);
     }
+
+    // Burrows: a dug earthen tunnel running in from each corner, with four
+    // dark holes along it that get deeper toward the middle of the board.
+    for (let p = 0; p < 4; p++) {
+      const o = OUTWARD[p];
+      const a = burrowPos(p, 0);
+      const b = burrowPos(p, 3);
+      const ax = a.x + o.x * 0.32 * CELL;
+      const ay = a.y + o.y * 0.32 * CELL;
+      const bx = b.x - o.x * 0.1 * CELL;
+      const by = b.y - o.y * 0.1 * CELL;
+      const tunnel = new Graphics();
+      tunnel.moveTo(ax, ay + 2).lineTo(bx, by + 2)
+        .stroke({ color: EARTH_DARK, alpha: 0.28, width: 1.1 * CELL, cap: 'round' });
+      tunnel.moveTo(ax, ay).lineTo(bx, by)
+        .stroke({ color: EARTH, width: 0.96 * CELL, cap: 'round' });
+      tunnel.moveTo(ax, ay).lineTo(bx, by)
+        .stroke({ color: EARTH_DARK, alpha: 0.35, width: 0.96 * CELL - 5, cap: 'round' });
+      tunnel.moveTo(ax, ay).lineTo(bx, by)
+        .stroke({ color: EARTH, width: 0.96 * CELL - 8, cap: 'round' });
+      this.staticLayer.addChild(tunnel);
+
+      for (let slot = 0; slot < 4; slot++) {
+        const { x, y } = burrowPos(p, slot);
+        const depth = 0.55 + slot * 0.15; // deeper holes read darker
+        const hole = new Graphics();
+        hole.circle(x, y, BURROW_R).fill(
+          radial(0.5, 0.55, [
+            { offset: 0, color: HOLE },
+            { offset: 0.7, color: rgba(HOLE, depth) },
+            { offset: 1, color: rgba(EARTH_DARK, 0.9) },
+          ]),
+        );
+        hole.circle(x, y + 1.5, BURROW_R).stroke({ color: 0xffffff, alpha: 0.22, width: 1.5 });
+        hole.circle(x, y, BURROW_R).stroke({ color: PLAYER_COLORS[p], alpha: 0.8, width: 1.5 });
+        this.staticLayer.addChild(hole);
+      }
+    }
+
+    // Direction chevrons between every fifth pair of spaces: the track runs clockwise.
+    const chevrons = new Graphics();
+    for (let i = 0; i < TRACK_LEN; i++) {
+      if (i % 5 !== 2) continue;
+      const here = trackPos(i);
+      const next = trackPos(i + 1);
+      const mx = (here.x + next.x) / 2;
+      const my = (here.y + next.y) / 2;
+      const ang = Math.atan2(next.y - here.y, next.x - here.x);
+      const pt = (dx: number, dy: number) => ({
+        x: mx + dx * Math.cos(ang) - dy * Math.sin(ang),
+        y: my + dx * Math.sin(ang) + dy * Math.cos(ang),
+      });
+      const p1 = pt(-2.5, -4);
+      const p2 = pt(2, 0);
+      const p3 = pt(-2.5, 4);
+      chevrons.moveTo(p1.x, p1.y).lineTo(p2.x, p2.y).lineTo(p3.x, p3.y);
+    }
+    chevrons.stroke({ color: ENGRAVE, alpha: 0.38, width: 1.6, cap: 'round', join: 'round' });
+    this.staticLayer.addChild(chevrons);
 
     // Plain track spaces: debossed paper discs.
     const track = new Graphics();
@@ -364,7 +432,7 @@ export class BoardView {
     this.staticLayer.addChild(rules);
 
     const titleStyle = (fill: string) =>
-      new TextStyle({ fill, fontFamily: SERIF, fontSize: 68, letterSpacing: 3 });
+      new TextStyle({ fill, fontFamily: DISPLAY, fontSize: 68, letterSpacing: 3 });
     const emboss = new Text({ text: 'Wahoo', style: titleStyle(rgba(0xffffff, 0.6)) });
     emboss.anchor.set(0.5);
     emboss.position.set(cx, cy + 1);
@@ -378,7 +446,7 @@ export class BoardView {
       text: 'ROUND ONE',
       style: new TextStyle({
         fill: rgba(ENGRAVE, 0.34),
-        fontFamily: SANS,
+        fontFamily: BODY,
         fontSize: 13,
         letterSpacing: 5,
       }),
@@ -390,46 +458,72 @@ export class BoardView {
   }
 
   /**
-   * Seat labels are printed inside the ring, one row in from each corner and
-   * clear of the burrow diagonal, growing toward the middle of the board.
+   * Seat name pills sit on the margin beside each hutch, running along the
+   * board edge toward the middle. The pill itself is drawn at render time,
+   * once the name is known.
    */
   private drawSeatLabels() {
     for (let p = 0; p < 4; p++) {
-      const corner = trackPos(SPAWN_INDEX(p));
       const o = OUTWARD[p];
-      const underline = new Graphics();
-      this.labelLayer.addChild(underline);
-      this.seatUnderlines.push(underline);
+      const corner = trackPos(SPAWN_INDEX(p));
+      const pill = new Graphics();
+      this.labelLayer.addChild(pill);
+      this.seatPills.push(pill);
       const label = new Text({
-        text: PLAYER_NAMES[p].toUpperCase(),
+        text: PLAYER_NAMES[p],
         style: new TextStyle({
-          fill: PLAYER_COLORS[p],
-          fontFamily: SANS,
-          fontSize: 14,
-          fontWeight: '400',
-          letterSpacing: 3.5,
+          fill: CREAM,
+          fontFamily: DISPLAY,
+          fontSize: 15,
+          fontWeight: '600',
+          letterSpacing: 0.4,
         }),
       });
       label.anchor.set(o.x > 0 ? 1 : 0, 0.5);
-      label.position.set(corner.x - o.x * 3.5 * CELL, corner.y - o.y * 1.35 * CELL);
+      label.position.set(corner.x - o.x * 4.55 * CELL, reservePos(p, 0).y);
       this.labelLayer.addChild(label);
       this.seatLabels.push(label);
     }
   }
 
-  /** A glossy round token: drop shadow, domed body, rim light. */
+  /**
+   * A bunny token: ground shadow, two ears with pink linings, a glossy round
+   * body in the seat colour, white muzzle, eyes with a glint and a pink nose.
+   * Body radius stays PIECE_R so the tap targets are unchanged.
+   */
   private makePiece(bunny: Bunny): Piece {
     const root = new Container();
     const p = bunny.player;
     const R = PIECE_R;
-    const g = new Graphics();
-    g.circle(0, 4, R).fill({ color: 0x3c2d1c, alpha: 0.3 });
-    g.circle(0, 2, R).fill({ color: 0x3c2d1c, alpha: 0.15 });
-    g.circle(0, 0, R).fill(this.pieceFills[p]);
-    g.circle(0, 2, R - 2).stroke({ color: 0x000000, alpha: 0.32, width: 4 });
-    g.ellipse(-0.25 * R, -0.4 * R, 0.42 * R, 0.26 * R).fill({ color: 0xffffff, alpha: 0.35 });
-    g.circle(0, 0, R).stroke({ color: PIECE_GRADIENT[p][1], alpha: 0.6, width: 1 });
-    root.addChild(g);
+    const C = R / 0.35; // the bunny is drawn in cell units around a 0.35-cell body
+    const base = PIECE_GRADIENT[p][1];
+
+    const shadow = new Graphics();
+    shadow.ellipse(0, 0.4 * C, 0.32 * C, 0.1 * C).fill({ color: 0x3c2d1c, alpha: 0.28 });
+    root.addChild(shadow);
+
+    for (const side of [-1, 1]) {
+      const ear = new Graphics();
+      ear.ellipse(0, -0.24 * C, 0.115 * C, 0.28 * C).fill(base);
+      ear.ellipse(0, -0.24 * C, 0.115 * C, 0.28 * C).stroke({ color: 0x000000, alpha: 0.3, width: 1.2 });
+      ear.ellipse(0, -0.22 * C, 0.055 * C, 0.18 * C).fill(EAR_PINK);
+      ear.position.set(side * 0.17 * C, -0.2 * C);
+      ear.rotation = side * (8 * Math.PI) / 180;
+      root.addChild(ear);
+    }
+
+    const body = new Graphics();
+    body.circle(0, 0, R).fill(this.pieceFills[p]);
+    body.circle(0, 2, R - 2).stroke({ color: 0x000000, alpha: 0.28, width: 4 });
+    body.ellipse(-0.25 * R, -0.45 * R, 0.4 * R, 0.22 * R).fill({ color: 0xffffff, alpha: 0.3 });
+    body.circle(0, 0, R).stroke({ color: 0x000000, alpha: 0.35, width: 1.2 });
+    body.ellipse(0, 0.12 * C, 0.19 * C, 0.14 * C).fill({ color: 0xffffff, alpha: 0.92 });
+    body.circle(-0.13 * C, -0.05 * C, 0.058 * C).fill(EYE_INK);
+    body.circle(0.13 * C, -0.05 * C, 0.058 * C).fill(EYE_INK);
+    body.circle(-0.11 * C, -0.075 * C, 0.02 * C).fill(0xffffff);
+    body.circle(0.15 * C, -0.075 * C, 0.02 * C).fill(0xffffff);
+    body.ellipse(0, 0.07 * C, 0.045 * C, 0.03 * C).fill(NOSE_PINK);
+    root.addChild(body);
     return { root, tx: 0, ty: 0, path: null };
   }
 
@@ -581,9 +675,7 @@ export class BoardView {
 
     // Pieces
     const reserveCount = [0, 0, 0, 0];
-    const homeCount = [0, 0, 0, 0];
     for (const bunny of view.bunnies) {
-      if (bunny.place.kind === 'burrow') homeCount[bunny.player]++;
       let piece = this.pieces.get(bunny.id);
       if (!piece) {
         piece = this.makePiece(bunny);
@@ -622,7 +714,7 @@ export class BoardView {
         style: new TextStyle({
           fill: INK,
           fontSize: CELL * 0.6,
-          fontFamily: SERIF,
+          fontFamily: DISPLAY,
           stroke: { color: CREAM, width: 4 },
         }),
       });
@@ -666,30 +758,33 @@ export class BoardView {
       this.roundLabel.text = `ROUND ${ROUND_WORDS[view.round] || view.round}`;
     }
 
-    // Seat labels: printed in the seat's ink, the active seat a touch larger
-    // and underscored.
+    // Seat pills: the name on a solid seat-colour pill beside the hutch; the
+    // active seat is lit and ringed, the others sit back a little.
     this.seatLabels.forEach((label, p) => {
       const active = p === view.current && view.winner === null;
       const raw = view.seatNames[p] ?? PLAYER_NAMES[p];
       const cpu = raw.includes('CPU');
-      label.text = (
-        `${raw.replace(/^CPU /, '')}${cpu ? ' · CPU' : ''} · ${homeCount[p]} HOME` +
-        `${view.folded[p] ? ' · FOLDED' : ''}`
-      ).toUpperCase();
-      label.style.fill = PLAYER_COLORS[p];
-      label.alpha = active ? 1 : 0.72;
-      label.scale.set(active ? 1.08 : 1);
+      label.text =
+        `${raw.replace(/^CPU /, '')}${cpu ? ' · CPU' : ''}${view.folded[p] ? ' · folded' : ''}`;
+      label.scale.set(1);
       // Never let a long name run past the middle of the board.
-      const maxW = 6.5 * CELL;
-      if (label.width > maxW) label.scale.set((label.scale.x * maxW) / label.width);
-      const underline = this.seatUnderlines[p];
-      underline.clear();
+      const maxW = 5.2 * CELL;
+      if (label.width > maxW) label.scale.set(maxW / label.width);
+      const w = label.width + 22;
+      const h = 26;
+      const x0 = label.anchor.x > 0.5 ? label.x - label.width - 11 : label.x - 11;
+      const y0 = label.y - h / 2;
+      const pill = this.seatPills[p];
+      pill.clear();
+      pill.roundRect(x0, y0 + 2, w, h, h / 2).fill({ color: ENGRAVE, alpha: 0.25 });
+      pill.roundRect(x0, y0, w, h, h / 2).fill(PLAYER_COLORS[p]);
+      pill.roundRect(x0 + 1, y0 + 1, w - 2, h - 2, h / 2).stroke({ color: 0xffffff, alpha: 0.22, width: 1 });
       if (active) {
-        const x0 = label.anchor.x > 0.5 ? label.x - label.width : label.x;
-        underline
-          .rect(x0, label.y + label.height / 2 + 2, label.width, 2)
-          .fill(PLAYER_COLORS[p]);
+        pill.roundRect(x0 - 3, y0 - 3, w + 6, h + 6, (h + 6) / 2).stroke({ color: GOLD, alpha: 0.55, width: 5 });
+        pill.roundRect(x0 - 3, y0 - 3, w + 6, h + 6, (h + 6) / 2).stroke({ color: CREAM, alpha: 0.95, width: 2 });
       }
+      pill.alpha = active ? 1 : 0.8;
+      label.alpha = active ? 1 : 0.92;
     });
   }
 

@@ -32,7 +32,7 @@ const MAX_ROOMS_PER_IP_PER_HOUR = 20;
 const MAX_JOINS_PER_IP_PER_HOUR = 60;
 const ACTION_COOLDOWN_SECONDS = 1; // min gap between renames/emotes per client
 const MAX_BODY_BYTES = 400000;
-const EMOTES = ['👍', '😂', '😱', '🥕', '💥', '🐰'];
+const EMOTES = ['wahoo', 'lol', 'gasp', 'smug', 'finger'];
 
 // ---------------------------------------------------------------------------
 // Storage

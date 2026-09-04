@@ -2,7 +2,7 @@
 // The in-game application: board, hand, status, and click handling.
 // ---------------------------------------------------------------------------
 import { $, esc } from './dom.ts';
-import { BoardView, emptyHighlights } from './board.ts';
+import { BoardView, burrowPos, emptyHighlights, reservePos, trackPos } from './board.ts';
 import { PLAYER_COLORS_CSS, PLAYER_COLORS_LIT_CSS } from './palette.ts';
 import type { Highlights } from './board.ts';
 import {
@@ -16,8 +16,10 @@ import type { P2PGuestSession, P2PHostSession } from '../net/p2p.ts';
 import type { RoomInfo, View } from '../net/protocol.ts';
 import { backwardDest, forwardDest } from '../engine/game.ts';
 import type { Bunny, CardAction, Move, MoveEffect } from '../engine/types.ts';
-import { PLAYER_NAMES } from '../engine/types.ts';
+import { PLAYER_NAMES, SPAWN_INDEX } from '../engine/types.ts';
 import { playMoveSound } from '../sounds.ts';
+import { TIPS, dismissTip, showTip, tipSeen } from './tips.ts';
+import { emoteHtml } from './emotes.ts';
 
 export const CARD_HINTS: Record<string, string> = {
   A: 'spawn / +1', '2': 'spawn / flip', '3': '+3', '4': 'back 4',
@@ -97,7 +99,7 @@ export class App {
     if (seat < 0 || seat > 3) return;
     const bubble = document.createElement('span');
     bubble.className = `emote-bubble seat-${seat}`;
-    bubble.textContent = emoji;
+    bubble.innerHTML = emoteHtml(emoji, PLAYER_COLORS_CSS[seat]);
     $('#board-wrap').appendChild(bubble);
     setTimeout(() => bubble.remove(), 2600);
   }
@@ -125,6 +127,7 @@ export class App {
   }
 
   showMenu() {
+    dismissTip();
     this.session?.leave();
     this.session = null;
     this.view = null;
@@ -137,12 +140,13 @@ export class App {
   }
 
   onView(view: View) {
+    dismissTip();
     this.view = view;
     this.pendingEffects = view.effects;
     this.recentBunnies = new Set(view.effects.map(e => e.bunny));
     playMoveSound(view.effects);
     if (view.lastPlay && (view.effects.length > 0 || view.lastPlay.fold)) {
-      this.showPlayBanner(view);
+      this.showMoveCallout(view);
     }
     // A new decision point invalidates any in-progress selection.
     this.sel = emptySelection();
@@ -354,31 +358,63 @@ export class App {
     return { hi, hint };
   }
 
-  private bannerTimer: ReturnType<typeof setTimeout> | null = null;
+  private calloutTimer: ReturnType<typeof setTimeout> | null = null;
 
-  /** Flash the played card and player name in the middle of the board. */
-  private showPlayBanner(view: View) {
+  /** Board-space point -> pixel offset inside #board-wrap, following the canvas scale. */
+  private boardPoint(pt: { x: number; y: number }) {
+    const wrap = $('#board-wrap').getBoundingClientRect();
+    const canvas = $('#board-frame .board-canvas').getBoundingClientRect();
+    const k = canvas.width / 820;
+    return { x: canvas.left - wrap.left + pt.x * k, y: canvas.top - wrap.top + pt.y * k };
+  }
+
+  /**
+   * "Green moved a bunny 8 spaces" as a speech bubble on the board, pointing
+   * at the space where the move ended (or at the folder's corner).
+   */
+  private showMoveCallout(view: View) {
     const play = view.lastPlay;
     if (!play) return;
-    const el = $('#play-banner');
-    const name = shortName(view, play.seat);
+    const el = $('#move-callout');
+    const seatOf = (id: number) => view.bunnies.find(b => b.id === id)?.player ?? play.seat;
+    const mover = view.effects.find(e => e.kind !== 'stomped') ?? view.effects[0];
+    let pt: { x: number; y: number };
+    if (!mover) {
+      pt = trackPos(SPAWN_INDEX(play.seat));
+    } else if (mover.to.kind === 'track') {
+      pt = trackPos(mover.to.index);
+    } else if (mover.to.kind === 'burrow') {
+      pt = burrowPos(seatOf(mover.bunny), mover.to.slot);
+    } else {
+      pt = reservePos(seatOf(mover.bunny), 0);
+    }
+    const who = inked(view, play.seat);
     const card = play.card;
     const cardHtml = play.fold || !card
-      ? '<div class="play-banner-card fold"><span class="pip">✕</span></div>'
-      : `<div class="play-banner-card${isRed(card) ? ' red' : ''}">${cardFaceHtml(card)}</div>`;
-    el.innerHTML =
-      cardHtml +
-      `<div class="play-banner-name"><span style="color:${PLAYER_COLORS_CSS[play.seat]}">${esc(name)}</span>${
-        play.fold ? ' folded' : ''
-      }</div>`;
+      ? '<span class="mini-card fold">✕</span>'
+      : `<span class="mini-card${isRed(card) ? ' red' : ''}">${esc(card.rank + card.suit)}</span>`;
+    const text = play.fold || !card
+      ? `${who} folded — no playable cards.`
+      : `${who} ${esc(play.desc || 'played')}${play.bonus ? ' <i>(bonus flip)</i>' : ''}`;
+    el.innerHTML = `<div class="callout-box">${cardHtml}<span>${text}</span></div><div class="callout-tail"></div>`;
     el.hidden = false;
-    el.classList.remove('show');
-    void el.offsetWidth; // restart the fade animation
+    el.classList.remove('below', 'show');
+    const { x, y } = this.boardPoint(pt);
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+    // Flip under the space near the top edge; slide the box to stay on the board.
+    const wrapW = $('#board-wrap').clientWidth;
+    const box = el.querySelector<HTMLElement>('.callout-box')!;
+    const half = box.offsetWidth / 2;
+    const shift = Math.max(-(x - half - 8), Math.min(0, wrapW - 8 - (x + half)));
+    box.style.setProperty('--shift', `${shift}px`);
+    if (y < 110) el.classList.add('below');
+    void el.offsetWidth; // restart the animation
     el.classList.add('show');
-    if (this.bannerTimer) clearTimeout(this.bannerTimer);
-    this.bannerTimer = setTimeout(() => {
+    if (this.calloutTimer) clearTimeout(this.calloutTimer);
+    this.calloutTimer = setTimeout(() => {
       el.hidden = true;
-    }, 2700);
+    }, 5200);
   }
 
   private victoryShown = false;
@@ -421,6 +457,49 @@ export class App {
         overlay.appendChild(bit);
       }
     }
+  }
+
+  /** Offer at most one unseen tip that the current view has just made relevant. */
+  private maybeTips(view: View, curtainUp: boolean) {
+    if (curtainUp) return;
+    const boardRect = () => $('#board-frame').getBoundingClientRect();
+    const owner = (id: number) => view.bunnies.find(b => b.id === id)?.player;
+    // Things that just happened on the board come first: they are fleeting.
+    if (view.effects.some(e => e.kind === 'stomped') && !tipSeen('stomp')) {
+      const e = view.effects.find(x => x.kind === 'stomped')!;
+      const p = owner(e.bunny);
+      if (showTip('stomp', p === undefined ? boardRect() : this.pointRect(reservePos(p, 1)), TIPS.stomp)) return;
+    }
+    if (view.effects.some(e => e.to.kind === 'burrow') && !tipSeen('home')) {
+      const e = view.effects.find(x => x.to.kind === 'burrow')!;
+      const p = owner(e.bunny);
+      const to = e.to.kind === 'burrow' ? e.to : null;
+      if (
+        showTip('home', p === undefined || !to ? boardRect() : this.pointRect(burrowPos(p, to.slot)), TIPS.home)
+      ) return;
+    }
+    if (!view.canAct) return;
+    if (view.pendingFlip && !tipSeen('flip')) {
+      if (showTip('flip', $('#flip-area'), TIPS.flip)) return;
+    }
+    if (view.legal.length === 1 && view.legal[0].type === 'discardHand' && !tipSeen('fold')) {
+      if (showTip('fold', $('#btn-fold'), TIPS.fold)) return;
+    }
+    if (view.mySeat !== null && ctrlPlayer(view) !== view.mySeat && !tipSeen('teammate')) {
+      if (showTip('teammate', $('#status'), TIPS.teammate)) return;
+    }
+    const cards = $('#hand').querySelectorAll<HTMLElement>('.card');
+    view.myHand.forEach((card, i) => {
+      const key = `card:${card.rank}`;
+      if (TIPS[key] && !tipSeen(key)) showTip(key, cards[i] ?? $('#hand'), TIPS[key]);
+    });
+  }
+
+  /** A board-space point as a small page rectangle, for anchoring a tip. */
+  private pointRect(pt: { x: number; y: number }) {
+    const wrap = $('#board-wrap').getBoundingClientRect();
+    const { x, y } = this.boardPoint(pt);
+    return new DOMRect(wrap.left + x - 16, wrap.top + y - 16, 32, 32);
   }
 
   refresh() {
@@ -472,7 +551,15 @@ export class App {
 
     // Reactions are online-only (hot seat players can heckle in person);
     // spectators have no seat to react from.
-    $('#emote-bar').hidden = !this.online || view.winner !== null || view.mySeat === null;
+    const emoteBar = $('#emote-bar');
+    emoteBar.hidden = !this.online || view.winner !== null || view.mySeat === null;
+    // The reaction buttons wear your own seat colour; redraw when the seat changes.
+    if (view.mySeat !== null && emoteBar.dataset.seat !== String(view.mySeat)) {
+      emoteBar.dataset.seat = String(view.mySeat);
+      emoteBar.querySelectorAll<HTMLElement>('button[data-emote]').forEach(btn => {
+        btn.innerHTML = emoteHtml(btn.dataset.emote!, PLAYER_COLORS_CSS[view.mySeat!]);
+      });
+    }
 
     // Screen readers hear each play and turn change through the live region.
     const announcement = `${view.log[0] ?? ''}${view.canAct ? ' Your turn.' : ''}`;
@@ -543,26 +630,9 @@ export class App {
       handEl.appendChild(el);
     }
 
-    // Last played card, so every turn is easy to follow.
-    const lastEl = $('#last-play');
-    if (view.lastPlay) {
-      const { seat, card, bonus, fold } = view.lastPlay;
-      const whoLit = inked(view, seat, true);
-      lastEl.hidden = false;
-      if (fold || !card) {
-        lastEl.innerHTML =
-          `<span class="mini-card fold">✕</span>` +
-          `<span>${whoLit} folded — no playable cards.</span>`;
-      } else {
-        const desc = view.lastPlay.desc || 'played';
-        lastEl.innerHTML =
-          `<span class="mini-card${isRed(card) ? ' red' : ''}">${esc(card.rank + card.suit)}</span>` +
-          `<span>${whoLit} ${esc(desc)}${bonus ? ' <i>(flipped bonus card)</i>' : ''}</span>`;
-      }
-    } else {
-      lastEl.hidden = true;
-      lastEl.innerHTML = '';
-    }
+    // First-time tips: explain a special card, the bonus flip, a stomp, a
+    // bunny getting home, folding, and moving for a teammate — once each.
+    if (!curtainUp && view.winner === null) this.maybeTips(view, curtainUp);
 
     // Description of the selected card, always visible (tooltips need hover).
     const helpEl = $('#card-help');

@@ -6,7 +6,7 @@ stomping anyone who gets in the way.
 
 **Play it:** https://robloach.github.io/wahoo/
 
-![Wahoo mid-game: glossy tokens race around a laid-paper board in a wooden frame on green felt](docs/screenshot.png)
+![Wahoo mid-game: bunny tokens race around a laid-paper board in a wooden frame on green felt, with earthen burrows at each corner and fenced hutches for the reserves](docs/screenshot.png)
 
 ## Features
 
@@ -16,8 +16,14 @@ stomping anyone who gets in the way.
   the worst move, Medium plays randomly, Hard plays the best move it can see,
   and Insane also anticipates the next player's reply (fair warning: it
   simulates against the real deck, so it effectively counts cards).
-- **Animated moves** — bunnies hop space by space and the last move is
-  highlighted, so you can always see what just happened.
+- **Animated moves** — bunnies hop space by space, the last move is
+  highlighted, and a speech bubble on the board says what just happened right
+  where it happened.
+- **First-time tips** — a short walkthrough on your first game (hot seat or
+  online), then a one-off tip the first time you meet a special card, a stomp,
+  a bonus flip, or a bunny getting home.
+- **Bunny reactions** — online players can fire one of five bunny faces at
+  the table: cheer, laugh, gasp, smirk, or the finger.
 - **Installable PWA** — add it to a phone home screen; hot-seat and CPU games
   work fully offline.
 - **Reconnection** — refresh mid-game and rejoin your seat (a CPU covers for
