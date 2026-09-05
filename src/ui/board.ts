@@ -288,7 +288,6 @@ export class BoardView {
     for (let p = 0; p < 4; p++) {
       const r0 = reservePos(p, 0);
       const r3 = reservePos(p, 3);
-      const o = OUTWARD[p];
       const x = Math.min(r0.x, r3.x) - 0.5 * CELL;
       const w = Math.abs(r0.x - r3.x) + CELL;
       const h = 0.98 * CELL;
@@ -297,13 +296,6 @@ export class BoardView {
       pen.roundRect(x, y + 1.5, w, h, h / 2).fill({ color: ENGRAVE, alpha: 0.18 });
       pen.roundRect(x, y, w, h, h / 2).fill({ color: PAPER_LIGHT, alpha: 0.95 });
       pen.roundRect(x, y, w, h, h / 2).stroke({ color: PLAYER_COLORS[p], alpha: 0.75, width: 2 });
-      // Pickets along the rail that faces the track.
-      const railY = o.y > 0 ? y : y + h;
-      const dir = o.y > 0 ? -1 : 1;
-      for (let px = x + 8; px < x + w - 6; px += 7) {
-        pen.roundRect(px - 1, railY + (dir > 0 ? -1 : -5), 2, 6, 1);
-      }
-      pen.fill({ color: PLAYER_COLORS[p], alpha: 0.75 });
       this.staticLayer.addChild(pen);
 
       const spots = new Graphics();
