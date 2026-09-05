@@ -428,7 +428,7 @@ export class App {
     this.showCallout(pt, cardHtml, text);
   }
 
-  /** A speech bubble at the board's middle, its tail stretched to `pt`. */
+  /** A speech bubble beside the action, its tail pointing at `pt`. */
   private showCallout(pt: { x: number; y: number }, cardHtml: string, text: string) {
     const el = $('#move-callout');
     el.innerHTML = `<div class="callout-box">${cardHtml}<span>${text}</span></div><div class="callout-tail"></div>`;
@@ -436,11 +436,23 @@ export class App {
     el.classList.remove('show');
     const centre = this.boardPoint({ x: 410, y: 410 });
     const target = this.boardPoint(pt);
-    el.style.left = `${centre.x}px`;
-    el.style.top = `${centre.y}px`;
+    // Sit a short way from the action, on its boardward side, staying on
+    // the paper: the callout should feel attached to the move it describes.
+    const dist = Math.hypot(centre.x - target.x, centre.y - target.y);
+    const k = dist > 1 ? Math.min(160, Math.max(110, dist * 0.35)) / dist : 0;
+    const wrap = $('#board-wrap').getBoundingClientRect();
+    const canvas = $('#board-frame .board-canvas').getBoundingClientRect();
+    const minX = canvas.left - wrap.left + 130;
+    const maxX = canvas.right - wrap.left - 130;
+    const minY = canvas.top - wrap.top + 36;
+    const maxY = canvas.bottom - wrap.top - 36;
+    const bx = Math.max(minX, Math.min(target.x + (centre.x - target.x) * k, maxX));
+    const by = Math.max(minY, Math.min(target.y + (centre.y - target.y) * k, maxY));
+    el.style.left = `${bx}px`;
+    el.style.top = `${by}px`;
     const box = el.querySelector<HTMLElement>('.callout-box')!;
     const tail = el.querySelector<HTMLElement>('.callout-tail')!;
-    const ang = Math.atan2(target.y - centre.y, target.x - centre.x);
+    const ang = Math.atan2(target.y - by, target.x - bx);
     // The tail starts just past the box edge and stretches to the action.
     const w2 = box.offsetWidth / 2;
     const h2 = box.offsetHeight / 2;
@@ -448,8 +460,8 @@ export class App {
       w2 / Math.max(Math.abs(Math.cos(ang)), 1e-6),
       h2 / Math.max(Math.abs(Math.sin(ang)), 1e-6),
     ) - 2;
-    const dist = Math.hypot(target.x - centre.x, target.y - centre.y);
-    tail.style.width = `${Math.max(16, dist - reach - 22)}px`;
+    const tailLen = Math.hypot(target.x - bx, target.y - by);
+    tail.style.width = `${Math.max(14, tailLen - reach - 22)}px`;
     tail.style.transform = `rotate(${ang}rad) translate(${reach}px, 0)`;
     void el.offsetWidth; // restart the animation
     el.classList.add('show');
