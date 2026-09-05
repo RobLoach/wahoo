@@ -491,6 +491,12 @@ input[type="checkbox"]:focus-visible { outline: 2px solid var(--red-rule); outli
 }
 
 #controls, #controls-bottom { display: flex; gap: 8px; flex-wrap: wrap; }
+/* Folding is a real decision, not chrome: make the button read like one. */
+#btn-fold {
+  font-weight: 700; font-size: 14px; color: var(--cream);
+  background: rgba(217, 163, 39, 0.22); border: 1.5px solid var(--gold);
+}
+#btn-fold:hover { background: rgba(217, 163, 39, 0.34); filter: none; }
 #controls button, #controls-bottom button { flex: 1; }
 #controls-bottom { margin-top: auto; }
 
