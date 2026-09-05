@@ -660,6 +660,13 @@ input[type="checkbox"]:focus-visible { outline: 2px solid var(--red-rule); outli
 }
 #tip-card .eyebrow { display: block; letter-spacing: 0.22em; color: var(--yellow); margin-bottom: 4px; }
 #tip-card p { margin: 0 0 10px; }
+/* Pointer wedge aimed at the element the tip explains. */
+#tip-card .tip-tail {
+  position: absolute; width: 0; height: 0; margin-left: -8px;
+  border: 8px solid transparent;
+}
+#tip-card .tip-tail.up { top: -8px; border-top: 0; border-bottom: 8px solid var(--cream); }
+#tip-card .tip-tail.down { bottom: -8px; border-bottom: 0; border-top: 8px solid var(--cream); }
 #tip-card button { padding: 7px 14px; font-size: 13px; box-shadow: 0 3px 0 var(--red-lo); font-weight: 700; }
 @keyframes tip-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 

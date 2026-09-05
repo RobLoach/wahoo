@@ -9,10 +9,15 @@ const KEY = 'wahoo-tips-seen';
 /** A tip is anchored to an element or to a rectangle on the page. */
 export type TipAnchor = Element | DOMRect | null;
 
+export interface Tip {
+  /** Headline: the card or event this explains. */
+  title: string;
+  text: string;
+}
+
 let seen: Set<string> | null = null;
 let current: HTMLElement | null = null;
 let currentKey: string | null = null;
-let timer: ReturnType<typeof setTimeout> | null = null;
 
 function load(): Set<string> {
   if (seen) return seen;
@@ -43,10 +48,8 @@ export function tipShowing(): boolean {
 }
 
 export function dismissTip() {
-  if (timer) clearTimeout(timer);
-  timer = null;
-  // Only now does the tip count as seen: a tip nobody had time to read
-  // (or that was never dismissed) will offer itself again next time.
+  // Only now does the tip count as seen: a tip nobody acknowledged will
+  // offer itself again next time.
   if (currentKey) {
     load().add(currentKey);
     save();
@@ -58,9 +61,10 @@ export function dismissTip() {
 
 /**
  * Show a tip once. Returns true if it was shown now. Only one tip is on
- * screen at a time; a second request waits for the next refresh.
+ * screen at a time; a second request waits for the next refresh. The tip
+ * stays up until the player acknowledges it.
  */
-export function showTip(key: string, anchor: TipAnchor, text: string): boolean {
+export function showTip(key: string, anchor: TipAnchor, tip: Tip): boolean {
   if (tipSeen(key) || current) return false;
   if (document.getElementById('tour-card')) return false; // the tour has the floor
   currentKey = key;
@@ -68,8 +72,9 @@ export function showTip(key: string, anchor: TipAnchor, text: string): boolean {
   const card = document.createElement('div');
   card.id = 'tip-card';
   card.setAttribute('role', 'note');
-  card.innerHTML = `<div class="eyebrow">First time</div><p></p>`;
-  card.querySelector('p')!.textContent = text;
+  card.innerHTML = `<div class="tip-tail"></div><div class="eyebrow"></div><p></p>`;
+  card.querySelector('.eyebrow')!.textContent = tip.title;
+  card.querySelector('p')!.textContent = tip.text;
   const ok = document.createElement('button');
   ok.className = 'primary';
   ok.textContent = 'Got it';
@@ -79,33 +84,81 @@ export function showTip(key: string, anchor: TipAnchor, text: string): boolean {
   current = card;
 
   const r = anchor instanceof Element ? anchor.getBoundingClientRect() : anchor;
-  if (r) {
+  const tail = card.querySelector<HTMLElement>('.tip-tail')!;
+  if (r && (r.width > 0 || r.height > 0)) {
     const h = card.offsetHeight + 12;
-    if (r.bottom + h < innerHeight) card.style.top = `${r.bottom + 10}px`;
-    else if (r.top > h) card.style.top = `${r.top - h}px`;
-    else card.style.bottom = '20px';
+    let below = false;
+    if (r.bottom + h < innerHeight) {
+      card.style.top = `${r.bottom + 10}px`;
+      below = true; // tail on top, pointing up at the anchor
+    } else if (r.top > h) {
+      card.style.top = `${r.top - h}px`;
+    } else {
+      card.style.bottom = '20px';
+    }
     const w = card.offsetWidth;
-    card.style.left = `${Math.max(10, Math.min(r.left + r.width / 2 - w / 2, innerWidth - w - 10))}px`;
+    const left = Math.max(10, Math.min(r.left + r.width / 2 - w / 2, innerWidth - w - 10));
+    card.style.left = `${left}px`;
+    // Aim the tail at the anchor's centre.
+    tail.classList.add(below ? 'up' : 'down');
+    const tailX = Math.max(14, Math.min(r.left + r.width / 2 - left, w - 14));
+    tail.style.left = `${tailX}px`;
   } else {
+    tail.remove();
     card.style.top = '30%';
     card.style.left = `${Math.max(10, innerWidth / 2 - card.offsetWidth / 2)}px`;
   }
-  timer = setTimeout(dismissTip, 16_000);
   return true;
 }
 
-/** Texts keyed by what was met for the first time. */
-export const TIPS: Record<string, string> = {
-  'card:A': 'An Ace brings a new bunny out of your reserve (the fenced hutch) onto your corner space, or moves a bunny 1.',
-  'card:2': 'A 2 spawns or moves 2 — then flips a bonus card from the draw pile that you play as well.',
-  'card:4': 'A 4 moves a bunny backward 4 spaces. Handy for lining up an exact hop into the burrow.',
-  'card:7': 'A 7 can be split between two bunnies — tap the first bunny, choose its steps, then the second.',
-  'card:J': 'A Jack swaps one of your bunnies with any other bunny on the track. Even an opponent far ahead.',
-  'card:Q': 'A Queen moves a bunny forward 12 spaces.',
-  'card:K': 'A King moves 13 — or spawns a bunny straight onto another player’s bunny, stomping it home.',
-  flip: 'Bonus card! Your 2 flipped this from the draw pile. Play it now as an extra move.',
-  stomp: 'Stomped! Landing exactly on a bunny sends it back to its owner’s reserve. Hopping over it is safe.',
-  home: 'Home safe! A bunny in its burrow can’t be stomped or moved. The first team with all 8 home wins.',
-  fold: 'Nothing playable? Fold your hand and sit out the rest of this round. A fresh hand comes next round.',
-  teammate: 'All your bunnies are home, so from now on you move your teammate’s bunnies on your turn.',
+/** Tips keyed by what was met for the first time. */
+export const TIPS: Record<string, Tip> = {
+  'card:A': {
+    title: 'The Ace — spawn or move 1',
+    text: 'An Ace brings a new bunny out of your reserve (the fenced hutch) onto your corner space, or moves a bunny 1.',
+  },
+  'card:2': {
+    title: 'The 2 — spawn, then flip',
+    text: 'A 2 spawns or moves 2 — then flips a bonus card from the draw pile that you play as well.',
+  },
+  'card:4': {
+    title: 'The 4 — move backward',
+    text: 'A 4 moves a bunny backward 4 spaces. Handy for lining up an exact hop into the burrow.',
+  },
+  'card:7': {
+    title: 'The 7 — split move',
+    text: 'A 7 can be split between two bunnies — tap the first bunny, choose its steps, then the second.',
+  },
+  'card:J': {
+    title: 'The Jack — swap',
+    text: 'A Jack swaps one of your bunnies with any other bunny on the track. Even an opponent far ahead.',
+  },
+  'card:Q': {
+    title: 'The Queen — move 12',
+    text: 'A Queen moves a bunny forward 12 spaces.',
+  },
+  'card:K': {
+    title: 'The King — stomp-spawn or 13',
+    text: 'A King moves 13 — or spawns a bunny straight onto another player’s bunny, stomping it home.',
+  },
+  flip: {
+    title: 'Bonus flip',
+    text: 'Bonus card! Your 2 flipped this from the draw pile. Play it now as an extra move.',
+  },
+  stomp: {
+    title: 'Stomped!',
+    text: 'Landing exactly on a bunny sends it back to its owner’s reserve. Hopping over it is safe.',
+  },
+  home: {
+    title: 'Home safe',
+    text: 'A bunny in its burrow can’t be stomped or moved. The first team with all 8 home wins.',
+  },
+  fold: {
+    title: 'Nothing playable — fold',
+    text: 'Fold your hand and sit out the rest of this round. A fresh hand comes next round.',
+  },
+  teammate: {
+    title: 'Moving for your teammate',
+    text: 'All your bunnies are home, so from now on you move your teammate’s bunnies on your turn.',
+  },
 };

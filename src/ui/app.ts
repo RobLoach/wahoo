@@ -648,10 +648,6 @@ export class App {
       handEl.appendChild(el);
     }
 
-    // First-time tips: explain a special card, the bonus flip, a stomp, a
-    // bunny getting home, folding, and moving for a teammate — once each.
-    if (!curtainUp && view.winner === null) this.maybeTips(view, curtainUp);
-
     // Description of the selected card, always visible (tooltips need hover).
     const helpEl = $('#card-help');
     const selRank =
@@ -715,6 +711,10 @@ export class App {
         .map(line => `<div class="entry">${colorizeLog(esc(line))}</div>`)
         .join('');
     logEl.scrollTop = 0;
+
+    // First-time tips last: every anchor (fold button, flip box, cards) now
+    // has its final visibility and position for the tip's pointer.
+    if (!curtainUp && view.winner === null) this.maybeTips(view, curtainUp);
   }
 }
 
