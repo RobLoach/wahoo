@@ -81,12 +81,15 @@ export interface HouseRules {
   sevenMaxBunnies: 1 | 2 | 4;
   /** May bunnies jump over occupied burrow slots? */
   burrowJump: boolean;
+  /** Table manners, not gameplay: is the finger reaction allowed at this table? */
+  finger: boolean;
 }
 
 export const DEFAULT_RULES: HouseRules = {
   friendlyFire: true,
   sevenMaxBunnies: 2,
   burrowJump: false,
+  finger: true,
 };
 
 export const TRACK_LEN = 80;

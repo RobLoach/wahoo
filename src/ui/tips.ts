@@ -11,6 +11,7 @@ export type TipAnchor = Element | DOMRect | null;
 
 let seen: Set<string> | null = null;
 let current: HTMLElement | null = null;
+let currentKey: string | null = null;
 let timer: ReturnType<typeof setTimeout> | null = null;
 
 function load(): Set<string> {
@@ -44,6 +45,13 @@ export function tipShowing(): boolean {
 export function dismissTip() {
   if (timer) clearTimeout(timer);
   timer = null;
+  // Only now does the tip count as seen: a tip nobody had time to read
+  // (or that was never dismissed) will offer itself again next time.
+  if (currentKey) {
+    load().add(currentKey);
+    save();
+    currentKey = null;
+  }
   current?.remove();
   current = null;
 }
@@ -55,8 +63,7 @@ export function dismissTip() {
 export function showTip(key: string, anchor: TipAnchor, text: string): boolean {
   if (tipSeen(key) || current) return false;
   if (document.getElementById('tour-card')) return false; // the tour has the floor
-  load().add(key);
-  save();
+  currentKey = key;
 
   const card = document.createElement('div');
   card.id = 'tip-card';

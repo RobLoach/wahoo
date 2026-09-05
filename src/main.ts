@@ -113,7 +113,10 @@ function describeRules(r: HouseRules): string {
     r.friendlyFire ? 'teammate stomping allowed' : 'no teammate stomping',
     seven,
     r.burrowJump ? 'burrow jumping allowed' : 'no burrow jumping',
-  ].join(' · ');
+    r.finger === false ? 'no finger reaction' : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 }
 
 function rulesControlsHtml(): string {
@@ -127,7 +130,9 @@ function rulesControlsHtml(): string {
     `<option value="4" ${r.sevenMaxBunnies === 4 ? 'selected' : ''}>any split</option>` +
     `</select></label>` +
     `<label class="rule-row"><input type="checkbox" id="hr-jump" ${r.burrowJump ? 'checked' : ''}/>` +
-    `<span>Bunnies may jump over occupied burrow slots</span></label>`
+    `<span>Bunnies may jump over occupied burrow slots</span></label>` +
+    `<label class="rule-row"><input type="checkbox" id="hr-finger" ${r.finger !== false ? 'checked' : ''}/>` +
+    `<span>Allow the finger reaction</span></label>`
   );
 }
 
@@ -136,6 +141,7 @@ function readRules(): HouseRules {
     friendlyFire: ($('#hr-ff') as HTMLInputElement).checked,
     sevenMaxBunnies: Number(($('#hr-seven') as HTMLSelectElement).value) as 1 | 2 | 4,
     burrowJump: ($('#hr-jump') as HTMLInputElement).checked,
+    finger: ($('#hr-finger') as HTMLInputElement).checked,
   };
   localStorage.setItem('wahoo-rules', JSON.stringify(rules));
   return rules;
@@ -538,7 +544,8 @@ function renderModalHouseRules() {
   $('#rules-modal-house').innerHTML =
     `<li>Stomping teammates: <b>${r.friendlyFire ? 'allowed' : 'not allowed'}</b></li>` +
     `<li>The 7: <b>${seven[r.sevenMaxBunnies]}</b></li>` +
-    `<li>Jumping over occupied burrow slots: <b>${r.burrowJump ? 'allowed' : 'not allowed'}</b></li>`;
+    `<li>Jumping over occupied burrow slots: <b>${r.burrowJump ? 'allowed' : 'not allowed'}</b></li>` +
+    `<li>The finger reaction: <b>${r.finger !== false ? 'allowed' : 'banned at this table'}</b></li>`;
 }
 
 $('#btn-rules').onclick = () => {

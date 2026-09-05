@@ -207,6 +207,10 @@ export class BoardView {
       antialias: true,
     });
     this.app.canvas.classList.add('board-canvas');
+    // The canvas itself is opaque to assistive tech; give it a name and let
+    // the live announcer region narrate what happens on it.
+    this.app.canvas.setAttribute('role', 'img');
+    this.app.canvas.setAttribute('aria-label', 'Wahoo game board');
     parent.appendChild(this.app.canvas);
     this.app.stage.addChild(
       this.staticLayer, this.highlightLayer, this.labelLayer, this.pieceLayer, this.focusLayer,

@@ -140,7 +140,6 @@ export class App {
   }
 
   onView(view: View) {
-    dismissTip();
     this.view = view;
     this.pendingEffects = view.effects;
     this.recentBunnies = new Set(view.effects.map(e => e.bunny));
@@ -553,6 +552,10 @@ export class App {
     // spectators have no seat to react from.
     const emoteBar = $('#emote-bar');
     emoteBar.hidden = !this.online || view.winner !== null || view.mySeat === null;
+    // The host can ban the finger via house rules.
+    emoteBar.querySelectorAll<HTMLElement>('button[data-emote="finger"]').forEach(btn => {
+      btn.hidden = view.rules.finger === false;
+    });
     // The reaction buttons wear your own seat colour; redraw when the seat changes.
     if (view.mySeat !== null && emoteBar.dataset.seat !== String(view.mySeat)) {
       emoteBar.dataset.seat = String(view.mySeat);

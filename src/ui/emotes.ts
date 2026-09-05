@@ -121,10 +121,13 @@ const NEUTRAL_EYES =
  * Inline SVG of a bunny reaction in the given seat colour. Unknown ids
  * (older clients still sending emoji) fall back to plain text.
  */
+let gradientN = 0;
+
 export function emoteHtml(id: string, color = '#b89a6a'): string {
   const look = LOOKS[id];
   if (!look) return `<span>${id.replace(/[<>&"]/g, '')}</span>`;
-  const gid = `bg${color.replace(/[^0-9a-f]/gi, '')}`;
+  // Unique per render: two bubbles of the same colour must not share DOM ids.
+  const gid = `bg${color.replace(/[^0-9a-f]/gi, '')}-${gradientN++}`;
   const g = `url(#${gid})`;
   const dark = darken(color, 0.45);
   const [lr, rr] = look.ears ?? [-8, 8];

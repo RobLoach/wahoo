@@ -15,6 +15,7 @@ export function sanitizeRules(raw: unknown): Partial<HouseRules> {
     rules.sevenMaxBunnies = r.sevenMaxBunnies;
   }
   if (typeof r.burrowJump === 'boolean') rules.burrowJump = r.burrowJump;
+  if (typeof r.finger === 'boolean') rules.finger = r.finger;
   return rules;
 }
 
@@ -179,6 +180,9 @@ export class GameRoom {
         const seat = this.clients.get(id);
         if (seat === null || seat === undefined) return;
         if (!EMOTES.includes(msg.emoji)) return;
+        // The finger can be banned from the table via house rules.
+        const tableRules = this.game?.rules ?? this.pendingRules;
+        if (msg.emoji === 'finger' && tableRules.finger === false) return;
         if (this.throttled(id, 'emote')) return;
         for (const clientId of this.clients.keys()) {
           this.send(clientId, { t: 'emote', seat, emoji: msg.emoji });

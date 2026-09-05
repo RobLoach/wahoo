@@ -256,6 +256,7 @@ describe('house rules and emotes', () => {
         friendlyFire: false,
         sevenMaxBunnies: 4,
         burrowJump: false,
+        finger: true,
       });
     }
     // Non-hosts can't publish; started games are locked.
@@ -279,6 +280,7 @@ describe('house rules and emotes', () => {
       friendlyFire: false,
       sevenMaxBunnies: 4,
       burrowJump: true,
+      finger: true,
     });
     room.game!.winner = 0;
     room.handle('a', { t: 'again' });
@@ -294,6 +296,7 @@ describe('house rules and emotes', () => {
       friendlyFire: true,
       sevenMaxBunnies: 2,
       burrowJump: false,
+      finger: true,
     });
     room.dispose();
   });
@@ -327,6 +330,22 @@ describe('house rules and emotes', () => {
     room.handle('a', { t: 'rename', name: 'Bob' }); // dropped
     const rooms = (inbox.get('a') ?? []).filter(m => m.t === 'room');
     expect((rooms[rooms.length - 1] as any).room.seats[0].name).toBe('Al');
+    room.dispose();
+  });
+
+  it('the finger can be banned from the table via house rules', () => {
+    const { room, last } = makeRoom(60_000);
+    room.addClient('a', 'Alice');
+    room.addClient('b', 'Bob');
+    room.handle('a', { t: 'rules', rules: { finger: false } });
+    room.handle('b', { t: 'emote', emoji: 'finger' });
+    expect(last('a', 'emote')).toBeNull(); // dropped
+    room.handle('b', { t: 'emote', emoji: 'lol' }); // others still fine
+    expect(last('a', 'emote')).toMatchObject({ emoji: 'lol' });
+    // The ban carries into the started game via its rules.
+    room.handle('a', { t: 'start', rules: { finger: false } });
+    room.handle('b', { t: 'emote', emoji: 'finger' });
+    expect(last('a', 'emote')).toMatchObject({ emoji: 'lol' }); // unchanged
     room.dispose();
   });
 

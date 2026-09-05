@@ -124,7 +124,7 @@
         <div id="board-frame" class="board-frame"></div>
         <div id="move-callout" hidden aria-hidden="true"></div>
         <div id="curtain" hidden></div>
-        <div id="victory" hidden>
+        <div id="victory" role="dialog" aria-label="Game over" hidden>
           <div class="victory-card paper">
             <div id="victory-rule" class="paper-rule rule-team0"></div>
             <div class="eyebrow">All eight bunnies home</div>
@@ -148,11 +148,10 @@
           <button id="btn-cancel" class="ghost" hidden>Cancel selection</button>
         </div>
         <div id="emote-bar" hidden>
-          <span class="eyebrow">Reactions</span>
           <div class="emotes"></div>
         </div>
         <div id="piles"></div>
-        <div id="log"></div>
+        <div id="log" role="log" aria-label="Game log"></div>
         <div id="controls-bottom">
           <button id="btn-rules" class="ghost">Rules</button>
           <button id="btn-fullscreen" class="ghost">Full screen</button>
@@ -162,7 +161,7 @@
       </aside>
     </section>
 
-    <div id="rules-modal" hidden>
+    <div id="rules-modal" role="dialog" aria-modal="true" aria-label="How to play" hidden>
       <div class="rules-card paper">
         <div class="paper-rule rule-quad"></div>
         <div class="rules-head">
