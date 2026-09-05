@@ -252,6 +252,9 @@ input, select {
   background-size: 4px 4px, 4px 4px; background-repeat: no-repeat;
 }
 .seat-row select:hover, #lobby select:hover { background-color: rgba(120, 95, 60, 0.08); }
+/* Browsers size a styled <select> without its letter-spacing: reserve the
+   room explicitly so MEDIUM / INSANE never clip. */
+.seat-row select { min-width: 110px; }
 
 /* tabs */
 .tabs { display: flex; gap: 20px; margin: 20px 0 18px; border-bottom: 1px solid var(--rule); }
