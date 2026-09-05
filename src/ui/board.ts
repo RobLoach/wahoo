@@ -114,7 +114,9 @@ export function reservePos(player: number, n: number) {
   const corner = trackPos(SPAWN_INDEX(player));
   const o = OUTWARD[player];
   return {
-    x: corner.x - o.x * (1.2 + n * 0.78) * CELL,
+    // Starts well clear of the corner space so the hutch pen never overlaps
+    // the track tiles, running along the board edge toward the middle.
+    x: corner.x - o.x * (1.85 + n * 0.78) * CELL,
     y: corner.y + o.y * 1.05 * CELL,
   };
 }
@@ -479,7 +481,7 @@ export class BoardView {
         }),
       });
       label.anchor.set(o.x > 0 ? 1 : 0, 0.5);
-      label.position.set(corner.x - o.x * 4.55 * CELL, reservePos(p, 0).y);
+      label.position.set(corner.x - o.x * 5.2 * CELL, reservePos(p, 0).y);
       this.labelLayer.addChild(label);
       this.seatLabels.push(label);
     }
@@ -767,7 +769,7 @@ export class BoardView {
         `${raw.replace(/^CPU /, '')}${cpu ? ' · CPU' : ''}${view.folded[p] ? ' · folded' : ''}`;
       label.scale.set(1);
       // Never let a long name run past the middle of the board.
-      const maxW = 5.2 * CELL;
+      const maxW = 4.6 * CELL;
       if (label.width > maxW) label.scale.set(maxW / label.width);
       const w = label.width + 22;
       const h = 26;
