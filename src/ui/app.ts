@@ -155,6 +155,16 @@ export class App {
     if (view.lastPlay && (view.effects.length > 0 || view.lastPlay.fold)) {
       this.showMoveCallout(view);
     }
+    // Another player's bonus flip is board news, not a sidebar box (yours
+    // stays in the sidebar: you have to choose how to play it).
+    if (view.pendingFlip && !view.canAct) {
+      if (this.lastFlipId !== view.pendingFlip.id) {
+        this.lastFlipId = view.pendingFlip.id;
+        this.showFlipCallout(view);
+      }
+    } else if (!view.pendingFlip) {
+      this.lastFlipId = null;
+    }
     // A new decision point invalidates any in-progress selection.
     this.sel = emptySelection();
     // Hot-seat privacy: hide the hand while the device changes hands.
@@ -379,10 +389,22 @@ export class App {
    * "Green moved a bunny 8 spaces" as a speech bubble on the board, pointing
    * at the space where the move ended (or at the folder's corner).
    */
+  private lastFlipId: number | null = null;
+
+  /** "Green flipped a 7♦" as a board callout aimed at the flipper's corner. */
+  private showFlipCallout(view: View) {
+    const c = view.pendingFlip;
+    if (!c) return;
+    this.showCallout(
+      trackPos(SPAWN_INDEX(view.current)),
+      `<span class="mini-card${isRed(c) ? ' red' : ''}">${esc(c.rank + c.suit)}</span>`,
+      `${inked(view, view.current)} flipped a bonus card!`,
+    );
+  }
+
   private showMoveCallout(view: View) {
     const play = view.lastPlay;
     if (!play) return;
-    const el = $('#move-callout');
     const seatOf = (id: number) => view.bunnies.find(b => b.id === id)?.player ?? play.seat;
     const mover = view.effects.find(e => e.kind !== 'stomped') ?? view.effects[0];
     let pt: { x: number; y: number };
@@ -403,11 +425,15 @@ export class App {
     const text = play.fold || !card
       ? `${who} folded — no playable cards.`
       : `${who} ${esc(play.desc || 'played')}${play.bonus ? ' <i>(bonus flip)</i>' : ''}`;
+    this.showCallout(pt, cardHtml, text);
+  }
+
+  /** A speech bubble at the board's middle, its tail stretched to `pt`. */
+  private showCallout(pt: { x: number; y: number }, cardHtml: string, text: string) {
+    const el = $('#move-callout');
     el.innerHTML = `<div class="callout-box">${cardHtml}<span>${text}</span></div><div class="callout-tail"></div>`;
     el.hidden = false;
     el.classList.remove('show');
-    // The bubble sits at the middle of the board; its tail aims at the space
-    // where the action landed.
     const centre = this.boardPoint({ x: 410, y: 410 });
     const target = this.boardPoint(pt);
     el.style.left = `${centre.x}px`;
@@ -667,17 +693,14 @@ export class App {
 
     // Bonus flip: the card a 2 turned over, waiting to be played.
     const flipEl = $('#flip-area');
-    if (view.pendingFlip && !curtainUp) {
+    if (view.pendingFlip && !curtainUp && view.canAct) {
       flipEl.hidden = false;
       const c = view.pendingFlip;
       flipEl.innerHTML =
         `<div class="eyebrow">Bonus flip</div><div class="flip-body">` +
         `<div class="flip-card${isRed(c) ? ' red' : ''}">${cardFaceHtml(c)}</div>` +
-        `<div class="flip-text">The 2 flipped a <b>${esc(c.rank + c.suit)}</b> — ${
-          view.canAct
-            ? `play it now. ${esc(CARD_TOOLTIPS[c.rank] ?? '')}`
-            : 'being resolved…'
-        }</div></div>`;
+        `<div class="flip-text">The 2 flipped a <b>${esc(c.rank + c.suit)}</b> — ` +
+        `play it now. ${esc(CARD_TOOLTIPS[c.rank] ?? '')}</div></div>`;
     } else {
       flipEl.hidden = true;
       flipEl.innerHTML = '';
