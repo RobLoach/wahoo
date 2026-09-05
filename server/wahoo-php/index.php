@@ -32,7 +32,7 @@ const MAX_ROOMS_PER_IP_PER_HOUR = 20;
 const MAX_JOINS_PER_IP_PER_HOUR = 60;
 const ACTION_COOLDOWN_SECONDS = 1; // min gap between renames/emotes per client
 const MAX_BODY_BYTES = 400000;
-const EMOTES = ['👍', '😂', '😱', '🥕', '💥', '🐰'];
+const EMOTES = ['wahoo', 'lol', 'gasp', 'smug', 'finger'];
 
 // ---------------------------------------------------------------------------
 // Storage
@@ -212,7 +212,7 @@ const SEAT_COLOR_NAMES = ['Red', 'Blue', 'Green', 'Yellow'];
 /** Keep only known house-rule keys with valid values. */
 function sanitizeRules(mixed $raw): array
 {
-    $rules = ['friendlyFire' => true, 'sevenMaxBunnies' => 2, 'burrowJump' => false];
+    $rules = ['friendlyFire' => true, 'sevenMaxBunnies' => 2, 'burrowJump' => false, 'finger' => true];
     if (is_array($raw)) {
         if (is_bool($raw['friendlyFire'] ?? null)) {
             $rules['friendlyFire'] = $raw['friendlyFire'];
@@ -222,6 +222,9 @@ function sanitizeRules(mixed $raw): array
         }
         if (is_bool($raw['burrowJump'] ?? null)) {
             $rules['burrowJump'] = $raw['burrowJump'];
+        }
+        if (is_bool($raw['finger'] ?? null)) {
+            $rules['finger'] = $raw['finger'];
         }
     }
     return $rules;
@@ -578,6 +581,14 @@ $app->post('/api/rooms/{code}/emote', function (Request $request, Response $resp
     $seat = seatOf($room, $clientId);
     if ($seat === null || !in_array($emoji, EMOTES, true)) {
         return errorResponse($response, 'Not allowed.', 403);
+    }
+    // The finger can be banned from the table via house rules.
+    if ($emoji === 'finger') {
+        $rules = $room['game']['rules']
+            ?? (isset($room['rules']) && $room['rules'] !== null ? json_decode($room['rules'], true) : null);
+        if (is_array($rules) && ($rules['finger'] ?? true) === false) {
+            return errorResponse($response, 'Not allowed.', 403);
+        }
     }
     if (actionThrottled($pdo, $clientId)) {
         return errorResponse($response, 'Too fast.', 429);

@@ -12,7 +12,10 @@ export function trackErrors(page: Page): string[] {
 export async function startLocal(page: Page, seats?: string[], dismissCurtain = true) {
   await page.goto('./');
   // The first-game tour is covered by its own test; keep the others clean.
-  await page.evaluate(() => localStorage.setItem('wahoo-tour-done', '1'));
+  await page.evaluate(() => {
+    localStorage.setItem('wahoo-tour-done', '1');
+    localStorage.setItem('wahoo-tips-seen', '["*"]');
+  });
   if (seats) {
     await page.evaluate(kinds => {
       document

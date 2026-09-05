@@ -256,6 +256,7 @@ describe('house rules and emotes', () => {
         friendlyFire: false,
         sevenMaxBunnies: 4,
         burrowJump: false,
+        finger: true,
       });
     }
     // Non-hosts can't publish; started games are locked.
@@ -279,6 +280,7 @@ describe('house rules and emotes', () => {
       friendlyFire: false,
       sevenMaxBunnies: 4,
       burrowJump: true,
+      finger: true,
     });
     room.game!.winner = 0;
     room.handle('a', { t: 'again' });
@@ -294,6 +296,7 @@ describe('house rules and emotes', () => {
       friendlyFire: true,
       sevenMaxBunnies: 2,
       burrowJump: false,
+      finger: true,
     });
     room.dispose();
   });
@@ -319,8 +322,8 @@ describe('house rules and emotes', () => {
     };
     const room = new GameRoom('THRT', send, 60_000); // default cooldown
     room.addClient('a', 'Alice');
-    room.handle('a', { t: 'emote', emoji: '🥕' });
-    room.handle('a', { t: 'emote', emoji: '💥' }); // instantly after: dropped
+    room.handle('a', { t: 'emote', emoji: 'lol' });
+    room.handle('a', { t: 'emote', emoji: 'gasp' }); // instantly after: dropped
     const emotes = (inbox.get('a') ?? []).filter(m => m.t === 'emote');
     expect(emotes).toHaveLength(1);
     room.handle('a', { t: 'rename', name: 'Al' });
@@ -330,15 +333,31 @@ describe('house rules and emotes', () => {
     room.dispose();
   });
 
+  it('the finger can be banned from the table via house rules', () => {
+    const { room, last } = makeRoom(60_000);
+    room.addClient('a', 'Alice');
+    room.addClient('b', 'Bob');
+    room.handle('a', { t: 'rules', rules: { finger: false } });
+    room.handle('b', { t: 'emote', emoji: 'finger' });
+    expect(last('a', 'emote')).toBeNull(); // dropped
+    room.handle('b', { t: 'emote', emoji: 'lol' }); // others still fine
+    expect(last('a', 'emote')).toMatchObject({ emoji: 'lol' });
+    // The ban carries into the started game via its rules.
+    room.handle('a', { t: 'start', rules: { finger: false } });
+    room.handle('b', { t: 'emote', emoji: 'finger' });
+    expect(last('a', 'emote')).toMatchObject({ emoji: 'lol' }); // unchanged
+    room.dispose();
+  });
+
   it('broadcasts emotes from seated players and rejects unknown emoji', () => {
     const { room, last } = makeRoom(60_000);
     room.addClient('a', 'Alice');
     room.addClient('b', 'Bob');
-    room.handle('b', { t: 'emote', emoji: '🥕' });
-    expect(last('a', 'emote')).toMatchObject({ seat: 1, emoji: '🥕' });
-    expect(last('b', 'emote')).toMatchObject({ seat: 1, emoji: '🥕' });
-    room.handle('a', { t: 'emote', emoji: '🖕' });
-    expect(last('a', 'emote')).toMatchObject({ emoji: '🥕' }); // unchanged
+    room.handle('b', { t: 'emote', emoji: 'lol' });
+    expect(last('a', 'emote')).toMatchObject({ seat: 1, emoji: 'lol' });
+    expect(last('b', 'emote')).toMatchObject({ seat: 1, emoji: 'lol' });
+    room.handle('a', { t: 'emote', emoji: '🥕' });
+    expect(last('a', 'emote')).toMatchObject({ emoji: 'lol' }); // unchanged
     room.dispose();
   });
 });

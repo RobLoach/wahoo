@@ -32,7 +32,7 @@ test('winning shows the rematch button and restarts with fresh reserves', async 
   await page.click('#hand .card'); // seat 0 controls the teammate
   await clickBoard(page, await trackPos(page, 39)); // pick the last bunny
   await clickBoard(page, await burrowPos(page, 2, 0)); // step it home
-  await expect(page.locator('#status')).toContainText('wins');
+  await expect(page.locator('#status')).toContainText('win the game');
   await expect(page.locator('#btn-again')).toBeVisible();
   await page.click('#btn-again');
   await expect(page.locator('#status')).toContainText('Round 1');
@@ -79,14 +79,13 @@ test('PWA manifest and service worker are served', async ({ page, request, baseU
 
 test('house rules from the menu reach the game state', async ({ page }) => {
   await page.goto('./');
-  await page.click('#house-rules summary');
   await page.uncheck('#hr-ff');
   await page.selectOption('#hr-seven', '4');
   await page.evaluate(() => ((window as any).__wahooCpuDelay = 60_000));
   await page.click('#start-local');
   await page.waitForSelector('#game:not([hidden]) .board-canvas');
   const rules = await page.evaluate(() => (window as any).__wahoo.app.view.rules);
-  expect(rules).toEqual({ friendlyFire: false, sevenMaxBunnies: 4, burrowJump: false });
+  expect(rules).toEqual({ friendlyFire: false, sevenMaxBunnies: 4, burrowJump: false, finger: true });
   // The choice persists for next time.
   const saved = await page.evaluate(() => localStorage.getItem('wahoo-rules'));
   expect(JSON.parse(saved!)).toMatchObject({ friendlyFire: false, sevenMaxBunnies: 4 });
@@ -97,7 +96,7 @@ test('first local game shows the tour once', async ({ page }) => {
   await page.evaluate(() => ((window as any).__wahooCpuDelay = 60_000));
   await page.click('#start-local');
   await page.waitForSelector('#tour-card');
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 3; i++) {
     await page.click('#tour-card button.primary');
   }
   await expect(page.locator('#tour-card')).toHaveCount(0);
@@ -113,6 +112,7 @@ test('cards and moves work from the keyboard', async ({ page }) => {
   await page.goto('./');
   await page.evaluate(() => {
     localStorage.setItem('wahoo-tour-done', '1');
+    localStorage.setItem('wahoo-tips-seen', '["*"]');
     (window as any).__wahooCpuDelay = 60_000; // freeze CPUs
   });
   await page.click('#start-local');

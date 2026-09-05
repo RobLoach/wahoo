@@ -90,4 +90,5 @@ export type ServerMsg =
   | { t: 'err'; msg: string };
 
 /** The reactions players may fling at each other. */
-export const EMOTES = ['👍', '😂', '😱', '🥕', '💥', '🐰'];
+/** Reaction ids, drawn as bunnies by the client (see ui/emotes.ts). */
+export const EMOTES = ['wahoo', 'lol', 'gasp', 'smug', 'finger'];
