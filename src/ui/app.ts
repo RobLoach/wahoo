@@ -397,17 +397,24 @@ export class App {
       : `${who} ${esc(play.desc || 'played')}${play.bonus ? ' <i>(bonus flip)</i>' : ''}`;
     el.innerHTML = `<div class="callout-box">${cardHtml}<span>${text}</span></div><div class="callout-tail"></div>`;
     el.hidden = false;
-    el.classList.remove('below', 'show');
-    const { x, y } = this.boardPoint(pt);
-    el.style.left = `${x}px`;
-    el.style.top = `${y}px`;
-    // Flip under the space near the top edge; slide the box to stay on the board.
-    const wrapW = $('#board-wrap').clientWidth;
+    el.classList.remove('show');
+    // The bubble sits at the middle of the board; its tail aims at the space
+    // where the action landed.
+    const centre = this.boardPoint({ x: 410, y: 410 });
+    const target = this.boardPoint(pt);
+    el.style.left = `${centre.x}px`;
+    el.style.top = `${centre.y}px`;
     const box = el.querySelector<HTMLElement>('.callout-box')!;
-    const half = box.offsetWidth / 2;
-    const shift = Math.max(-(x - half - 8), Math.min(0, wrapW - 8 - (x + half)));
-    box.style.setProperty('--shift', `${shift}px`);
-    if (y < 110) el.classList.add('below');
+    const tail = el.querySelector<HTMLElement>('.callout-tail')!;
+    const ang = Math.atan2(target.y - centre.y, target.x - centre.x);
+    // Push the tail's base just past the box edge along the aim direction.
+    const w2 = box.offsetWidth / 2;
+    const h2 = box.offsetHeight / 2;
+    const reach = Math.min(
+      w2 / Math.max(Math.abs(Math.cos(ang)), 1e-6),
+      h2 / Math.max(Math.abs(Math.sin(ang)), 1e-6),
+    ) - 2;
+    tail.style.transform = `rotate(${ang}rad) translate(${reach}px, 0)`;
     void el.offsetWidth; // restart the animation
     el.classList.add('show');
     if (this.calloutTimer) clearTimeout(this.calloutTimer);
