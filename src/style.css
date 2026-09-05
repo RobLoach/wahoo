@@ -70,6 +70,10 @@
 
 * { box-sizing: border-box; }
 
+/* While a game is on screen, use the whole window: big monitors get a big
+   board (the canvas caps at 1600px, where its 2x backing store runs out). */
+#app:has(#game:not([hidden])) { max-width: 2200px; }
+
 [hidden] { display: none !important; }
 
 html { background: var(--felt); }
@@ -332,7 +336,7 @@ input[type="checkbox"]:focus-visible { outline: 2px solid var(--red-rule); outli
 
 /* ------- game ------- */
 #game { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; padding-top: 6px; }
-#board-wrap { flex: 1 1 500px; max-width: 856px; position: relative; }
+#board-wrap { flex: 1 1 500px; max-width: 1660px; position: relative; }
 
 .board-frame {
   position: relative; border-radius: 16px; padding: 18px;
@@ -351,8 +355,8 @@ input[type="checkbox"]:focus-visible { outline: 2px solid var(--red-rule); outli
 @media (min-width: 900px) {
   /* Side panel sits next to the board: only the viewport height caps it. */
   .board-canvas {
-    width: clamp(300px, calc(100vh - 96px), 100%);
-    width: clamp(300px, calc(100dvh - 96px), 100%);
+    width: clamp(300px, calc(100vh - 96px), min(100%, 1600px));
+    width: clamp(300px, calc(100dvh - 96px), min(100%, 1600px));
   }
 }
 @media (max-width: 600px) {
