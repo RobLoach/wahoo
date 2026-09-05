@@ -809,10 +809,18 @@ export class BoardView {
         const a = path.pts[seg];
         const b = path.pts[seg + 1];
         const f = path.segLens[seg] > 0 ? Math.min(1, remaining / path.segLens[seg]) : 1;
-        // Hop, don't slide: each segment gets a little arc, so a +5 bounces
-        // from tile to tile (and a spawn/swap takes one longer leap).
-        const lift = Math.sin(Math.PI * f) * Math.min(10, path.segLens[seg] * 0.32);
-        piece.root.position.set(a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * f - lift);
+        // Hop, don't slide: each segment gets an arc, so a +5 bounces from
+        // tile to tile (and a spawn/swap takes one longer leap). Along the
+        // side columns the arc bows inward so the hop stays visible.
+        const lift = Math.sin(Math.PI * f) * Math.min(18, path.segLens[seg] * 0.55);
+        let px = a.x + (b.x - a.x) * f;
+        let py = a.y + (b.y - a.y) * f;
+        if (Math.abs(b.y - a.y) > Math.abs(b.x - a.x)) {
+          px += Math.sign(SIZE / 2 - px) * lift; // vertical leg: bow toward the middle
+        } else {
+          py -= lift;
+        }
+        piece.root.position.set(px, py);
         if (t >= 1) {
           const end = path.pts[path.pts.length - 1];
           piece.root.position.set(end.x, end.y);
