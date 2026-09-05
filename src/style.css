@@ -220,7 +220,6 @@ input, select {
 .panel { width: min(404px, 100%); padding: 26px 28px 28px; }
 .tilt-left { transform: rotate(-0.35deg); }
 .tilt-right { transform: rotate(0.3deg); }
-.panel:focus-within, .panel:hover { transform: none; }
 
 /* seat rows */
 #seat-config { border-top: 1px solid var(--rule); }
