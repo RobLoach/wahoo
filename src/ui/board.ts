@@ -665,7 +665,7 @@ export class BoardView {
       segLens.push(len);
       total += len;
     }
-    const duration = Math.min(2200, 350 + (total / CELL) * 110);
+    const duration = Math.min(2800, 420 + (total / CELL) * 150);
     piece.path = { pts, segLens, total, elapsed: -MOVE_START_DELAY_MS, duration };
   }
 
