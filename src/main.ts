@@ -11,7 +11,6 @@ import { App } from './ui/app.ts';
 import type { NetSession } from './ui/app.ts';
 import type { RoomInfo } from './net/protocol.ts';
 import { trackPos, burrowPos, reservePos } from './ui/board.ts';
-import { emptySelection } from './ui/selection.ts';
 import { LocalSession, savedLocalGame } from './sessions/local.ts';
 import type { SeatKind } from './sessions/local.ts';
 import { OnlineSession } from './net/client.ts';
@@ -506,12 +505,6 @@ function renderLobby(session: NetSession, room: RoomInfo) {
 // ---- In-game buttons ----
 
 $('#btn-fold').onclick = () => app.submit({ type: 'discardHand' });
-$('#btn-cancel').onclick = () => {
-  const keepFlip = app.view?.pendingFlip && app.view.canAct;
-  app.sel = emptySelection();
-  if (keepFlip) app.sel.cardId = 'flip';
-  app.refresh();
-};
 $('#btn-menu').onclick = () => {
   pendingOnline?.leave();
   pendingOnline = null;
@@ -523,7 +516,7 @@ window.addEventListener('keydown', e => {
     $('#rules-modal').hidden = true;
     return;
   }
-  ($('#btn-cancel') as HTMLButtonElement).click();
+  app.cancelSelection();
 });
 
 function refreshMuteButton() {
@@ -636,8 +629,7 @@ document.addEventListener('keydown', e => {
     const cards = document.querySelectorAll<HTMLButtonElement>('#hand .card');
     cards[Number(e.key) - 1]?.click();
   } else if (e.key === 'Escape') {
-    const cancel = $('#btn-cancel') as HTMLButtonElement;
-    if (!cancel.hidden) cancel.click();
+    app.cancelSelection();
   } else if (e.key.toLowerCase() === 'f') {
     const fold = $('#btn-fold') as HTMLButtonElement;
     if (!fold.hidden) fold.click();

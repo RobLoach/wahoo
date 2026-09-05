@@ -126,6 +126,14 @@ export class App {
     this.board.resetPieces();
   }
 
+  /** Clear any in-progress selection (re-clicking the card does this too). */
+  cancelSelection() {
+    const keepFlip = this.view?.pendingFlip && this.view.canAct;
+    this.sel = emptySelection();
+    if (keepFlip) this.sel.cardId = 'flip';
+    this.refresh();
+  }
+
   showMenu() {
     dismissTip();
     this.session?.leave();
@@ -681,11 +689,6 @@ export class App {
     const foldOnly =
       !curtainUp && view.canAct && view.legal.length === 1 && view.legal[0].type === 'discardHand';
     $('#btn-fold').hidden = !foldOnly;
-    const hasSelection =
-      (this.sel.cardId !== null && this.sel.cardId !== 'flip') ||
-      this.sel.bunny !== null ||
-      this.sel.sevenParts.length > 0;
-    $('#btn-cancel').hidden = !hasSelection;
 
     // Piles: the draw pile as a card back, with counts beside it.
     $('#piles').innerHTML =
