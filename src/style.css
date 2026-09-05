@@ -242,11 +242,13 @@ input, select {
 .seat-row input.seat-name:focus { border-bottom-color: var(--red-rule); }
 .seat-row select, #lobby select, #house-rules select {
   appearance: none; -webkit-appearance: none; border: none; background: transparent; cursor: pointer;
+  /* flex: none + roomy right padding: letter-spaced uppercase must never clip. */
+  flex: none;
   font: 400 12px var(--body); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint);
-  padding: 4px 14px 4px 4px; border-radius: 4px; text-align: right; text-align-last: right;
+  padding: 4px 20px 4px 6px; border-radius: 4px; text-align: right; text-align-last: right;
   background-image: linear-gradient(45deg, transparent 50%, var(--ink-faint) 50%),
     linear-gradient(135deg, var(--ink-faint) 50%, transparent 50%);
-  background-position: right 6px top 12px, right 2px top 12px;
+  background-position: right 10px top 12px, right 6px top 12px;
   background-size: 4px 4px, 4px 4px; background-repeat: no-repeat;
 }
 .seat-row select:hover, #lobby select:hover { background-color: rgba(120, 95, 60, 0.08); }
