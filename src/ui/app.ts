@@ -415,13 +415,15 @@ export class App {
     const box = el.querySelector<HTMLElement>('.callout-box')!;
     const tail = el.querySelector<HTMLElement>('.callout-tail')!;
     const ang = Math.atan2(target.y - centre.y, target.x - centre.x);
-    // Push the tail's base just past the box edge along the aim direction.
+    // The tail starts just past the box edge and stretches to the action.
     const w2 = box.offsetWidth / 2;
     const h2 = box.offsetHeight / 2;
     const reach = Math.min(
       w2 / Math.max(Math.abs(Math.cos(ang)), 1e-6),
       h2 / Math.max(Math.abs(Math.sin(ang)), 1e-6),
     ) - 2;
+    const dist = Math.hypot(target.x - centre.x, target.y - centre.y);
+    tail.style.width = `${Math.max(16, dist - reach - 22)}px`;
     tail.style.transform = `rotate(${ang}rad) translate(${reach}px, 0)`;
     void el.offsetWidth; // restart the animation
     el.classList.add('show');

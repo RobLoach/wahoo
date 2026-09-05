@@ -560,12 +560,16 @@ input[type="checkbox"]:focus-visible { outline: 2px solid var(--red-rule); outli
 }
 .callout-box .mini-card { width: 30px; height: 40px; font-size: 16px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3), inset 0 1px 0 #fff; }
 .callout-box i { color: var(--ink-muted); }
-/* A wedge pointing along +x; the app rotates it toward the action. */
+/* A line along +x ending in an arrowhead; the app rotates it toward the
+   action and stretches it to reach the space where the move landed. */
 .callout-tail {
-  position: absolute; left: 0; top: 0; width: 0; height: 0; margin-top: -9px;
-  transform-origin: 0 9px;
-  border: 9px solid transparent; border-left: 12px solid var(--cream); border-right: 0;
+  position: absolute; left: 0; top: 0; height: 5px; margin-top: -2.5px;
+  transform-origin: 0 50%; border-radius: 3px; background: var(--cream);
   filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.25));
+}
+.callout-tail::after {
+  content: ''; position: absolute; right: -9px; top: 50%; margin-top: -8px;
+  border: 8px solid transparent; border-left: 10px solid var(--cream); border-right: 0;
 }
 
 /* ------- in-game rules reference ------- */
