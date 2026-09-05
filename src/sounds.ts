@@ -35,6 +35,35 @@ export function setMuted(value: boolean) {
  * a celebratory fanfare when a bunny reaches its burrow, a squash when one is
  * stomped, and a hop when one comes out of reserve or is swapped.
  */
+/** A soft cartoon pop for reactions, synthesized so no asset is needed. */
+export function playEmoteSound(): void {
+  if (muted) return;
+  try {
+    type AudioCtor = typeof AudioContext;
+    const Ctor: AudioCtor | undefined =
+      window.AudioContext ??
+      (window as unknown as { webkitAudioContext?: AudioCtor }).webkitAudioContext;
+    if (!Ctor) return;
+    popCtx ??= new Ctor();
+    const ctx = popCtx;
+    const t0 = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(520, t0);
+    osc.frequency.exponentialRampToValueAtTime(180, t0 + 0.09);
+    gain.gain.setValueAtTime(0.18, t0);
+    gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.12);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(t0);
+    osc.stop(t0 + 0.13);
+  } catch {
+    /* audio may be blocked before the first gesture */
+  }
+}
+
+let popCtx: AudioContext | null = null;
+
 export function playMoveSound(effects: MoveEffect[]): void {
   if (muted) return;
   const reachedHome = effects.some(

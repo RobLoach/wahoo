@@ -17,7 +17,7 @@ import type { RoomInfo, View } from '../net/protocol.ts';
 import { backwardDest, forwardDest } from '../engine/game.ts';
 import type { Bunny, CardAction, Move, MoveEffect } from '../engine/types.ts';
 import { PLAYER_NAMES, SPAWN_INDEX } from '../engine/types.ts';
-import { playMoveSound } from '../sounds.ts';
+import { playEmoteSound, playMoveSound } from '../sounds.ts';
 import { TIPS, dismissTip, showTip, tipSeen } from './tips.ts';
 import { emoteHtml } from './emotes.ts';
 
@@ -101,6 +101,7 @@ export class App {
     bubble.className = `emote-bubble seat-${seat}`;
     bubble.innerHTML = emoteHtml(emoji, PLAYER_COLORS_CSS[seat]);
     $('#board-wrap').appendChild(bubble);
+    playEmoteSound();
     setTimeout(() => bubble.remove(), 2600);
   }
 
