@@ -23,15 +23,8 @@ const STEPS: Step[] = [
     sel: '#board-wrap',
     text:
       'Your burrow is the diagonal at your corner. Entering needs an exact ' +
-      'count, and you cannot jump over bunnies already inside. Bunnies in ' +
-      'burrows are safe from everything.',
-  },
-  {
-    sel: '#status',
-    text:
-      'This card tells you whose turn it is and what to do next. Your teammate ' +
-      'sits at the opposite corner — Red & Green against Blue & Yellow. The ' +
-      'first team to tuck all 8 bunnies into their burrows wins. Have fun!',
+      'count, and you cannot jump over bunnies already inside. The first team ' +
+      'to tuck all eight bunnies into their burrows wins — have fun!',
   },
 ];
 

@@ -96,7 +96,7 @@ test('first local game shows the tour once', async ({ page }) => {
   await page.evaluate(() => ((window as any).__wahooCpuDelay = 60_000));
   await page.click('#start-local');
   await page.waitForSelector('#tour-card');
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 3; i++) {
     await page.click('#tour-card button.primary');
   }
   await expect(page.locator('#tour-card')).toHaveCount(0);
