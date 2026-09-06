@@ -338,6 +338,8 @@ input[type="checkbox"]:focus-visible { outline: 2px solid var(--red-rule); outli
   width: clamp(240px, calc(100vh - 294px), calc(100vw - 24px));
   width: clamp(240px, calc(100dvh - 294px), calc(100vw - 24px));
   height: auto; border-radius: 8px; display: block; margin: 0 auto;
+  /* The paper sits ON the felt: a soft lift like the menu panels, no frame. */
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.32), 0 2px 6px rgba(0, 0, 0, 0.18);
 }
 @media (min-width: 900px) {
   /* Side panel sits next to the board: only the viewport height caps it. */
