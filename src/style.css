@@ -409,14 +409,21 @@ input[type="checkbox"]:focus-visible { outline: 2px solid var(--red-rule); outli
   background-color: var(--card); background-image: radial-gradient(90% 70% at 30% 15%, #fffdf7, #f4e9d4);
   box-shadow: 0 10px 18px rgba(0, 0, 0, 0.38), inset 0 0 0 1px #e3d3b3;
   color: var(--ink); font-family: var(--display); font-weight: 600; cursor: pointer;
-  transition: transform 0.1s, box-shadow 0.1s;
+  --tilt: 0deg;
+  transform: rotate(var(--tilt));
+  /* Ease into the hover lift with a little spring; a press snaps down fast. */
+  transition: transform 0.22s cubic-bezier(0.34, 1.45, 0.64, 1), box-shadow 0.22s ease;
 }
-.card:nth-child(4n + 1) { transform: rotate(-2deg); }
-.card:nth-child(4n + 2) { transform: rotate(1deg); }
-.card:nth-child(4n + 3) { transform: rotate(1.5deg); }
-.card:nth-child(4n + 4) { transform: rotate(-1deg); }
-.card:hover { transform: translateY(-6px); filter: none; }
-.card:active { transform: translateY(-4px); box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3), inset 0 0 0 1px #e3d3b3; }
+.card:nth-child(4n + 1) { --tilt: -2deg; }
+.card:nth-child(4n + 2) { --tilt: 1deg; }
+.card:nth-child(4n + 3) { --tilt: 1.5deg; }
+.card:nth-child(4n + 4) { --tilt: -1deg; }
+.card:hover { transform: translateY(-6px) rotate(calc(var(--tilt) / 2)) scale(1.04); filter: none; }
+.card:active {
+  transform: translateY(-2px) rotate(calc(var(--tilt) / 2)) scale(0.97);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3), inset 0 0 0 1px #e3d3b3;
+  transition-duration: 0.08s;
+}
 .card.red { color: var(--red); }
 .card.selected, .card.selected:hover {
   background-image: none; background-color: var(--card-lit);
@@ -425,7 +432,7 @@ input[type="checkbox"]:focus-visible { outline: 2px solid var(--red-rule); outli
 }
 .card.disabled, .card.disabled:hover, .card.disabled:active {
   opacity: 0.5; cursor: default; background-image: none; background-color: var(--paper-well);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3), inset 0 0 0 1px #ddcdac; transform: rotate(-1deg);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3), inset 0 0 0 1px #ddcdac; transform: rotate(var(--tilt));
 }
 .card .index {
   position: absolute; top: 6px; left: 8px; font-size: 17px; line-height: 1; text-align: left;
