@@ -349,12 +349,28 @@ input[type="checkbox"]:focus-visible { outline: 2px solid var(--red-rule); outli
   }
 }
 @media (max-height: 520px) and (min-width: 640px) {
-  /* Landscape phones: the board fits the height, the panel sits beside it. */
-  #board-wrap { flex-basis: 260px; }
-  .board-canvas {
-    width: clamp(220px, calc(100vh - 84px), 100%);
-    width: clamp(220px, calc(100dvh - 84px), 100%);
+  /* Landscape phones: the board owns the full height; the panel scrolls beside it. */
+  #app {
+    padding: max(5px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
+      max(5px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
   }
+  #game {
+    flex-wrap: nowrap; align-items: stretch; gap: 12px; padding-top: 0;
+    height: calc(100vh - 10px); height: calc(100dvh - 10px);
+  }
+  #board-wrap { flex: 0 0 auto; }
+  .board-canvas {
+    width: clamp(220px, calc(100vh - 14px), 62vw);
+    width: clamp(220px, calc(100dvh - 14px), 62vw);
+  }
+  #side { min-width: 0; max-width: none; overflow-y: auto; gap: 8px; }
+  #status { padding: 9px 14px; }
+  #status .status-line { font-size: 19px; }
+  #hand { min-height: 0; padding: 4px 0 2px; }
+  #hand .card { width: 64px; height: 92px; }
+  #hand .card .pip { font-size: 28px; }
+  #hand .card .hintline { display: none; }
+  #log { max-height: none; flex: 0 1 auto; }
 }
 @media (max-width: 600px) {
   #app { padding: 8px; }
@@ -364,7 +380,8 @@ input[type="checkbox"]:focus-visible { outline: 2px solid var(--red-rule); outli
   .board-canvas { width: clamp(240px, calc(100vh - 310px), calc(100vw - 16px)); width: clamp(240px, calc(100dvh - 310px), calc(100vw - 16px)); }
   #menu h1 { font-size: 64px; }
   .panel { padding: 22px 20px 24px; }
-  .hand-card { width: 72px; height: 104px; }
+  #hand .card { width: 72px; height: 104px; }
+  #hand .card .pip { font-size: 30px; }
 }
 
 #side { flex: 1 1 300px; min-width: 280px; max-width: 420px; display: flex; flex-direction: column; gap: 12px; }
