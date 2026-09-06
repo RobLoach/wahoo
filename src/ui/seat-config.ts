@@ -28,11 +28,31 @@ export function buildSeatConfig() {
     ['cpu-hard', 'Hard'],
     ['cpu-insane', 'Insane'],
   ];
-  // Rows are listed by team (partners sit at opposite corners): Red & Green,
-  // then Blue & Yellow, with a solid rule between the two teams.
-  for (const i of [0, 2, 1, 3]) {
+  // Partners sit at opposite corners: Red & Green are one team, Blue &
+  // Yellow the other — say so explicitly above each pair.
+  const teams: [string, number[]][] = [
+    ['Team 1', [0, 2]],
+    ['Team 2', [1, 3]],
+  ];
+  for (const [label, members] of teams) {
+    const head = document.createElement('div');
+    head.className = 'team-head eyebrow';
+    head.textContent = label;
+    wrap.appendChild(head);
+    buildRows(wrap, members, defaults, names, kinds);
+  }
+}
+
+function buildRows(
+  wrap: HTMLElement,
+  members: number[],
+  defaults: SeatKind[],
+  names: string[],
+  kinds: [SeatKind, string][],
+) {
+  for (const i of members) {
     const row = document.createElement('div');
-    row.className = 'seat-row' + (i === 2 ? ' team-break' : '');
+    row.className = 'seat-row';
     row.innerHTML =
       `<span class="seat-bunny" aria-hidden="true">${emoteHtml('plain', PLAYER_COLORS_CSS[i])}</span>` +
       `<span class="seat-color">${PLAYER_NAMES[i]}</span>` +

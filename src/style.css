@@ -228,7 +228,7 @@ input, select {
 #seat-config { border-top: 1px solid var(--rule); }
 .seat-row { display: flex; align-items: center; gap: 12px; padding: 10px 2px; border-bottom: 1px dotted var(--rule-dot); }
 .seat-row:last-child { border-bottom: none; }
-.seat-row.team-break { border-bottom: 1px solid var(--rule); }
+.team-head { padding: 12px 2px 2px; border-bottom: 1px dotted var(--rule-dot); }
 .seat-bunny { flex: none; width: 27px; height: 29px; line-height: 0; }
 .seat-bunny .emote { width: 100%; height: 100%; }
 .seat-color { width: 62px; flex: none; font: 500 19px var(--display); color: var(--ink); }
