@@ -456,9 +456,13 @@ function snapshot(array $room, string $clientId): array
 $app = AppFactory::create();
 $app->addBodyParsingMiddleware();
 
-// Reject oversized requests before the JSON parser touches them.
+// Reject oversized requests before the JSON parser touches them. The header
+// alone can lie (chunked transfers): measure the actual body too.
 $app->add(function (Request $request, $handler): Response {
-    $length = (int) $request->getHeaderLine('Content-Length');
+    $length = max(
+        (int) $request->getHeaderLine('Content-Length'),
+        (int) ($request->getBody()->getSize() ?? 0)
+    );
     if ($length > MAX_BODY_BYTES) {
         $response = new \Slim\Psr7\Response(413);
         $response->getBody()->write(json_encode(['error' => 'Request too large.']));
