@@ -69,7 +69,9 @@ $('#start-local').onclick = async () => {
 function clientToken(): string {
   let token = localStorage.getItem('wahoo-token');
   if (!token) {
-    token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+    token = [...crypto.getRandomValues(new Uint8Array(16))]
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
     localStorage.setItem('wahoo-token', token);
   }
   return token;

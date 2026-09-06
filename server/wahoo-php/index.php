@@ -556,7 +556,8 @@ $app->post('/api/rooms/{code}/join', function (Request $request, Response $respo
     $seatIndex = null;
     if ($token !== null) {
         foreach ($room['seats'] as $i => $seat) {
-            if ($seat !== null && ($seat['token'] ?? null) === $token
+            $stored = $seat === null ? null : ($seat['token'] ?? null);
+            if (is_string($stored) && hash_equals($stored, $token)
                 && (empty($seat['clientId']) || !empty($seat['cpu']))) {
                 $seatIndex = $i; // welcome back
                 break;
