@@ -32,7 +32,7 @@ const MAX_ROOMS_PER_IP_PER_HOUR = 20;
 const MAX_JOINS_PER_IP_PER_HOUR = 60;
 const ACTION_COOLDOWN_SECONDS = 1; // min gap between renames/emotes per client
 const MAX_BODY_BYTES = 400000;
-const EMOTES = ['👍', '😂', '😱', '🥕', '💥', '🐰'];
+const EMOTES = ['wahoo', 'lol', 'gasp', 'smug', 'finger'];
 
 // ---------------------------------------------------------------------------
 // Storage
@@ -212,7 +212,7 @@ const SEAT_COLOR_NAMES = ['Red', 'Blue', 'Green', 'Yellow'];
 /** Keep only known house-rule keys with valid values. */
 function sanitizeRules(mixed $raw): array
 {
-    $rules = ['friendlyFire' => true, 'sevenMaxBunnies' => 2, 'burrowJump' => false];
+    $rules = ['friendlyFire' => true, 'sevenMaxBunnies' => 2, 'burrowJump' => false, 'finger' => true];
     if (is_array($raw)) {
         if (is_bool($raw['friendlyFire'] ?? null)) {
             $rules['friendlyFire'] = $raw['friendlyFire'];
@@ -222,6 +222,9 @@ function sanitizeRules(mixed $raw): array
         }
         if (is_bool($raw['burrowJump'] ?? null)) {
             $rules['burrowJump'] = $raw['burrowJump'];
+        }
+        if (is_bool($raw['finger'] ?? null)) {
+            $rules['finger'] = $raw['finger'];
         }
     }
     return $rules;
@@ -303,7 +306,17 @@ function looksLikeGameState(mixed $state): bool
         return false;
     }
     foreach ($log as $line) {
-        if (!is_string($line) || strlen($line) > 400) {
+        // Structured events (small objects) from current clients, or plain
+        // strings from older ones — either way, tightly bounded.
+        if (is_string($line)) {
+            if (strlen($line) > 400) {
+                return false;
+            }
+        } elseif (is_array($line)) {
+            if (strlen(json_encode($line)) > 200) {
+                return false;
+            }
+        } else {
             return false;
         }
     }
@@ -550,8 +563,31 @@ $app->get('/api/rooms/{code}', function (Request $request, Response $response, a
         $room = loadRoom($pdo, $args['code']);
     }
     // Unchanged since the client's version: send a tiny heartbeat instead of
-    // the full snapshot (~95% less polling traffic while idle).
-    $since = $request->getQueryParams()['since'] ?? null;
+    // the full snapshot (~95% less polling traffic while idle). With wait=1
+    // the request is held (a long poll) until a change or ~10s pass, so moves
+    // reach other players almost immediately.
+    $q = $request->getQueryParams();
+    $since = $q['since'] ?? null;
+    if (
+        $since !== null && (int) $since === (int) $room['version']
+        && ($q['wait'] ?? '') === '1'
+    ) {
+        $clientEmoteN = isset($q['emoteN']) ? (int) $q['emoteN'] : -1;
+        $deadline = microtime(true) + 10;
+        while (microtime(true) < $deadline) {
+            usleep(300000);
+            $room = loadRoom($pdo, $args['code']);
+            if ($room === null) {
+                return errorResponse($response, 'Room not found.', 404);
+            }
+            if ((int) $room['version'] !== (int) $since) {
+                break;
+            }
+            if ($clientEmoteN >= 0 && (int) ($room['emote_n'] ?? 0) > $clientEmoteN) {
+                break;
+            }
+        }
+    }
     if ($since !== null && (int) $since === (int) $room['version']) {
         return jsonResponse($response, [
             'version' => (int) $room['version'],
@@ -578,6 +614,14 @@ $app->post('/api/rooms/{code}/emote', function (Request $request, Response $resp
     $seat = seatOf($room, $clientId);
     if ($seat === null || !in_array($emoji, EMOTES, true)) {
         return errorResponse($response, 'Not allowed.', 403);
+    }
+    // The finger can be banned from the table via house rules.
+    if ($emoji === 'finger') {
+        $rules = $room['game']['rules']
+            ?? (isset($room['rules']) && $room['rules'] !== null ? json_decode($room['rules'], true) : null);
+        if (is_array($rules) && ($rules['finger'] ?? true) === false) {
+            return errorResponse($response, 'Not allowed.', 403);
+        }
     }
     if (actionThrottled($pdo, $clientId)) {
         return errorResponse($response, 'Too fast.', 429);

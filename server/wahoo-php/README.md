@@ -41,6 +41,14 @@ Rooms untouched for a week are cleared automatically to make room for new
 lobbies; players silent for ~75s are handed to a CPU (reclaimable by rejoining
 with the same browser).
 
+## Long polling
+
+Polls with `wait=1` are held for up to ~10 seconds until the room changes, so
+moves reach other players almost immediately. Each held poll occupies a PHP
+worker; any normal Apache/FPM setup handles this fine, but when testing with
+the built-in server use `PHP_CLI_SERVER_WORKERS=6 php -S …` so held polls
+don't block other requests.
+
 ## Security notes
 
 - `data/` (the SQLite file holds every seat token) is blocked from the web by

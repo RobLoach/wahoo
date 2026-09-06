@@ -2,8 +2,14 @@
 // The in-game application: board, hand, status, and click handling.
 // ---------------------------------------------------------------------------
 import { $, esc } from './dom.ts';
-import { BoardView, emptyHighlights, PLAYER_COLORS_CSS, TEAM_MARKS } from './board.ts';
+import { BoardView, burrowPos, emptyHighlights, reservePos } from './board.ts';
+import { PLAYER_COLORS_CSS, PLAYER_COLORS_LIT_CSS } from './palette.ts';
 import type { Highlights } from './board.ts';
+import {
+  CARD_HINTS, CARD_TOOLTIPS, SUIT_NAMES, cardFaceHtml, inked, isRed, roundWord, shortName,
+} from './cards.ts';
+import { Callouts, boardPoint } from './callouts.ts';
+import { VictoryView } from './victory.ts';
 import {
   ctrlPlayer, emptySelection, selectedActions, sevenCandidates, simBunnies, wrapAction,
 } from './selection.ts';
@@ -16,38 +22,18 @@ import type { RoomInfo, View } from '../net/protocol.ts';
 import { backwardDest, forwardDest } from '../engine/game.ts';
 import type { Bunny, CardAction, Move, MoveEffect } from '../engine/types.ts';
 import { PLAYER_NAMES } from '../engine/types.ts';
-import { playMoveSound } from '../sounds.ts';
+import { playEmoteSound, playMoveSound, playTurnChime } from '../sounds.ts';
+import { TIPS, dismissTip, showTip, tipSeen } from './tips.ts';
+import { emoteHtml } from './emotes.ts';
 
-export const CARD_HINTS: Record<string, string> = {
-  A: 'spawn / +1', '2': 'spawn / +2 & flip', '3': '+3', '4': '−4',
-  '5': '+5', '6': '+6', '7': 'split 7', '8': '+8', '9': '+9', '10': '+10',
-  J: 'swap', Q: '+12', K: 'stomp-spawn / +13',
-};
-
-export const CARD_TOOLTIPS: Record<string, string> = {
-  A: 'Ace: spawn a bunny onto your corner space, or move one bunny forward 1.',
-  '2': 'Two: spawn a bunny or move one bunny forward 2 — then flip the top card of the draw pile and play it too.',
-  '3': 'Move one bunny forward 3 spaces.',
-  '4': 'Four: move one bunny backward 4 spaces (stays on the track).',
-  '5': 'Move one bunny forward 5 spaces.',
-  '6': 'Move one bunny forward 6 spaces.',
-  '7': 'Seven: move one bunny 7 spaces, or split the 7 between two bunnies.',
-  '8': 'Move one bunny forward 8 spaces.',
-  '9': 'Move one bunny forward 9 spaces.',
-  '10': 'Move one bunny forward 10 spaces.',
-  J: 'Jack: swap one of your bunnies with any other bunny on the track.',
-  Q: 'Queen: move one bunny forward 12 spaces.',
-  K: "King: move one bunny forward 13, or spawn from your reserve onto another player's bunny, stomping it.",
-};
+export { CARD_HINTS, CARD_TOOLTIPS } from './cards.ts';
 
 export type NetSession = OnlineSession | HttpSession | P2PHostSession | P2PGuestSession;
 
-const SUIT_NAMES: Record<string, string> = {
-  '♠': 'spades', '♥': 'hearts', '♦': 'diamonds', '♣': 'clubs',
-};
-
 export class App {
   board = new BoardView();
+  private callouts = new Callouts(this.board);
+  private victory = new VictoryView();
   boardReady = false;
   session: LocalSession | NetSession | null = null;
   online = false;
@@ -63,14 +49,42 @@ export class App {
   private lastHumanSeat: number | null = null;
   private curtain = false;
 
+  /** Seats with a reaction currently playing: one per player at a time. */
+  private emoteBusySeats = new Set<number>();
+
+  /** Is OUR seat's reaction still playing? (Others emote independently.) */
+  myEmoteBusy(): boolean {
+    const seat = this.view?.mySeat;
+    return seat !== null && seat !== undefined && this.emoteBusySeats.has(seat);
+  }
+
   /** Float a reaction bubble over the seat's corner of the board. */
   showEmote(seat: number, emoji: string) {
     if (seat < 0 || seat > 3) return;
+    if (this.emoteBusySeats.has(seat)) return; // that player's is still playing
+    this.emoteBusySeats.add(seat);
+    const mine = seat === this.view?.mySeat;
     const bubble = document.createElement('span');
     bubble.className = `emote-bubble seat-${seat}`;
-    bubble.textContent = emoji;
+    bubble.innerHTML = emoteHtml(emoji, PLAYER_COLORS_CSS[seat]);
     $('#board-wrap').appendChild(bubble);
-    setTimeout(() => bubble.remove(), 2600);
+    playEmoteSound(emoji);
+    if (mine) {
+      $('#emote-bar').classList.add('cooling');
+      document
+        .querySelectorAll<HTMLButtonElement>('#emote-bar button[data-emote]')
+        .forEach(b => (b.disabled = true));
+    }
+    setTimeout(() => {
+      bubble.remove();
+      this.emoteBusySeats.delete(seat);
+      if (mine) {
+        $('#emote-bar').classList.remove('cooling');
+        document
+          .querySelectorAll<HTMLButtonElement>('#emote-bar button[data-emote]')
+          .forEach(b => (b.disabled = false));
+      }
+    }, 4200);
   }
 
   startLocalMeta(humans: number) {
@@ -81,10 +95,11 @@ export class App {
   }
 
   async showGame() {
+    this.victory.reset();
     $('#menu').hidden = true;
     $('#game').hidden = false;
     if (!this.boardReady) {
-      await this.board.init($('#board-wrap'), {
+      await this.board.init($('#board-frame'), {
         onBunny: id => this.clickBunny(id),
         onTrack: index => this.clickTrack(index),
         onBurrow: (p, s) => this.clickBurrow(p, s),
@@ -95,7 +110,16 @@ export class App {
     this.board.resetPieces();
   }
 
+  /** Clear any in-progress selection (re-clicking the card does this too). */
+  cancelSelection() {
+    const keepFlip = this.view?.pendingFlip && this.view.canAct;
+    this.sel = emptySelection();
+    if (keepFlip) this.sel.cardId = 'flip';
+    this.refresh();
+  }
+
   showMenu() {
+    dismissTip();
     this.session?.leave();
     this.session = null;
     this.view = null;
@@ -113,13 +137,26 @@ export class App {
     this.recentBunnies = new Set(view.effects.map(e => e.bunny));
     playMoveSound(view.effects);
     if (view.lastPlay && (view.effects.length > 0 || view.lastPlay.fold)) {
-      this.showPlayBanner(view);
+      this.callouts.showMove(view);
+    }
+    // Another player's bonus flip is board news, not a sidebar box (yours
+    // stays in the sidebar: you have to choose how to play it).
+    if (view.pendingFlip && !view.canAct) {
+      if (this.lastFlipId !== view.pendingFlip.id) {
+        this.lastFlipId = view.pendingFlip.id;
+        this.callouts.showFlip(view);
+      }
+    } else if (!view.pendingFlip) {
+      this.lastFlipId = null;
     }
     // A new decision point invalidates any in-progress selection.
     this.sel = emptySelection();
-    // Hot-seat privacy: hide the hand while the device changes hands.
+    // Hot-seat privacy: hide the hand while the device changes hands, with
+    // a chime and a corner pulse so the next player looks up.
     if (!this.online && view.canAct && this.localHumans > 1 && view.mySeat !== this.lastHumanSeat) {
       this.curtain = true;
+      playTurnChime();
+      if (view.mySeat !== null) this.board.pulseSeat(view.mySeat);
     }
     if (view.canAct) this.lastHumanSeat = view.mySeat;
     if (view.pendingFlip && view.canAct) this.sel.cardId = 'flip';
@@ -158,6 +195,12 @@ export class App {
     if (!view || !view.canAct || this.sel.cardId === null) return;
     const actions = selectedActions(view, this.sel);
     const bunny = view.bunnies.find(b => b.id === id)!;
+
+    // Re-clicking the picked bunny puts it back down.
+    if (this.sel.bunny === id) {
+      this.sel.bunny = null;
+      return this.refresh();
+    }
 
     if (this.sel.bunny !== null) {
       // A swap target?
@@ -242,17 +285,20 @@ export class App {
 
   // ---- rendering ----
 
+  /** Plain-text status (errors): shown as the hint line of the status card. */
   setStatus(text: string, winner = false) {
     const el = $('#status');
-    el.textContent = text;
+    el.innerHTML = `<div class="status-hint">${esc(text)}</div>`;
     el.classList.toggle('winner', winner);
   }
 
-  /** Like setStatus, but the fragments are trusted markup (player names only). */
-  private setStatusHtml(html: string) {
+  /** The status card: eyebrow, headline (trusted markup: player names), hint. */
+  private setStatusCard(eyebrow: string, line: string, hint: string, winner = false) {
     const el = $('#status');
-    el.innerHTML = html;
-    el.classList.remove('winner');
+    el.innerHTML =
+      `<div class="eyebrow">${esc(eyebrow)}</div><div class="status-line">${line}</div>` +
+      (hint ? `<div class="status-hint">${hint}</div>` : '');
+    el.classList.toggle('winner', winner);
   }
 
   private highlightsAndHint(): { hi: Highlights; hint: string } {
@@ -322,79 +368,56 @@ export class App {
     return { hi, hint };
   }
 
-  private bannerTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastFlipId: number | null = null;
 
-  /** Flash the played card and player name in the middle of the board. */
-  private showPlayBanner(view: View) {
-    const play = view.lastPlay;
-    if (!play) return;
-    const el = $('#play-banner');
-    const name = (view.seatNames[play.seat] ?? PLAYER_NAMES[play.seat]).replace(/^CPU /, '');
-    const card = play.card;
-    const cardHtml = play.fold || !card
-      ? '<div class="play-banner-card fold">✕</div>'
-      : `<div class="play-banner-card${
-          card.suit === '♥' || card.suit === '♦' ? ' red' : ''
-        }">${esc(card.rank)}<span style="font-size:1.5rem">${esc(card.suit)}</span></div>`;
-    el.innerHTML =
-      cardHtml +
-      `<div class="play-banner-name" style="color:${PLAYER_COLORS_CSS[play.seat]}">${esc(name)}${
-        play.fold ? ' folded' : ''
-      }</div>`;
-    el.hidden = false;
-    el.classList.remove('show');
-    void el.offsetWidth; // restart the fade animation
-    el.classList.add('show');
-    if (this.bannerTimer) clearTimeout(this.bannerTimer);
-    this.bannerTimer = setTimeout(() => {
-      el.hidden = true;
-    }, 2700);
+  /** Offer at most one unseen tip that the current view has just made relevant. */
+  private maybeTips(view: View, curtainUp: boolean) {
+    if (curtainUp) return;
+    const boardRect = () => $('#board-frame').getBoundingClientRect();
+    const owner = (id: number) => view.bunnies.find(b => b.id === id)?.player;
+    // Things that just happened on the board come first: they are fleeting.
+    if (view.effects.some(e => e.kind === 'stomped') && !tipSeen('stomp')) {
+      const e = view.effects.find(x => x.kind === 'stomped')!;
+      const p = owner(e.bunny);
+      if (showTip('stomp', p === undefined ? boardRect() : this.pointRect(reservePos(p, 1)), TIPS.stomp)) return;
+    }
+    if (view.effects.some(e => e.to.kind === 'burrow') && !tipSeen('home')) {
+      const e = view.effects.find(x => x.to.kind === 'burrow')!;
+      const p = owner(e.bunny);
+      const to = e.to.kind === 'burrow' ? e.to : null;
+      if (
+        showTip('home', p === undefined || !to ? boardRect() : this.pointRect(burrowPos(p, to.slot)), TIPS.home)
+      ) return;
+    }
+    if (!view.canAct) return;
+    if (view.pendingFlip && !tipSeen('flip')) {
+      if (showTip('flip', $('#flip-area'), TIPS.flip)) return;
+    }
+    if (view.legal.length === 1 && view.legal[0].type === 'discardHand' && !tipSeen('fold')) {
+      if (showTip('fold', $('#btn-fold'), TIPS.fold)) return;
+    }
+    if (view.mySeat !== null && ctrlPlayer(view) !== view.mySeat && !tipSeen('teammate')) {
+      if (showTip('teammate', $('#status'), TIPS.teammate)) return;
+    }
+    const cards = $('#hand').querySelectorAll<HTMLElement>('.card');
+    view.myHand.forEach((card, i) => {
+      const key = `card:${card.rank}`;
+      if (TIPS[key] && !tipSeen(key)) showTip(key, cards[i] ?? $('#hand'), TIPS[key]);
+    });
   }
 
-  private victoryShown = false;
-
-  private renderVictory(view: View) {
-    const overlay = $('#victory');
-    if (view.winner === null) {
-      overlay.hidden = true;
-      this.victoryShown = false;
-      overlay.querySelectorAll('.confetti').forEach(c => c.remove());
-      return;
-    }
-    $('#btn-again').hidden = this.online && this.roomInfo?.youAreHost !== true;
-    const seats = view.winner === 0 ? [0, 2] : [1, 3];
-    const names = (pair: number[]) =>
-      pair.map(i => (view.seatNames[i] ?? PLAYER_NAMES[i]).replace(/^CPU /, '')).join(' & ');
-    $('#victory-title').textContent = `🏆 ${TEAM_MARKS[view.winner]} ${names(seats)} win!`;
-    const teamStomps = (pair: number[]) => pair.reduce((s, i) => s + view.stats.stomps[i], 0);
-    const totalFolds = view.stats.folds.reduce((a, b) => a + b, 0);
-    $('#victory-stats').textContent =
-      `${view.round} round${view.round === 1 ? '' : 's'} · ` +
-      `stomps ${TEAM_MARKS[0]} ${teamStomps([0, 2])} — ${TEAM_MARKS[1]} ${teamStomps([1, 3])}` +
-      (totalFolds ? ` · ${totalFolds} fold${totalFolds === 1 ? '' : 's'}` : '');
-    overlay.hidden = false;
-    if (!this.victoryShown) {
-      this.victoryShown = true;
-      const colors = view.winner === 0
-        ? [PLAYER_COLORS_CSS[0], PLAYER_COLORS_CSS[2]]
-        : [PLAYER_COLORS_CSS[1], PLAYER_COLORS_CSS[3]];
-      for (let i = 0; i < 50; i++) {
-        const bit = document.createElement('span');
-        bit.className = 'confetti';
-        bit.style.left = `${Math.random() * 100}%`;
-        bit.style.background = colors[i % 2];
-        bit.style.animationDuration = `${2.2 + Math.random() * 2.4}s`;
-        bit.style.animationDelay = `${Math.random() * 1.6}s`;
-        overlay.appendChild(bit);
-      }
-    }
+  /** A board-space point as a small page rectangle, for anchoring a tip. */
+  private pointRect(pt: { x: number; y: number }) {
+    const wrap = $('#board-wrap').getBoundingClientRect();
+    const { x, y } = boardPoint(pt);
+    return new DOMRect(wrap.left + x - 16, wrap.top + y - 16, 32, 32);
   }
 
   refresh() {
     const view = this.view;
     if (!view || !this.boardReady) return;
 
-    const name = view.seatNames[view.current] ?? PLAYER_NAMES[view.current];
+    const name = shortName(view, view.current);
     const curtainUp = this.curtain && view.canAct && view.winner === null;
     const { hi, hint } = curtainUp
       ? (() => {
@@ -406,38 +429,52 @@ export class App {
     this.board.render(view, hi, this.pendingEffects);
     this.pendingEffects = undefined;
 
-    // Status line
+    // Status card: an eyebrow with the round, then whose turn it is and a hint.
+    const who = inked(view, view.current);
     if (view.winner !== null) {
-      const teams = view.winner === 0 ? 'Red & Green' : 'Blue & Yellow';
-      this.setStatus(`🏆 Team ${teams} wins!`, true);
-    } else if (curtainUp) {
-      this.setStatusHtml(
-        `Round ${view.round} — pass the device to ` +
-          `<b style="color:${PLAYER_COLORS_CSS[view.current]}">${esc(name)}</b>.`,
+      const seats = view.winner === 0 ? [0, 2] : [1, 3];
+      this.setStatusCard(
+        'All eight bunnies home',
+        `${inked(view, seats[0])} &amp; ${inked(view, seats[1])} win the game!`,
+        '',
+        true,
       );
+    } else if (curtainUp) {
+      this.setStatusCard(`Round ${view.round} · pass the device`, `${who}'s turn`, 'Hand the device over, then tap to see the cards.');
     } else {
       const ctrl = ctrlPlayer(view);
       const controlling =
         view.mySeat !== null && ctrl !== view.mySeat
-          ? ` (moving <b style="color:${PLAYER_COLORS_CSS[ctrl]}">${PLAYER_NAMES[ctrl]}</b>'s bunnies)`
+          ? ` — moving ${inked(view, ctrl)}'s bunnies`
           : '';
-      const who = `<b style="color:${PLAYER_COLORS_CSS[view.current]}">${esc(name)}</b>`;
       const spectating = this.online && view.mySeat === null;
-      this.setStatusHtml(
-        view.canAct
-          ? `Round ${view.round} — ${who}'s turn${controlling}. ${hint}`
-          : spectating
-            ? `Round ${view.round} — 👀 spectating. ${who}'s turn.`
-            : `Round ${view.round} — waiting for ${who}…`,
-      );
+      if (view.canAct) {
+        this.setStatusCard(`Round ${view.round} · your turn`, `${who}'s turn${controlling}`, hint);
+      } else if (spectating) {
+        this.setStatusCard(`Round ${view.round} · spectating`, `${who}'s turn`, 'Take a seat from the menu to play.');
+      } else {
+        this.setStatusCard(`Round ${view.round} · waiting`, `${who}'s turn`, `Waiting for ${esc(name)}…`);
+      }
     }
 
     // Victory overlay with stats + rematch once a winner is decided.
-    this.renderVictory(view);
+    this.victory.render(view, this.online, this.roomInfo?.youAreHost === true);
 
     // Reactions are online-only (hot seat players can heckle in person);
     // spectators have no seat to react from.
-    $('#emote-bar').hidden = !this.online || view.winner !== null || view.mySeat === null;
+    const emoteBar = $('#emote-bar');
+    emoteBar.hidden = !this.online || view.winner !== null || view.mySeat === null;
+    // The host can ban the finger via house rules.
+    emoteBar.querySelectorAll<HTMLElement>('button[data-emote="finger"]').forEach(btn => {
+      btn.hidden = view.rules.finger === false;
+    });
+    // The reaction buttons wear your own seat colour; redraw when the seat changes.
+    if (view.mySeat !== null && emoteBar.dataset.seat !== String(view.mySeat)) {
+      emoteBar.dataset.seat = String(view.mySeat);
+      emoteBar.querySelectorAll<HTMLElement>('button[data-emote]').forEach(btn => {
+        btn.innerHTML = emoteHtml(btn.dataset.emote!, PLAYER_COLORS_CSS[view.mySeat!]);
+      });
+    }
 
     // Screen readers hear each play and turn change through the live region.
     const announcement = `${view.log[0] ?? ''}${view.canAct ? ' Your turn.' : ''}`;
@@ -446,32 +483,44 @@ export class App {
       $('#announcer').textContent = announcement;
     }
 
-    // Hand (or the pass-the-device curtain)
-    const handEl = $('#hand');
-    handEl.innerHTML = '';
+    // Pass-the-device curtain over the board: fanned card backs and a reveal button.
+    const curtainEl = $('#curtain');
     if (curtainUp) {
+      curtainEl.hidden = false;
+      curtainEl.innerHTML =
+        '<div class="curtain-fan" aria-hidden="true"><div class="card-back"></div>' +
+        '<div class="card-back"></div><div class="card-back"></div></div>' +
+        '<div><div class="eyebrow">Pass the device</div>' +
+        `<div class="curtain-title">${esc(name)}'s turn</div>` +
+        '<p>Hand it over, then tap to see your cards.</p></div>';
       const reveal = document.createElement('button');
-      reveal.className = 'curtain-btn';
-      reveal.style.borderColor = PLAYER_COLORS_CSS[view.current];
-      reveal.textContent = `👀 Tap to show ${name}'s hand`;
+      reveal.className = 'curtain-btn primary';
+      reveal.textContent = "I'm ready";
+      reveal.setAttribute('aria-label', `Show ${name}'s hand`);
       reveal.onclick = () => {
         this.curtain = false;
         this.refresh();
       };
-      handEl.appendChild(reveal);
+      curtainEl.appendChild(reveal);
+    } else {
+      curtainEl.hidden = true;
+      curtainEl.innerHTML = '';
     }
+
+    // Hand
+    const handEl = $('#hand');
+    handEl.innerHTML = '';
     const playable = new Set(
       view.legal.filter(m => m.type === 'play').map(m => (m as any).card as number),
     );
     for (const card of curtainUp ? [] : view.myHand) {
       const el = document.createElement('button');
       el.className = 'card';
-      if (card.suit === '♥' || card.suit === '♦') el.classList.add('red');
+      if (isRed(card)) el.classList.add('red');
       if (this.sel.cardId === card.id) el.classList.add('selected');
       const canPlay = view.canAct && !view.pendingFlip && playable.has(card.id);
       if (!canPlay) el.classList.add('disabled');
-      el.innerHTML = `<span>${card.rank}</span><span class="suit">${card.suit}</span>` +
-        `<span class="hintline">${CARD_HINTS[card.rank] ?? ''}</span>`;
+      el.innerHTML = cardFaceHtml(card, CARD_HINTS[card.rank] ?? '');
       el.title = CARD_TOOLTIPS[card.rank] ?? '';
       el.setAttribute(
         'aria-label',
@@ -496,30 +545,6 @@ export class App {
       handEl.appendChild(el);
     }
 
-    // Last played card, so every turn is easy to follow.
-    const lastEl = $('#last-play');
-    if (view.lastPlay) {
-      const { seat, card, bonus, fold } = view.lastPlay;
-      const who = `<b style="color:${PLAYER_COLORS_CSS[seat]}">${esc(
-        view.seatNames[seat] ?? PLAYER_NAMES[seat],
-      )}</b>`;
-      lastEl.hidden = false;
-      if (fold || !card) {
-        lastEl.innerHTML =
-          `<span class="mini-card fold">✕</span>` +
-          `<span>${who} folded — no playable cards.</span>`;
-      } else {
-        const red = card.suit === '♥' || card.suit === '♦' ? ' red' : '';
-        const desc = view.lastPlay.desc || 'played';
-        lastEl.innerHTML =
-          `<span class="mini-card${red}">${esc(card.rank + card.suit)}</span>` +
-          `<span>${who} ${esc(desc)}${bonus ? ' <i>(flipped bonus card)</i>' : ''}</span>`;
-      }
-    } else {
-      lastEl.hidden = true;
-      lastEl.innerHTML = '';
-    }
-
     // Description of the selected card, always visible (tooltips need hover).
     const helpEl = $('#card-help');
     const selRank =
@@ -528,25 +553,23 @@ export class App {
         : typeof this.sel.cardId === 'number'
           ? view.myHand.find(c => c.id === this.sel.cardId)?.rank
           : undefined;
-    if (selRank && !curtainUp) {
+    if (selRank && !curtainUp && this.sel.cardId !== 'flip') {
       helpEl.hidden = false;
       helpEl.textContent = CARD_TOOLTIPS[selRank] ?? '';
     } else {
       helpEl.hidden = true;
     }
 
-    // Pending flip display
+    // Bonus flip: the card a 2 turned over, waiting to be played.
     const flipEl = $('#flip-area');
-    if (view.pendingFlip && !curtainUp) {
+    if (view.pendingFlip && !curtainUp && view.canAct) {
       flipEl.hidden = false;
       const c = view.pendingFlip;
-      const red = c.suit === '♥' || c.suit === '♦' ? ' red' : '';
       flipEl.innerHTML =
-        `<div class="card selected${red}" style="cursor:default"><span>${c.rank}</span>` +
-        `<span class="suit">${c.suit}</span></div>` +
-        `<div><b>Bonus card!</b><br/>The 2 flipped this card — ${
-          view.canAct ? 'you choose how to play it.' : 'being resolved…'
-        }</div>`;
+        `<div class="eyebrow">Bonus flip</div><div class="flip-body">` +
+        `<div class="flip-card${isRed(c) ? ' red' : ''}">${cardFaceHtml(c)}</div>` +
+        `<div class="flip-text">The 2 flipped a <b>${esc(c.rank + c.suit)}</b> — ` +
+        `play it now. ${esc(CARD_TOOLTIPS[c.rank] ?? '')}</div></div>`;
     } else {
       flipEl.hidden = true;
       flipEl.innerHTML = '';
@@ -556,39 +579,36 @@ export class App {
     const foldOnly =
       !curtainUp && view.canAct && view.legal.length === 1 && view.legal[0].type === 'discardHand';
     $('#btn-fold').hidden = !foldOnly;
-    const hasSelection =
-      (this.sel.cardId !== null && this.sel.cardId !== 'flip') ||
-      this.sel.bunny !== null ||
-      this.sel.sevenParts.length > 0;
-    $('#btn-cancel').hidden = !hasSelection;
 
-    // Piles
-    const shortName = (i: number) =>
-      esc((view.seatNames[i] ?? PLAYER_NAMES[i]).replace(/^CPU /, ''));
-    const teamName = (i: number) =>
-      `<span style="color:${PLAYER_COLORS_CSS[i]}">${shortName(i)}</span>`;
+    // Piles: the draw pile as a card back, with counts beside it.
     $('#piles').innerHTML =
-      `Teams: ${TEAM_MARKS[0]} ${teamName(0)} & ${teamName(2)} vs ` +
-      `${TEAM_MARKS[1]} ${teamName(1)} & ${teamName(3)}<br/>` +
-      `Draw pile: ${view.drawCount} · Discard: ${
+      `<div class="card-back small" aria-hidden="true"></div>` +
+      `<div>Draw ${view.drawCount} · Discard ${
         view.discardTop ? esc(view.discardTop.rank + view.discardTop.suit) : '—'
-      } · Hands: ` +
+      }<br/><span class="hands">Hands ` +
       view.handCounts
-        .map((n, i) => `<span style="color:${PLAYER_COLORS_CSS[i]}">${shortName(i)} ${n}</span>`)
-        .join(' ');
+        .map((n, i) => `<span style="color:${PLAYER_COLORS_LIT_CSS[i]}">${n}</span>`)
+        .join(' · ') +
+      `</span></div>`;
 
-    // Log, newest first, with player color names tinted for scanning.
+    // Log, newest first, with player names tinted for scanning.
     const colorizeLog = (line: string) =>
       line.replace(/\b(Red|Blue|Green|Yellow)\b/g, match => {
         const i = PLAYER_NAMES.indexOf(match);
-        return `<span style="color:${PLAYER_COLORS_CSS[i]};font-weight:600">${match}</span>`;
+        return `<b style="color:${PLAYER_COLORS_LIT_CSS[i]}">${match}</b>`;
       });
     const logEl = $('#log');
-    logEl.innerHTML = [...view.log]
-      .reverse()
-      .map(line => `<div>${colorizeLog(esc(line))}</div>`)
-      .join('');
+    logEl.innerHTML =
+      `<div class="eyebrow">Round ${roundWord(view.round)} — ${esc(shortName(view, view.dealer))} deals</div>` +
+      [...view.log]
+        .reverse()
+        .map(line => `<div class="entry">${colorizeLog(esc(line))}</div>`)
+        .join('');
     logEl.scrollTop = 0;
+
+    // First-time tips last: every anchor (fold button, flip box, cards) now
+    // has its final visibility and position for the tip's pointer.
+    if (!curtainUp && view.winner === null) this.maybeTips(view, curtainUp);
   }
 }
 

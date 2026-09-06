@@ -431,3 +431,21 @@ describe('house rules', () => {
     expect(Math.max(...partCounts(4))).toBe(3); // 7 split across all three
   });
 });
+
+describe('log events', () => {
+  it('formats every event exactly as the log used to read', async () => {
+    const { formatLog } = await import('./log.ts');
+    expect(formatLog({ t: 'deal', round: 2, dealer: 1 })).toBe('Round 2: Blue deals.');
+    expect(formatLog({ t: 'spawn', seat: 0 })).toBe('Red spawns a bunny.');
+    expect(formatLog({ t: 'stomp', by: 0, victim: 3 })).toBe("Red stomps Yellow's bunny!");
+    expect(formatLog({ t: 'fold', seat: 2 })).toBe('Green has no legal move and folds.');
+    expect(formatLog({ t: 'win', team: 1 })).toBe('Team Blue & Yellow wins!');
+    expect(formatLog('legacy string')).toBe('legacy string'); // old saves
+  });
+
+  it('the engine emits structured events that render through the view', () => {
+    const state = createGame(1);
+    const dealLine = state.log.find(e => typeof e !== 'string' && e.t === 'deal');
+    expect(dealLine).toBeTruthy();
+  });
+});

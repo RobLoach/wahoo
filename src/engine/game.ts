@@ -75,7 +75,7 @@ function drawCard(state: GameState): Card | null {
     state.drawPile = state.discard;
     state.discard = [];
     shuffle(state, state.drawPile);
-    state.log.push('Discard pile reshuffled into a new draw pile.');
+    state.log.push({ t: 'reshuffle' });
   }
   return state.drawPile.pop()!;
 }
@@ -91,7 +91,7 @@ function startRound(state: GameState): void {
     }
   }
   state.current = (state.dealer + 1) % 4;
-  state.log.push(`Round ${state.round}: ${PLAYER_NAMES[state.dealer]} deals.`);
+  state.log.push({ t: 'deal', round: state.round, dealer: state.dealer });
 }
 
 // ---------------------------------------------------------------------------
@@ -342,9 +342,7 @@ function stompAt(state: GameState, index: number, mover: Bunny): void {
     });
     state.stats.stomps[mover.player]++;
     victim.place = { kind: 'reserve' };
-    state.log.push(
-      `${PLAYER_NAMES[mover.player]} stomps ${PLAYER_NAMES[victim.player]}'s bunny!`,
-    );
+    state.log.push({ t: 'stomp', by: mover.player, victim: victim.player });
   }
 }
 
@@ -362,7 +360,6 @@ function moveBunnyTo(
 
 function applyAction(state: GameState, seat: number, action: CardAction): void {
   const ctrl = controlledPlayer(state, seat);
-  const name = PLAYER_NAMES[ctrl];
   switch (action.kind) {
     case 'spawn': {
       const bunny = reserveBunny(state, ctrl);
@@ -371,7 +368,7 @@ function applyAction(state: GameState, seat: number, action: CardAction): void {
         throw new Error('a teammate holds your spawn space');
       }
       moveBunnyTo(state, bunny.id, { kind: 'track', index: SPAWN_INDEX(ctrl) }, 'jump');
-      state.log.push(`${name} spawns a bunny.`);
+      state.log.push({ t: 'spawn', seat: ctrl });
       break;
     }
     case 'forward': {
@@ -380,7 +377,7 @@ function applyAction(state: GameState, seat: number, action: CardAction): void {
       const dest = forwardDest(state, bunny, action.steps);
       if (!dest) throw new Error('illegal forward move');
       moveBunnyTo(state, bunny.id, dest, 'forward');
-      if (dest.kind === 'burrow') state.log.push(`${name} tucks a bunny into the burrow!`);
+      if (dest.kind === 'burrow') state.log.push({ t: 'home', seat: ctrl });
       break;
     }
     case 'backward': {
@@ -424,7 +421,7 @@ function applyAction(state: GameState, seat: number, action: CardAction): void {
       state.effects.push({ bunny: b.id, from: b.place, to: tmp, kind: 'jump' });
       a.place = b.place;
       b.place = tmp;
-      state.log.push(`${name} swaps with ${PLAYER_NAMES[b.player]}.`);
+      state.log.push({ t: 'swap', seat: ctrl, other: b.player });
       break;
     }
     case 'kingSpawn': {
@@ -443,7 +440,7 @@ function applyAction(state: GameState, seat: number, action: CardAction): void {
       state.effects.push({ bunny: bunny.id, from: bunny.place, to: { kind: 'track', index }, kind: 'jump' });
       target.place = { kind: 'reserve' };
       bunny.place = { kind: 'track', index };
-      state.log.push(`${name} spawns with a King, stomping ${PLAYER_NAMES[target.player]}!`);
+      state.log.push({ t: 'king', seat: ctrl, victim: target.player });
       break;
     }
   }
@@ -505,9 +502,7 @@ function checkWinner(state: GameState): void {
   for (const team of [0, 1]) {
     if (allHome(state, team) && allHome(state, team + 2)) {
       state.winner = team;
-      state.log.push(
-        `Team ${PLAYER_NAMES[team]} & ${PLAYER_NAMES[team + 2]} wins!`,
-      );
+      state.log.push({ t: 'win', team });
     }
   }
 }
@@ -516,12 +511,12 @@ function checkWinner(state: GameState): void {
 function flipBonus(state: GameState, seat: number): void {
   const card = drawCard(state);
   if (!card) return;
-  state.log.push(`${PLAYER_NAMES[seat]} flips the ${card.rank}${card.suit}.`);
+  state.log.push({ t: 'flip', seat, rank: card.rank, suit: card.suit });
   if (actionsForCard(state, seat, card.rank).length > 0) {
     state.pendingFlip = card;
   } else {
     state.discard.push(card);
-    state.log.push('The flipped card has no legal move.');
+    state.log.push({ t: 'noflip' });
   }
 }
 
@@ -558,7 +553,7 @@ export function applyMove(state: GameState, move: Move): GameState {
     player.out = true;
     state.stats.folds[seat]++;
     state.lastPlay = { seat, fold: true };
-    state.log.push(`${PLAYER_NAMES[seat]} has no legal move and folds.`);
+    state.log.push({ t: 'fold', seat });
     advanceTurn(state);
     return state;
   }
@@ -587,7 +582,7 @@ export function applyMove(state: GameState, move: Move): GameState {
   player.hand.splice(idx, 1);
   state.discard.push(card);
   state.lastPlay = { seat, card: { ...card }, desc: describeAction(state, seat, move.action) };
-  state.log.push(`${PLAYER_NAMES[seat]} plays ${card.rank}${card.suit}.`);
+  state.log.push({ t: 'play', seat, rank: card.rank, suit: card.suit });
   applyAction(state, seat, move.action);
   checkWinner(state);
   if (state.winner === null && card.rank === '2') flipBonus(state, seat);

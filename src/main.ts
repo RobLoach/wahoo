@@ -1,19 +1,31 @@
+import '@fontsource/fredoka/500.css';
+import '@fontsource/fredoka/600.css';
+import '@fontsource/nunito-sans/400.css';
+import '@fontsource/nunito-sans/400-italic.css';
+import '@fontsource/nunito-sans/600.css';
+import '@fontsource/nunito-sans/700.css';
 import './style.css';
 import { $, esc } from './ui/dom.ts';
+import { buildSeatConfig, readSeatKinds, readSeatNames } from './ui/seat-config.ts';
+import {
+  describeRules, initHouseRules, readRules, renderModalHouseRules, savedRules,
+} from './ui/rules-controls.ts';
+import { installKeyboard } from './ui/keyboard.ts';
+import { confirmDialog, notice } from './ui/dialog.ts';
 import { App } from './ui/app.ts';
 import type { NetSession } from './ui/app.ts';
 import type { RoomInfo } from './net/protocol.ts';
-import { PLAYER_COLORS_CSS, TEAM_MARKS, trackPos, burrowPos, reservePos } from './ui/board.ts';
-import { emptySelection } from './ui/selection.ts';
+import { trackPos, burrowPos, reservePos } from './ui/board.ts';
 import { LocalSession, savedLocalGame } from './sessions/local.ts';
 import type { SeatKind } from './sessions/local.ts';
 import { OnlineSession } from './net/client.ts';
 import { HttpSession } from './net/http.ts';
 import type { OnlineHandlers } from './net/client.ts';
 import { P2PGuestSession, P2PHostSession, savedHostGame } from './net/p2p.ts';
-import type { Difficulty, HouseRules } from './engine/types.ts';
-import { DEFAULT_RULES } from './engine/types.ts';
+import type { Difficulty } from './engine/types.ts';
 import { EMOTES } from './net/protocol.ts';
+import { EMOTE_LABELS, emoteHtml } from './ui/emotes.ts';
+import { PLAYER_COLORS_CSS } from './ui/palette.ts';
 import { PLAYER_NAMES } from './engine/types.ts';
 import { isMuted, setMuted } from './sounds.ts';
 import { maybeStartTour } from './ui/tour.ts';
@@ -24,144 +36,25 @@ import { maybeStartTour } from './ui/tour.ts';
 
 const app = new App();
 
-function savedSeatNames(): string[] {
-  try {
-    const raw = JSON.parse(localStorage.getItem('wahoo-local-names') ?? '[]');
-    return [0, 1, 2, 3].map(i => (typeof raw[i] === 'string' ? raw[i] : PLAYER_NAMES[i]));
-  } catch {
-    return [...PLAYER_NAMES];
-  }
-}
-
-function buildSeatConfig() {
-  const wrap = $('#seat-config');
-  wrap.innerHTML = '';
-  const defaults: SeatKind[] = ['human', 'cpu-medium', 'cpu-medium', 'cpu-medium'];
-  const names = savedSeatNames();
-  const kinds: [SeatKind, string][] = [
-    ['human', 'Human'],
-    ['cpu-easy', 'CPU · Easy'],
-    ['cpu-medium', 'CPU · Medium'],
-    ['cpu-hard', 'CPU · Hard'],
-    ['cpu-insane', 'CPU · Insane'],
-  ];
-  const teams: [number, number[]][] = [[0, [0, 2]], [1, [1, 3]]];
-  for (const [team, members] of teams) {
-    const head = document.createElement('div');
-    head.className = 'team-head';
-    head.textContent = `Team ${team + 1} ${TEAM_MARKS[team]}`;
-    wrap.appendChild(head);
-    for (const i of members) {
-      const row = document.createElement('div');
-      row.className = 'seat-row';
-      row.innerHTML =
-        `<span class="seat-dot" style="background:${PLAYER_COLORS_CSS[i]}"></span>` +
-        `<span class="seat-label" data-label-seat="${i}">${PLAYER_NAMES[i]}</span>` +
-        `<input class="seat-name" data-name-seat="${i}" maxlength="12" value="${esc(names[i])}"` +
-        ` aria-label="${PLAYER_NAMES[i]} player name" />` +
-        `<select data-seat="${i}">` +
-        kinds
-          .map(([v, label]) => `<option value="${v}"${defaults[i] === v ? ' selected' : ''}>${label}</option>`)
-          .join('') +
-        `</select>`;
-      wrap.appendChild(row);
-      // Humans get a name field; CPU seats just show the colour label.
-      const sel = row.querySelector('select')!;
-      const sync = () => {
-        const human = sel.value === 'human';
-        (row.querySelector('.seat-name') as HTMLElement).hidden = !human;
-        (row.querySelector('.seat-label') as HTMLElement).hidden = human;
-      };
-      sel.addEventListener('change', sync);
-      row.querySelector('.seat-name')!.addEventListener('change', () => {
-        localStorage.setItem('wahoo-local-names', JSON.stringify(readSeatNames()));
-      });
-      sync();
-    }
-  }
-}
-
-function readSeatNames(): string[] {
-  const names = [...PLAYER_NAMES];
-  for (const el of document.querySelectorAll<HTMLInputElement>('#seat-config .seat-name')) {
-    const i = Number(el.dataset.nameSeat);
-    names[i] = el.value.trim() || PLAYER_NAMES[i];
-  }
-  return names;
-}
 buildSeatConfig();
 
-// ---- House rules controls (shared between the local menu and the lobby) ----
-
-function savedRules(): HouseRules {
-  try {
-    return { ...DEFAULT_RULES, ...JSON.parse(localStorage.getItem('wahoo-rules') ?? '{}') };
-  } catch {
-    return { ...DEFAULT_RULES };
+// House rules card: persist every change and, when hosting a lobby,
+// publish it so guests see the rules live.
+initHouseRules(rules => {
+  const session = pendingOnline ?? app.session;
+  if (app.roomInfo?.youAreHost && !app.roomInfo.started && session && 'setRules' in session) {
+    session.setRules(rules);
   }
-}
-
-function describeRules(r: HouseRules): string {
-  const seven = { 1: '7 moves one bunny', 2: '7 splits up to two bunnies', 4: '7 splits freely' }[
-    r.sevenMaxBunnies
-  ];
-  return [
-    r.friendlyFire ? 'teammate stomping allowed' : 'no teammate stomping',
-    seven,
-    r.burrowJump ? 'burrow jumping allowed' : 'no burrow jumping',
-  ].join(' · ');
-}
-
-function rulesControlsHtml(): string {
-  const r = savedRules();
-  return (
-    `<label><input type="checkbox" id="hr-ff" ${r.friendlyFire ? 'checked' : ''}/>` +
-    ` Stomping teammates allowed</label>` +
-    `<label>7-split: <select id="hr-seven">` +
-    `<option value="1" ${r.sevenMaxBunnies === 1 ? 'selected' : ''}>one bunny only</option>` +
-    `<option value="2" ${r.sevenMaxBunnies === 2 ? 'selected' : ''}>up to two bunnies</option>` +
-    `<option value="4" ${r.sevenMaxBunnies === 4 ? 'selected' : ''}>any split</option>` +
-    `</select></label>` +
-    `<label><input type="checkbox" id="hr-jump" ${r.burrowJump ? 'checked' : ''}/>` +
-    ` Jumping over occupied burrow slots</label>`
-  );
-}
-
-function readRules(): HouseRules {
-  const rules: HouseRules = {
-    friendlyFire: ($('#hr-ff') as HTMLInputElement).checked,
-    sevenMaxBunnies: Number(($('#hr-seven') as HTMLSelectElement).value) as 1 | 2 | 4,
-    burrowJump: ($('#hr-jump') as HTMLInputElement).checked,
-  };
-  localStorage.setItem('wahoo-rules', JSON.stringify(rules));
-  return rules;
-}
-
-$('#house-rules-body').innerHTML = rulesControlsHtml();
-$('#house-rules-body')
-  .querySelectorAll('input, select')
-  .forEach(el =>
-    el.addEventListener('change', () => {
-      const rules = readRules(); // persist immediately
-      // Hosting a lobby: publish the change so guests see the rules live.
-      const session = pendingOnline ?? app.session;
-      if (app.roomInfo?.youAreHost && !app.roomInfo.started && session && 'setRules' in session) {
-        session.setRules(rules);
-      }
-    }),
-  );
+});
 
 $('#start-local').onclick = async () => {
-  const seats: SeatKind[] = ['cpu-medium', 'cpu-medium', 'cpu-medium', 'cpu-medium'];
-  for (const sel of document.querySelectorAll<HTMLSelectElement>('#seat-config select')) {
-    seats[Number(sel.dataset.seat)] = sel.value as SeatKind;
-  }
+  const seats = readSeatKinds();
   app.startLocalMeta(seats.filter(s => s === 'human').length);
   await app.showGame();
   const session = new LocalSession(
     seats,
     view => app.onView(view),
-    (window as unknown as Record<string, number>).__wahooCpuDelay,
+    window.__wahooCpuDelay,
     undefined,
     readRules(),
     readSeatNames(),
@@ -212,26 +105,30 @@ function netHandlers(getSession: () => NetSession): OnlineHandlers {
         app.session = session;
         app.online = true;
         await app.showGame();
+        if (view.mySeat !== null) maybeStartTour();
       }
       app.onView(view);
     },
     onRoom: room => {
       setNetPending(null);
+      $('#join-note').hidden = true; // in the room now
       app.roomInfo = room;
       renderLobby(getSession(), room);
     },
     onEmote: (seat, emoji) => app.showEmote(seat, emoji),
     onError: msg => {
       setNetPending(null);
-      alert(msg);
+      void notice(msg);
     },
     onClose: () => {
-      if (lastGuestCode && confirm('Disconnected from the game. Try to rejoin?')) {
-        joinP2P(lastGuestCode);
-        return;
-      }
-      alert('Disconnected from the game.');
-      app.showMenu();
+      void (async () => {
+        if (lastGuestCode && (await confirmDialog('Disconnected from the game. Try to rejoin?', 'Rejoin', 'Menu'))) {
+          joinP2P(lastGuestCode);
+          return;
+        }
+        await notice('Disconnected from the game.');
+        app.showMenu();
+      })();
     },
   };
 }
@@ -299,7 +196,7 @@ $('#p2p-host').onclick = () => {
 };
 $('#p2p-join').onclick = () => {
   const code = ($('#p2p-code') as HTMLInputElement).value.trim().toUpperCase();
-  if (!code) return alert('Enter a room code.');
+  if (!code) return void notice('Enter a room code.');
   joinP2P(code);
 };
 
@@ -307,11 +204,11 @@ function refreshResumeButton() {
   const saved = savedHostGame();
   const btn = $('#p2p-resume') as HTMLButtonElement;
   btn.hidden = !saved;
-  if (saved) btn.textContent = `▶ Resume hosted game ${saved.code}`;
+  if (saved) btn.textContent = `Resume hosted game ${saved.code}`;
   const local = savedLocalGame();
   const localBtn = $('#local-resume') as HTMLButtonElement;
   localBtn.hidden = !local;
-  if (local) localBtn.textContent = `▶ Resume game (round ${local.state.round})`;
+  if (local) localBtn.textContent = `Resume · round ${local.state.round}`;
 }
 
 $('#local-resume').onclick = async () => {
@@ -322,7 +219,7 @@ $('#local-resume').onclick = async () => {
   const session = new LocalSession(
     saved.seats,
     view => app.onView(view),
-    (window as unknown as Record<string, number>).__wahooCpuDelay,
+    window.__wahooCpuDelay,
     saved.state,
     undefined,
     saved.names,
@@ -361,7 +258,7 @@ $('#p2p-resume').onclick = () => {
 $('#online-create').onclick = () => connectOnline(s => s.create(playerName(), clientToken()));
 $('#online-join').onclick = () => {
   const code = ($('#online-code') as HTMLInputElement).value.trim().toUpperCase();
-  if (!code) return alert('Enter a room code.');
+  if (!code) return void notice('Enter a room code.');
   connectOnline(s => s.join(code, playerName(), clientToken()));
 };
 
@@ -369,24 +266,60 @@ function renderLobby(session: NetSession, room: RoomInfo) {
   const lobby = $('#lobby');
   lobby.hidden = false;
   lobby.innerHTML =
-    `<p>Room code: <span class="code">${room.code}</span> — share it with friends.</p>`;
+    `<h3>${room.started ? 'Game in progress' : 'Room open'}</h3>` +
+    `<p class="panel-sub">${
+      room.started
+        ? 'Take a seat to play, or watch along.'
+        : 'Waiting for players. CPUs cover empty seats.'
+    }</p>` +
+    `<div class="code-box"><div class="eyebrow">Room code</div>` +
+    `<span class="code">${esc(room.code)}</span></div>`;
   if (room.yourSeat === null) {
     const note = document.createElement('p');
     note.className = 'hint';
-    note.textContent = "👀 You're spectating — take a seat to play.";
+    note.textContent = "You're spectating — take a seat to play.";
     lobby.appendChild(note);
   }
   if (room.youAreHost && !room.started) {
     const diffRow = document.createElement('label');
     diffRow.className = 'hint';
     diffRow.innerHTML =
-      'CPU difficulty for added seats <select id="lobby-diff">' +
+      '<span>CPU difficulty for added seats</span><select id="lobby-diff">' +
       '<option value="easy">Easy</option>' +
       '<option value="medium" selected>Medium</option>' +
       '<option value="hard">Hard</option>' +
       '<option value="insane">Insane</option></select>';
     lobby.appendChild(diffRow);
   }
+  const seats = document.createElement('div');
+  seats.className = 'seats';
+  room.seats.forEach((seat, i) => {
+    const row = document.createElement('div');
+    row.className = 'seat-row';
+    let controls = '';
+    let status = '';
+    if (seat === null) {
+      controls = `<button data-sit="${i}">Sit here</button>`;
+      if (room.youAreHost) controls += ` <button data-cpu="${i}">Add CPU</button>`;
+    } else if (seat.cpu) {
+      status = `<span class="seat-status">${esc(seat.difficulty ?? 'medium')}</span>`;
+      if (room.youAreHost) controls = `<button data-uncpu="${i}">Remove CPU</button>`;
+    } else {
+      status = `<span class="seat-status ready">${room.started ? 'Playing' : 'Ready'}</span>`;
+    }
+    const name = seat
+      ? seat.cpu
+        ? `<span class="seat-name-text open">CPU ${PLAYER_NAMES[i]}</span>`
+        : `<span class="seat-name-text">${esc(seat.name)}${
+            room.yourSeat === i ? '<span class="tag">you</span>' : ''
+          }</span>`
+      : `<span class="seat-name-text open">Open seat<span class="tag">${PLAYER_NAMES[i]}</span></span>`;
+    row.innerHTML =
+      `<span class="seat-bunny" aria-hidden="true">${emoteHtml('plain', PLAYER_COLORS_CSS[i])}</span>` +
+      `${name}${status}${controls}`;
+    seats.appendChild(row);
+  });
+  lobby.appendChild(seats);
   {
     const dedicated = session instanceof OnlineSession || session instanceof HttpSession;
     const serverParam =
@@ -394,21 +327,31 @@ function renderLobby(session: NetSession, room: RoomInfo) {
         ? `&server=${encodeURIComponent(activeDedicatedServer)}`
         : '';
     const url = `${location.origin}${location.pathname}?join=${room.code}${serverParam}`;
-    const invite = document.createElement('p');
-    invite.className = 'hint invite';
-    invite.textContent = 'Invite link: ';
+    const invite = document.createElement('div');
+    invite.className = 'invite';
     const codeEl = document.createElement('code');
     codeEl.textContent = url;
     invite.appendChild(codeEl);
+    lobby.appendChild(invite);
+    const actions = document.createElement('div');
+    actions.className = 'lobby-actions';
+    if (room.youAreHost) {
+      const start = document.createElement('button');
+      start.className = 'primary';
+      start.textContent = room.started ? 'Start again' : 'Start';
+      start.title = 'Empty seats become CPUs';
+      // Rules come from the shared House Rules card below the panels.
+      start.onclick = () => session.startGame(readRules());
+      actions.appendChild(start);
+    }
     const copy = document.createElement('button');
-    copy.textContent = 'Copy';
-    copy.style.marginLeft = '6px';
+    copy.textContent = 'Copy link';
     copy.onclick = () => {
       navigator.clipboard?.writeText(url);
       copy.textContent = 'Copied!';
     };
-    invite.appendChild(copy);
-    lobby.appendChild(invite);
+    actions.appendChild(copy);
+    lobby.appendChild(actions);
   }
   if (room.rules && !room.started) {
     const line = document.createElement('p');
@@ -416,46 +359,17 @@ function renderLobby(session: NetSession, room: RoomInfo) {
     line.textContent = `House rules: ${describeRules(room.rules)}`;
     lobby.appendChild(line);
   }
-  room.seats.forEach((seat, i) => {
-    const row = document.createElement('div');
-    row.className = 'seat-row';
-    let controls = '';
-    if (seat === null) {
-      controls = `<button data-sit="${i}">Sit here</button>`;
-      if (room.youAreHost) controls += ` <button data-cpu="${i}">Add CPU</button>`;
-    } else if (seat.cpu && room.youAreHost) {
-      controls = `<button data-uncpu="${i}">Remove CPU</button>`;
-    }
-    const seatLabel = seat
-      ? seat.cpu
-        ? `🤖 CPU (${esc(seat.difficulty ?? 'medium')})`
-        : esc(seat.name)
-      : '—';
-    row.innerHTML =
-      `<span class="seat-dot" style="background:${PLAYER_COLORS_CSS[i]}"></span>` +
-      `<span style="width:64px">${PLAYER_NAMES[i]}</span>` +
-      `<span style="flex:1">${seatLabel}${
-        room.yourSeat === i ? ' (you)' : ''
-      }</span>${controls}`;
-    lobby.appendChild(row);
-  });
   if (room.youAreHost) {
     if (!room.started) {
-      // A joining-mode guest can inherit hosting: give them the rules strip.
+      // A joining-mode guest can inherit hosting: give them the rules card.
       $('#house-rules').hidden = false;
-      // Publish the strip's rules so every lobby shows them (loop-safe: only
+      // Publish the card's rules so every lobby shows them (loop-safe: only
       // when the room doesn't already carry the same values).
       const current = readRules();
       if (JSON.stringify(room.rules ?? null) !== JSON.stringify(current) && 'setRules' in session) {
         session.setRules(current);
       }
     }
-    const start = document.createElement('button');
-    start.className = 'primary';
-    start.textContent = 'Start Game (empty seats become CPUs)';
-    // Rules come from the shared House Rules strip below the panels.
-    start.onclick = () => session.startGame(readRules());
-    lobby.appendChild(start);
   } else {
     const p = document.createElement('p');
     p.className = 'hint';
@@ -479,28 +393,14 @@ function renderLobby(session: NetSession, room: RoomInfo) {
 // ---- In-game buttons ----
 
 $('#btn-fold').onclick = () => app.submit({ type: 'discardHand' });
-$('#btn-cancel').onclick = () => {
-  const keepFlip = app.view?.pendingFlip && app.view.canAct;
-  app.sel = emptySelection();
-  if (keepFlip) app.sel.cardId = 'flip';
-  app.refresh();
-};
 $('#btn-menu').onclick = () => {
   pendingOnline?.leave();
   pendingOnline = null;
   app.showMenu();
 };
-window.addEventListener('keydown', e => {
-  if (e.key !== 'Escape') return;
-  if (!$('#rules-modal').hidden) {
-    $('#rules-modal').hidden = true;
-    return;
-  }
-  ($('#btn-cancel') as HTMLButtonElement).click();
-});
 
 function refreshMuteButton() {
-  $('#btn-mute').textContent = isMuted() ? '🔇 Muted' : '🔊 Sound';
+  $('#btn-mute').textContent = isMuted() ? 'Muted' : 'Sound';
 }
 refreshMuteButton();
 $('#btn-mute').onclick = () => {
@@ -510,18 +410,9 @@ $('#btn-mute').onclick = () => {
 
 $('#victory-menu').onclick = () => ($('#btn-menu') as HTMLButtonElement).click();
 
-/** The in-game modal shows the rules THIS game is using (guests see the host's). */
-function renderModalHouseRules() {
-  const r = app.view?.rules ?? savedRules();
-  const seven = { 1: 'one bunny only', 2: 'may split across two bunnies', 4: 'may split freely' };
-  $('#rules-modal-house').innerHTML =
-    `<li>Stomping teammates: <b>${r.friendlyFire ? 'allowed' : 'not allowed'}</b></li>` +
-    `<li>The 7: <b>${seven[r.sevenMaxBunnies]}</b></li>` +
-    `<li>Jumping over occupied burrow slots: <b>${r.burrowJump ? 'allowed' : 'not allowed'}</b></li>`;
-}
-
 $('#btn-rules').onclick = () => {
-  renderModalHouseRules();
+  // The modal shows the rules THIS game is using (guests see the host's).
+  renderModalHouseRules(app.view?.rules ?? savedRules());
   $('#rules-modal').hidden = false;
 };
 $('#rules-close').onclick = () => {
@@ -541,11 +432,16 @@ $('#btn-fullscreen').onclick = () => {
 
 // Emote bar: online-only reactions.
 {
-  const bar = $('#emote-bar');
+  const bar = $('#emote-bar .emotes');
   for (const emoji of EMOTES) {
     const btn = document.createElement('button');
-    btn.textContent = emoji;
+    btn.className = 'ghost';
+    btn.dataset.emote = emoji;
+    btn.innerHTML = emoteHtml(emoji);
+    btn.title = EMOTE_LABELS[emoji] ?? emoji;
+    btn.setAttribute('aria-label', `React: ${EMOTE_LABELS[emoji] ?? emoji}`);
     btn.onclick = () => {
+      if (app.myEmoteBusy()) return; // one reaction per player at a time
       const session = app.session;
       if (session && 'emote' in session) session.emote(emoji);
     };
@@ -584,42 +480,7 @@ $('#btn-again').onclick = () => {
   }
 }
 
-// Keyboard play: 1-4 pick a card, arrows cycle board targets, Enter moves,
-// Escape cancels, F folds.
-document.addEventListener('keydown', e => {
-  if (!$('#rules-modal').hidden) {
-    if (e.key === 'Escape') $('#rules-modal').hidden = true;
-    return;
-  }
-  if ($('#game').hidden) return;
-  const t = e.target;
-  if (
-    t instanceof HTMLInputElement ||
-    t instanceof HTMLTextAreaElement ||
-    t instanceof HTMLSelectElement
-  ) {
-    return;
-  }
-  if (e.key >= '1' && e.key <= '4') {
-    const cards = document.querySelectorAll<HTMLButtonElement>('#hand .card');
-    cards[Number(e.key) - 1]?.click();
-  } else if (e.key === 'Escape') {
-    const cancel = $('#btn-cancel') as HTMLButtonElement;
-    if (!cancel.hidden) cancel.click();
-  } else if (e.key.toLowerCase() === 'f') {
-    const fold = $('#btn-fold') as HTMLButtonElement;
-    if (!fold.hidden) fold.click();
-  } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-    app.board.cycleFocus(-1);
-    e.preventDefault();
-  } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-    app.board.cycleFocus(1);
-    e.preventDefault();
-  } else if (e.key === 'Enter' && app.board.hasFocus()) {
-    app.board.activateFocus();
-    e.preventDefault();
-  }
-});
+installKeyboard(app);
 
 // Offline/installable support (skipped during local development).
 if ('serviceWorker' in navigator && location.hostname !== 'localhost') {
@@ -629,7 +490,5 @@ if ('serviceWorker' in navigator && location.hostname !== 'localhost') {
 }
 
 // Exposed for end-to-end tests and console debugging.
-(window as unknown as Record<string, unknown>).__wahoo = {
-  app, trackPos, burrowPos, reservePos,
-};
+window.__wahoo = { app, trackPos, burrowPos, reservePos };
 

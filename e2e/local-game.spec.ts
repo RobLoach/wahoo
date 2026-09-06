@@ -14,6 +14,7 @@ test('menu renders and a local game starts cleanly', async ({ page }) => {
 });
 
 test('the game progresses through CPU turns', async ({ page }) => {
+  test.setTimeout(120_000); // 12 real turns of animated play take a while
   const errors = trackErrors(page);
   await startLocal(page);
   // Play up to 12 human decisions programmatically; CPUs respond on their own.
@@ -105,7 +106,7 @@ test('fold appears when no card is playable', async ({ page }) => {
   await page.click('#btn-fold');
   await expect(page.locator('#log')).toContainText('Red has no legal move and folds');
   // The fold is announced like a played card.
-  await expect(page.locator('#last-play')).toContainText('folded');
+  await expect(page.locator('#move-callout')).toContainText('folded');
 });
 
 test('king stomp-spawns onto an opponent via board clicks', async ({ page }) => {

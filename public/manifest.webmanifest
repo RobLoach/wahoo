@@ -1,16 +1,37 @@
 {
+  "id": "./",
   "name": "Wahoo",
   "short_name": "Wahoo",
   "description": "A 4-player team race board game. Stomp your rivals, tuck your bunnies safely into the burrow.",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["games", "entertainment"],
   "start_url": ".",
   "scope": ".",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#d6e4f0",
-  "theme_color": "#d6e4f0",
+  "launch_handler": { "client_mode": "navigate-existing" },
+  "background_color": "#2c5045",
+  "theme_color": "#2c5045",
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "screenshots": [
+    {
+      "src": "social.png",
+      "sizes": "1280x640",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "A Wahoo game on the green felt table"
+    },
+    {
+      "src": "screenshot-mobile.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Wahoo on a phone: board, hand and log"
+    }
   ]
 }

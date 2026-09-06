@@ -10,9 +10,14 @@ export function trackErrors(page: Page): string[] {
 
 /** Start a local game. Seats default to 1 human + 3 CPUs. */
 export async function startLocal(page: Page, seats?: string[], dismissCurtain = true) {
+  // Headless browsers render the board in software: keep the canvas at 1x.
+  await page.addInitScript(() => ((window as any).__wahooResolution = 1));
   await page.goto('./');
   // The first-game tour is covered by its own test; keep the others clean.
-  await page.evaluate(() => localStorage.setItem('wahoo-tour-done', '1'));
+  await page.evaluate(() => {
+    localStorage.setItem('wahoo-tour-done', '1');
+    localStorage.setItem('wahoo-tips-seen', '["*"]');
+  });
   if (seats) {
     await page.evaluate(kinds => {
       document

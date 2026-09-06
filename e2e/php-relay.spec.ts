@@ -22,7 +22,8 @@ test.describe('PHP relay server', () => {
     php = spawn('php', ['-S', `127.0.0.1:${PHP_PORT}`, 'index.php'], {
       cwd: 'server/wahoo-php',
       stdio: 'ignore',
-      env: { ...process.env, WAHOO_DB: db },
+      // Long polls hold a worker each: the built-in server needs several.
+      env: { ...process.env, WAHOO_DB: db, PHP_CLI_SERVER_WORKERS: '6' },
     });
     // Wait for the server to accept requests.
     for (let i = 0; i < 40; i++) {
@@ -41,6 +42,7 @@ test.describe('PHP relay server', () => {
   });
 
   test('rooms work end to end over HTTP polling', async ({ page }) => {
+    await page.addInitScript(() => ((window as any).__wahooResolution = 1));
     await page.goto('./');
     await page.fill('#online-name', 'Tester');
     await page.click('#tab-server');
@@ -83,10 +85,11 @@ test.describe('PHP relay server', () => {
       })
     ).json();
 
+    await page.addInitScript(() => ((window as any).__wahooResolution = 1));
     // Open the deep link: it should join that dedicated server, not P2P.
     await page.goto(`./?join=${created.code}&server=http://127.0.0.1:${PHP_PORT}`);
     await page.waitForFunction(
-      () => document.querySelector('#lobby')?.textContent?.includes('(you)'),
+      () => document.querySelector('#lobby .tag')?.textContent === 'you',
       undefined,
       { timeout: 15_000 },
     );
