@@ -214,7 +214,7 @@ export class BoardView {
       width: SIZE,
       height: SIZE,
       // Transparent: the rounded paper sheet drawn below is the real edge,
-      // so the wooden frame shows through the corners.
+      // so the felt shows through the corners.
       backgroundAlpha: 0,
       antialias: true,
       // A board game never needs the discrete GPU: prefer the efficient one.
