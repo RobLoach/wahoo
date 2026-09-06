@@ -68,3 +68,29 @@ export function sevenCandidates(actions: CardAction[], chosen: SevenPart[]) {
   );
 }
 
+/**
+ * Candidate parts a bunny could take *right now*: some splits only work in
+ * one order (a burrow bunny shuffling deeper to free the slot behind it), so
+ * a part whose destination is blocked until another part moves first isn't
+ * offered yet — the player is steered to the bunny that must move first.
+ */
+export function playableSevenParts(
+  view: View,
+  actions: CardAction[],
+  chosen: SevenPart[],
+): SevenPart[] {
+  const chosenIds = chosen.map(p => p.bunny);
+  const sim = simBunnies(view.bunnies, chosen, view.rules);
+  const field = { bunnies: sim, rules: view.rules };
+  const out: SevenPart[] = [];
+  for (const c of sevenCandidates(actions, chosen)) {
+    for (const p of c.parts) {
+      if (chosenIds.includes(p.bunny)) continue;
+      if (out.some(o => o.bunny === p.bunny && o.steps === p.steps)) continue;
+      const bunny = sim.find(b => b.id === p.bunny);
+      if (bunny && forwardDest(field, bunny, p.steps)) out.push(p);
+    }
+  }
+  return out;
+}
+

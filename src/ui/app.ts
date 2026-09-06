@@ -11,7 +11,8 @@ import {
 import { Callouts, boardPoint } from './callouts.ts';
 import { VictoryView } from './victory.ts';
 import {
-  ctrlPlayer, emptySelection, selectedActions, sevenCandidates, simBunnies, wrapAction,
+  ctrlPlayer, emptySelection, playableSevenParts, selectedActions, sevenCandidates, simBunnies,
+  wrapAction,
 } from './selection.ts';
 import type { Selection } from './selection.ts';
 import { LocalSession } from '../sessions/local.ts';
@@ -227,10 +228,8 @@ export class App {
         return true;
       }
     }
-    const chosenIds = this.sel.sevenParts.map(p => p.bunny);
-    if (chosenIds.includes(bunny.id)) return false;
-    return sevenCandidates(actions, this.sel.sevenParts).some(a =>
-      a.parts.some(p => p.bunny === bunny.id),
+    return playableSevenParts(this.view!, actions, this.sel.sevenParts).some(
+      p => p.bunny === bunny.id,
     );
   }
 
@@ -317,9 +316,8 @@ export class App {
         if (a.kind === 'forward' || a.kind === 'backward' || a.kind === 'swap') hi.bunnies.add(a.bunny);
         if (a.kind === 'kingSpawn') hi.bunnies.add(a.target);
       }
-      const chosenIds = this.sel.sevenParts.map(p => p.bunny);
-      for (const c of sevenCandidates(actions, this.sel.sevenParts)) {
-        for (const p of c.parts) if (!chosenIds.includes(p.bunny)) hi.bunnies.add(p.bunny);
+      for (const p of playableSevenParts(view, actions, this.sel.sevenParts)) {
+        hi.bunnies.add(p.bunny);
       }
       if (this.sel.sevenParts.length) {
         const used = this.sel.sevenParts.reduce((s, p) => s + p.steps, 0);
