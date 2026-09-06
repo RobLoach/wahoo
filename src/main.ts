@@ -293,7 +293,18 @@ function renderLobby(session: NetSession, room: RoomInfo) {
   }
   const seats = document.createElement('div');
   seats.className = 'seats';
-  room.seats.forEach((seat, i) => {
+  // Same team grouping as the Local Game panel: partners together.
+  const teams: [string, number[]][] = [
+    ['Team 1', [0, 2]],
+    ['Team 2', [1, 3]],
+  ];
+  for (const [label, members] of teams) {
+    const head = document.createElement('div');
+    head.className = 'team-head eyebrow';
+    head.textContent = label;
+    seats.appendChild(head);
+    for (const i of members) {
+      const seat = room.seats[i];
     const row = document.createElement('div');
     row.className = 'seat-row';
     let controls = '';
@@ -318,7 +329,8 @@ function renderLobby(session: NetSession, room: RoomInfo) {
       `<span class="seat-bunny" aria-hidden="true">${emoteHtml('plain', PLAYER_COLORS_CSS[i])}</span>` +
       `${name}${status}${controls}`;
     seats.appendChild(row);
-  });
+    }
+  }
   lobby.appendChild(seats);
   {
     const dedicated = session instanceof OnlineSession || session instanceof HttpSession;

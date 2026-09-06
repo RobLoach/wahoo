@@ -89,7 +89,8 @@ test.describe('PHP relay server', () => {
     // Open the deep link: it should join that dedicated server, not P2P.
     await page.goto(`./?join=${created.code}&server=http://127.0.0.1:${PHP_PORT}`);
     await page.waitForFunction(
-      () => document.querySelector('#lobby .tag')?.textContent === 'you',
+      () =>
+        [...document.querySelectorAll('#lobby .tag')].some(t => t.textContent === 'you'),
       undefined,
       { timeout: 15_000 },
     );
