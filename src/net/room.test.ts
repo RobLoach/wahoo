@@ -59,13 +59,13 @@ describe('lobby', () => {
 });
 
 describe('game flow', () => {
-  it('start fills empty seats with medium CPUs and deals a game', () => {
+  it('start fills empty seats with hard CPUs and deals a game', () => {
     const { room, last } = makeRoom();
     room.addClient('a', 'Alice');
     room.handle('a', { t: 'start' });
     expect(room.game).not.toBeNull();
     for (let i = 1; i < 4; i++) {
-      expect(room.seats[i]).toMatchObject({ cpu: true, difficulty: 'medium' });
+      expect(room.seats[i]).toMatchObject({ cpu: true, difficulty: 'hard' });
     }
     const view = last('a', 'state').view;
     expect(view.handCounts).toEqual([4, 4, 4, 4]);

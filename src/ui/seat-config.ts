@@ -19,7 +19,7 @@ export function savedSeatNames(): string[] {
 export function buildSeatConfig() {
   const wrap = $('#seat-config');
   wrap.innerHTML = '';
-  const defaults: SeatKind[] = ['human', 'cpu-medium', 'cpu-medium', 'cpu-medium'];
+  const defaults: SeatKind[] = ['human', 'cpu-hard', 'cpu-hard', 'cpu-hard'];
   const names = savedSeatNames();
   const kinds: [SeatKind, string][] = [
     ['human', 'Human'],
@@ -91,7 +91,7 @@ export function readSeatNames(): string[] {
 
 /** The chosen kind per seat, indexed by seat (rows are grouped by team). */
 export function readSeatKinds(): SeatKind[] {
-  const seats: SeatKind[] = ['cpu-medium', 'cpu-medium', 'cpu-medium', 'cpu-medium'];
+  const seats: SeatKind[] = ['cpu-hard', 'cpu-hard', 'cpu-hard', 'cpu-hard'];
   for (const sel of document.querySelectorAll<HTMLSelectElement>('#seat-config select')) {
     seats[Number(sel.dataset.seat)] = sel.value as SeatKind;
   }

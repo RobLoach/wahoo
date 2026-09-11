@@ -288,8 +288,8 @@ function renderLobby(session: NetSession, room: RoomInfo) {
     diffRow.innerHTML =
       '<span>CPU difficulty for added seats</span><select id="lobby-diff">' +
       '<option value="easy">Easy</option>' +
-      '<option value="medium" selected>Medium</option>' +
-      '<option value="hard">Hard</option>' +
+      '<option value="medium">Medium</option>' +
+      '<option value="hard" selected>Hard</option>' +
       '<option value="insane">Insane</option></select>';
     lobby.appendChild(diffRow);
   }
@@ -315,7 +315,7 @@ function renderLobby(session: NetSession, room: RoomInfo) {
       controls = `<button data-sit="${i}">Sit here</button>`;
       if (room.youAreHost) controls += ` <button data-cpu="${i}">Add CPU</button>`;
     } else if (seat.cpu) {
-      status = `<span class="seat-status">${esc(seat.difficulty ?? 'medium')}</span>`;
+      status = `<span class="seat-status">${esc(seat.difficulty ?? 'hard')}</span>`;
       if (room.youAreHost) controls = `<button data-uncpu="${i}">Remove CPU</button>`;
     } else {
       status = `<span class="seat-status ready">${room.started ? 'Playing' : 'Ready'}</span>`;
@@ -396,7 +396,7 @@ function renderLobby(session: NetSession, room: RoomInfo) {
   lobby.querySelectorAll<HTMLButtonElement>('[data-cpu]').forEach(b => {
     b.onclick = () => {
       const diff = (document.querySelector('#lobby-diff') as HTMLSelectElement | null)?.value;
-      session.cpu(Number(b.dataset.cpu), true, (diff ?? 'medium') as Difficulty);
+      session.cpu(Number(b.dataset.cpu), true, (diff ?? 'hard') as Difficulty);
     };
   });
   lobby.querySelectorAll<HTMLButtonElement>('[data-uncpu]').forEach(b => {

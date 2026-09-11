@@ -211,7 +211,7 @@ function seatOf(array $room, string $clientId): ?int
 }
 
 /** A CPU seat entry. */
-function cpuSeat(string $name, string $difficulty = 'medium', ?string $token = null): array
+function cpuSeat(string $name, string $difficulty = 'hard', ?string $token = null): array
 {
     return ['name' => $name, 'cpu' => true, 'difficulty' => $difficulty, 'clientId' => null, 'token' => $token];
 }
@@ -397,7 +397,7 @@ function reapStaleClients(PDO $pdo, array &$room): bool
             continue;
         }
         if ($room['game'] !== null && $room['game']['winner'] === null) {
-            $room['seats'][$i] = cpuSeat($seat['name'], 'medium', $seat['token'] ?? null);
+            $room['seats'][$i] = cpuSeat($seat['name'], 'hard', $seat['token'] ?? null);
         } else {
             $room['seats'][$i] = null;
         }
@@ -766,7 +766,7 @@ $app->post('/api/rooms/{code}/cpu', function (Request $request, Response $respon
     $target = (int) ($body['seat'] ?? -1);
     $on = (bool) ($body['on'] ?? false);
     $difficulty = in_array($body['difficulty'] ?? null, ['easy', 'medium', 'hard', 'insane'], true)
-        ? $body['difficulty'] : 'medium';
+        ? $body['difficulty'] : 'hard';
     $pdo->beginTransaction();
     $room = loadRoom($pdo, $args['code']);
     if ($room === null) {
@@ -908,7 +908,7 @@ $app->post('/api/rooms/{code}/leave', function (Request $request, Response $resp
     if ($seat !== null) {
         $entry = $room['seats'][$seat];
         if ($room['game'] !== null && $room['game']['winner'] === null) {
-            $room['seats'][$seat] = cpuSeat($entry['name'], 'medium', $entry['token'] ?? null);
+            $room['seats'][$seat] = cpuSeat($entry['name'], 'hard', $entry['token'] ?? null);
         } else {
             $room['seats'][$seat] = null;
         }

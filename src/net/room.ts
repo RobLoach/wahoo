@@ -127,7 +127,7 @@ export class GameRoom {
           this.seats[target] = {
             name: PLAYER_NAMES[target],
             cpu: true,
-            difficulty: msg.difficulty ?? 'medium',
+            difficulty: msg.difficulty ?? 'hard',
             clientId: null,
             token: null,
           };
@@ -142,7 +142,7 @@ export class GameRoom {
         for (let i = 0; i < 4; i++) {
           if (!this.seats[i]) {
             this.seats[i] = {
-              name: PLAYER_NAMES[i], cpu: true, difficulty: 'medium', clientId: null, token: null,
+              name: PLAYER_NAMES[i], cpu: true, difficulty: 'hard', clientId: null, token: null,
             };
           }
         }
@@ -220,7 +220,7 @@ export class GameRoom {
         // player can reconnect and reclaim the seat.
         const old = this.seats[seat]!;
         this.seats[seat] = {
-          name: old.name, cpu: true, difficulty: 'medium', clientId: null, token: old.token,
+          name: old.name, cpu: true, difficulty: 'hard', clientId: null, token: old.token,
         };
         this.scheduleCpu();
       } else {
@@ -267,7 +267,7 @@ export class GameRoom {
         ? {
             name: s.name,
             cpu: true,
-            difficulty: s.difficulty ?? 'medium',
+            difficulty: s.difficulty ?? 'hard',
             clientId: null,
             token: s.token ?? null,
           }
@@ -326,7 +326,7 @@ export class GameRoom {
       if (!this.game || this.game.winner !== null) return;
       const acting = this.seats[this.game.current];
       try {
-        applyMove(this.game, chooseMove(this.game, acting?.difficulty ?? 'medium'));
+        applyMove(this.game, chooseMove(this.game, acting?.difficulty ?? 'hard'));
       } catch (err) {
         console.error('CPU move failed:', err);
         return;

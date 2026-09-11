@@ -222,7 +222,7 @@ export class HttpSession {
     if (d.ageMs < cpuDelayMs()) return;
     const sim = cloneState(game);
     try {
-      applyMove(sim, chooseMove(sim, (seat?.difficulty as Difficulty) ?? 'medium'));
+      applyMove(sim, chooseMove(sim, (seat?.difficulty as Difficulty) ?? 'hard'));
     } catch {
       return;
     }
