@@ -11,6 +11,7 @@ import {
   describeRules, initHouseRules, readRules, renderModalHouseRules, savedRules,
 } from './ui/rules-controls.ts';
 import { installKeyboard } from './ui/keyboard.ts';
+import { renderRecord } from './ui/stats.ts';
 import { confirmDialog, notice } from './ui/dialog.ts';
 import { App } from './ui/app.ts';
 import type { NetSession } from './ui/app.ts';
@@ -37,6 +38,7 @@ import { maybeStartTour } from './ui/tour.ts';
 const app = new App();
 
 buildSeatConfig();
+renderRecord();
 
 // House rules card: persist every change and, when hosting a lobby,
 // publish it so guests see the rules live.

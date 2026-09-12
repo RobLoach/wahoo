@@ -5,6 +5,7 @@ import { $, esc } from './dom.ts';
 import { PLAYER_COLORS_CSS } from './palette.ts';
 import type { View } from '../net/protocol.ts';
 import { inked, shortName } from './cards.ts';
+import { recordGame } from './stats.ts';
 
 export class VictoryView {
   private shown = false;
@@ -29,6 +30,11 @@ export class VictoryView {
     if (!this.counted) {
       this.counted = true;
       this.series[view.winner]++;
+      recordGame(
+        view.winner as 0 | 1,
+        view.stats.stomps.reduce((a, b) => a + b, 0),
+        view.round,
+      );
     }
     $('#btn-again').hidden = online && !isHost;
     const seats = view.winner === 0 ? [0, 2] : [1, 3];

@@ -10,6 +10,7 @@ import {
 } from './cards.ts';
 import { Callouts, boardPoint } from './callouts.ts';
 import { VictoryView } from './victory.ts';
+import { renderRecord } from './stats.ts';
 import {
   ctrlPlayer, emptySelection, playableSevenParts, selectedActions, sevenCandidates, simBunnies,
   wrapAction,
@@ -129,6 +130,7 @@ export class App {
     $('#menu').hidden = false;
     $('#lobby').hidden = true;
     this.roomInfo = null;
+    renderRecord();
     this.onMenuShown?.();
   }
 
