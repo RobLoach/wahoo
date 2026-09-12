@@ -135,6 +135,8 @@ export interface Highlights {
   selected: number | null;
   /** Bunnies that moved in the last play (shown with a soft blue ring). */
   recent: Set<number>;
+  /** Bunnies that would be stomped by a highlighted destination. */
+  danger: Set<number>;
   track: Map<number, string>; // index -> optional label (e.g. step count)
   burrows: Map<string, string>; // `${player}:${slot}` -> optional label
   reserves: Set<number>; // player
@@ -144,6 +146,7 @@ export const emptyHighlights = (): Highlights => ({
   bunnies: new Set(),
   selected: null,
   recent: new Set(),
+  danger: new Set(),
   track: new Map(),
   burrows: new Map(),
   reserves: new Set(),
@@ -823,6 +826,11 @@ export class BoardView {
         const { x, y } = this.targetFor(bunny, order);
         ring(x, y, PIECE_R + 7, CREAM, 4);
         ring(x, y, PIECE_R + 9, INK, 1.5, 0, 0.6);
+      } else if (hi.danger.has(bunny.id)) {
+        // This bunny gets stomped if a highlighted destination is chosen.
+        const { x, y } = this.targetFor(bunny, order);
+        ring(x, y, PIECE_R + 5, RED_INK, 4, 0.3);
+        ring(x, y, PIECE_R + 9, RED_INK, 1.5, 0, 0.7);
       } else if (hi.bunnies.has(bunny.id)) {
         const { x, y } = this.targetFor(bunny, order);
         ring(x, y, PIECE_R + 5, RED_INK, 3, 0.12);

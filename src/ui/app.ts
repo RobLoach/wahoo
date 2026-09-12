@@ -22,7 +22,7 @@ import type { P2PGuestSession, P2PHostSession } from '../net/p2p.ts';
 import type { RoomInfo, View } from '../net/protocol.ts';
 import { backwardDest, forwardDest } from '../engine/game.ts';
 import type { Bunny, CardAction, Move, MoveEffect } from '../engine/types.ts';
-import { PLAYER_NAMES } from '../engine/types.ts';
+import { PLAYER_NAMES, SPAWN_INDEX } from '../engine/types.ts';
 import { playEmoteSound, playMoveSound, playTurnChime } from '../sounds.ts';
 import { TIPS, dismissTip, showTip, tipSeen } from './tips.ts';
 import { emoteHtml } from './emotes.ts';
@@ -312,9 +312,19 @@ export class App {
 
     if (this.sel.bunny === null) {
       for (const a of actions) {
-        if (a.kind === 'spawn') hi.reserves.add(ctrlPlayer(view));
+        if (a.kind === 'spawn') {
+          hi.reserves.add(ctrlPlayer(view));
+          // Spawning stomps whoever is parked on the corner space.
+          const victim = view.bunnies.find(
+            b => b.place.kind === 'track' && b.place.index === SPAWN_INDEX(ctrlPlayer(view)),
+          );
+          if (victim) hi.danger.add(victim.id);
+        }
         if (a.kind === 'forward' || a.kind === 'backward' || a.kind === 'swap') hi.bunnies.add(a.bunny);
-        if (a.kind === 'kingSpawn') hi.bunnies.add(a.target);
+        if (a.kind === 'kingSpawn') {
+          hi.bunnies.add(a.target);
+          hi.danger.add(a.target); // a stomp-spawn sends the target home
+        }
       }
       for (const p of playableSevenParts(view, actions, this.sel.sevenParts)) {
         hi.bunnies.add(p.bunny);
@@ -337,7 +347,14 @@ export class App {
       const bunny = sim.find(b => b.id === bunnyId)!;
       const mark = (place: Bunny['place'] | null, player: number, label = '') => {
         if (!place) return;
-        if (place.kind === 'track') hi.track.set(place.index, label);
+        if (place.kind === 'track') {
+          hi.track.set(place.index, label);
+          // Preview the stomp: whoever sits on this landing space goes home.
+          const victim = sim.find(
+            b => b.id !== bunnyId && b.place.kind === 'track' && b.place.index === place.index,
+          );
+          if (victim) hi.danger.add(victim.id);
+        }
         if (place.kind === 'burrow') hi.burrows.set(`${player}:${place.slot}`, label);
       };
       for (const a of actions) {
