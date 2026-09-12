@@ -3,8 +3,29 @@
 // new deploy is picked up on the next online visit.
 const CACHE = 'wahoo-v5'; // bumped for the tabletop redesign: purge old-theme assets
 
-self.addEventListener('install', () => {
+self.addEventListener('install', event => {
+  // Precache the app shell so even a first visit survives going offline.
+  event.waitUntil(
+    caches.open(CACHE).then(c => c.add(self.registration.scope)).catch(() => {}),
+  );
   self.skipWaiting();
+});
+
+// The page reports the assets it already loaded (they were fetched before
+// this worker took control, so the fetch handler never saw them).
+self.addEventListener('message', event => {
+  const msg = event.data;
+  if (!msg || msg.t !== 'precache' || !Array.isArray(msg.urls)) return;
+  const urls = msg.urls
+    .filter(u => typeof u === 'string' && u.startsWith(self.location.origin))
+    .slice(0, 200);
+  event.waitUntil(
+    caches.open(CACHE).then(c =>
+      Promise.all(
+        urls.map(u => c.match(u, { ignoreVary: true }).then(hit => (hit ? null : c.add(u).catch(() => {})))),
+      ),
+    ),
+  );
 });
 
 self.addEventListener('activate', event => {
@@ -31,14 +52,14 @@ self.addEventListener('fetch', event => {
           return res;
         })
         .catch(() =>
-          caches.match(req).then(hit => hit || caches.match(self.registration.scope)),
+          caches.match(req, { ignoreVary: true }).then(hit => hit || caches.match(self.registration.scope, { ignoreVary: true })),
         ),
     );
     return;
   }
 
   event.respondWith(
-    caches.match(req).then(
+    caches.match(req, { ignoreVary: true }).then(
       hit =>
         hit ||
         fetch(req).then(res => {

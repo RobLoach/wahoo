@@ -1,7 +1,26 @@
 import { defineConfig } from 'vitest/config';
+import type { Plugin } from 'vite';
+
+/**
+ * Emit the complete list of built files so the service worker can precache
+ * everything — including lazy chunks (Pixi's renderers) that a menu-only
+ * first visit would never fetch, breaking the first offline game.
+ */
+const assetList = (): Plugin => ({
+  name: 'wahoo-asset-list',
+  apply: 'build',
+  generateBundle(_options, bundle) {
+    this.emitFile({
+      type: 'asset',
+      fileName: 'asset-list.json',
+      source: JSON.stringify(Object.keys(bundle).sort()),
+    });
+  },
+});
 
 export default defineConfig({
   base: '/wahoo/',
+  plugins: [assetList()],
   build: {
     target: 'es2022',
   },

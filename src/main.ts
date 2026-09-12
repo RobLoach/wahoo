@@ -502,6 +502,27 @@ installKeyboard(app);
 if ('serviceWorker' in navigator && location.hostname !== 'localhost') {
   navigator.serviceWorker
     .register(`${import.meta.env.BASE_URL}sw.js`)
+    .then(reg => {
+      // First visit: everything on this page loaded before the worker took
+      // control, so hand it the list to cache — offline works right away.
+      const worker = reg.active ?? reg.waiting ?? reg.installing;
+      const report = async () => {
+        // Everything the build produced (lazy chunks included), plus whatever
+        // else this page pulled in (manifest, icons).
+        const built: string[] = await fetch(`${import.meta.env.BASE_URL}asset-list.json`)
+          .then(r => (r.ok ? r.json() : []))
+          .catch(() => []);
+        const urls = [
+          ...built.map(f => new URL(import.meta.env.BASE_URL + f, location.origin).href),
+          ...performance.getEntriesByType('resource').map(e => e.name),
+        ].filter(u => u.startsWith(location.origin));
+        worker?.postMessage({ t: 'precache', urls });
+      };
+      if (worker?.state === 'activated') report();
+      else worker?.addEventListener('statechange', () => {
+        if (worker.state === 'activated') report();
+      });
+    })
     .catch(() => { /* offline support is best-effort */ });
 }
 
