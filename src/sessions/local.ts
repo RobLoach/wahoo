@@ -38,6 +38,8 @@ export function clearLocalGame(): void {
 
 /** A relaxed pause between CPU turns so everyone sees what was played. */
 const DEFAULT_CPU_DELAY_MS = 4000;
+/** The "snappy CPU turns" house rule: just enough pause to follow the move. */
+const SNAPPY_CPU_DELAY_MS = 1200;
 
 /** Runs a full game on this device: any mix of hot-seat humans and CPUs. */
 export class LocalSession {
@@ -53,10 +55,11 @@ export class LocalSession {
     rules?: Partial<HouseRules>,
     private customNames?: string[],
   ) {
-    this.cpuDelay = cpuDelay ?? DEFAULT_CPU_DELAY_MS;
     this.state = resume
       ? structuredClone(resume)
       : createGame(Math.floor(Math.random() * 2 ** 31), rules);
+    this.cpuDelay = cpuDelay
+      ?? (this.state.rules.cpuSnappy ? SNAPPY_CPU_DELAY_MS : DEFAULT_CPU_DELAY_MS);
   }
 
   start() {

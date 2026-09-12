@@ -257,6 +257,7 @@ describe('house rules and emotes', () => {
         sevenMaxBunnies: 4,
         burrowJump: false,
         finger: true,
+        cpuSnappy: false,
       });
     }
     // Non-hosts can't publish; started games are locked.
@@ -281,6 +282,7 @@ describe('house rules and emotes', () => {
       sevenMaxBunnies: 4,
       burrowJump: true,
       finger: true,
+      cpuSnappy: false,
     });
     room.game!.winner = 0;
     room.handle('a', { t: 'again' });
@@ -297,6 +299,7 @@ describe('house rules and emotes', () => {
       sevenMaxBunnies: 2,
       burrowJump: false,
       finger: true,
+      cpuSnappy: false,
     });
     room.dispose();
   });

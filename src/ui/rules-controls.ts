@@ -27,6 +27,7 @@ export function ruleLines(r: HouseRules): [string, string][] {
     ['The 7', SEVEN_TEXT[r.sevenMaxBunnies]],
     ['Jumping over occupied burrow slots', r.burrowJump ? 'allowed' : 'not allowed'],
     ['The finger reaction', r.finger !== false ? 'allowed' : 'banned at this table'],
+    ['CPU turns', r.cpuSnappy ? 'snappy' : 'relaxed'],
   ];
 }
 
@@ -39,6 +40,7 @@ export function describeRules(r: HouseRules): string {
     ],
     r.burrowJump ? 'burrow jumping allowed' : 'no burrow jumping',
     r.finger === false ? 'no finger reaction' : null,
+    r.cpuSnappy ? 'snappy CPU turns' : null,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -64,7 +66,9 @@ function rulesControlsHtml(): string {
     `<label class="rule-row"><input type="checkbox" id="hr-jump" ${r.burrowJump ? 'checked' : ''}/>` +
     `<span>Bunnies may jump over occupied burrow slots</span></label>` +
     `<label class="rule-row"><input type="checkbox" id="hr-finger" ${r.finger !== false ? 'checked' : ''}/>` +
-    `<span>Allow the finger reaction</span></label>`
+    `<span>Allow the finger reaction</span></label>` +
+    `<label class="rule-row"><input type="checkbox" id="hr-snappy" ${r.cpuSnappy ? 'checked' : ''}/>` +
+    `<span>Snappy CPU turns (shorter thinking pause)</span></label>`
   );
 }
 
@@ -75,6 +79,7 @@ export function readRules(): HouseRules {
     sevenMaxBunnies: Number(($('#hr-seven') as HTMLSelectElement).value) as 1 | 2 | 4,
     burrowJump: ($('#hr-jump') as HTMLInputElement).checked,
     finger: ($('#hr-finger') as HTMLInputElement).checked,
+    cpuSnappy: ($('#hr-snappy') as HTMLInputElement).checked,
   };
   localStorage.setItem('wahoo-rules', JSON.stringify(rules));
   return rules;

@@ -12,8 +12,10 @@ import type { OnlineHandlers } from './client.ts';
 
 const POLL_MS = 1200;
 const CPU_DELAY_MS = 4000;
+const SNAPPY_CPU_DELAY_MS = 1200;
 /** Test override, mirroring the local/WS sessions. */
-const cpuDelayMs = () => window.__wahooCpuDelay ?? CPU_DELAY_MS;
+const cpuDelayMs = (rules?: HouseRules | null) =>
+  window.__wahooCpuDelay ?? (rules?.cpuSnappy ? SNAPPY_CPU_DELAY_MS : CPU_DELAY_MS);
 
 interface Snapshot {
   code: string;
@@ -180,10 +182,11 @@ export class HttpSession {
     if (seat && !seat.cpu) return;
     // A little jitter so several clients rarely race (the version check on
     // the POST settles it harmlessly when they do).
-    const wait = Math.max(0, cpuDelayMs() - d.ageMs) + Math.random() * 400;
+    const wait = Math.max(0, cpuDelayMs(game.rules) - d.ageMs) + Math.random() * 400;
     this.cpuTimer = setTimeout(() => {
       if (this.closed || !this.last) return;
-      void this.maybePlayCpu({ ...this.last, ageMs: Math.max(this.last.ageMs, cpuDelayMs()) });
+      const delay = cpuDelayMs(this.last.game?.rules);
+      void this.maybePlayCpu({ ...this.last, ageMs: Math.max(this.last.ageMs, delay) });
     }, wait);
   }
 
@@ -219,7 +222,7 @@ export class HttpSession {
     if (!game || game.winner !== null) return;
     const seat = d.seats[game.current];
     if (seat && !seat.cpu) return;
-    if (d.ageMs < cpuDelayMs()) return;
+    if (d.ageMs < cpuDelayMs(game.rules)) return;
     const sim = cloneState(game);
     try {
       applyMove(sim, chooseMove(sim, (seat?.difficulty as Difficulty) ?? 'hard'));

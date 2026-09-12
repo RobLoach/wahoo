@@ -83,6 +83,8 @@ export interface HouseRules {
   burrowJump: boolean;
   /** Table manners, not gameplay: is the finger reaction allowed at this table? */
   finger: boolean;
+  /** Pacing, not gameplay: CPUs take their turn quickly instead of pausing. */
+  cpuSnappy: boolean;
 }
 
 export const DEFAULT_RULES: HouseRules = {
@@ -90,6 +92,7 @@ export const DEFAULT_RULES: HouseRules = {
   sevenMaxBunnies: 2,
   burrowJump: false,
   finger: true,
+  cpuSnappy: false,
 };
 
 export const TRACK_LEN = 80;

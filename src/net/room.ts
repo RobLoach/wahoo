@@ -16,6 +16,7 @@ export function sanitizeRules(raw: unknown): Partial<HouseRules> {
   }
   if (typeof r.burrowJump === 'boolean') rules.burrowJump = r.burrowJump;
   if (typeof r.finger === 'boolean') rules.finger = r.finger;
+  if (typeof r.cpuSnappy === 'boolean') rules.cpuSnappy = r.cpuSnappy;
   return rules;
 }
 
@@ -321,6 +322,7 @@ export class GameRoom {
     const seat = this.seats[game.current];
     if (seat && !seat.cpu) return;
     if (this.cpuTimer) clearTimeout(this.cpuTimer);
+    const delay = game.rules.cpuSnappy ? Math.min(this.cpuDelay, 1200) : this.cpuDelay;
     this.cpuTimer = setTimeout(() => {
       this.cpuTimer = null;
       if (!this.game || this.game.winner !== null) return;
@@ -333,6 +335,6 @@ export class GameRoom {
       }
       this.broadcastState();
       this.scheduleCpu();
-    }, this.cpuDelay);
+    }, delay);
   }
 }

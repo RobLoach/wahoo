@@ -221,7 +221,10 @@ const SEAT_COLOR_NAMES = ['Red', 'Blue', 'Green', 'Yellow'];
 /** Keep only known house-rule keys with valid values. */
 function sanitizeRules(mixed $raw): array
 {
-    $rules = ['friendlyFire' => true, 'sevenMaxBunnies' => 2, 'burrowJump' => false, 'finger' => true];
+    $rules = [
+        'friendlyFire' => true, 'sevenMaxBunnies' => 2, 'burrowJump' => false,
+        'finger' => true, 'cpuSnappy' => false,
+    ];
     if (is_array($raw)) {
         if (is_bool($raw['friendlyFire'] ?? null)) {
             $rules['friendlyFire'] = $raw['friendlyFire'];
@@ -234,6 +237,9 @@ function sanitizeRules(mixed $raw): array
         }
         if (is_bool($raw['finger'] ?? null)) {
             $rules['finger'] = $raw['finger'];
+        }
+        if (is_bool($raw['cpuSnappy'] ?? null)) {
+            $rules['cpuSnappy'] = $raw['cpuSnappy'];
         }
     }
     return $rules;
