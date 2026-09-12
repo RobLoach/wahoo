@@ -17,6 +17,9 @@ export function sanitizeRules(raw: unknown): Partial<HouseRules> {
   if (typeof r.burrowJump === 'boolean') rules.burrowJump = r.burrowJump;
   if (typeof r.finger === 'boolean') rules.finger = r.finger;
   if (typeof r.cpuSnappy === 'boolean') rules.cpuSnappy = r.cpuSnappy;
+  if (r.turnTimer === 0 || r.turnTimer === 30 || r.turnTimer === 60 || r.turnTimer === 120) {
+    rules.turnTimer = r.turnTimer;
+  }
   return rules;
 }
 
@@ -102,7 +105,10 @@ export class GameRoom {
       this.clients.set(id, seat);
     }
     this.broadcastRoom();
-    if (this.game) this.broadcastState();
+    if (this.game) {
+      this.broadcastState();
+      this.scheduleCpu(); // a reclaimed seat gets its full turn window back
+    }
   }
 
   handle(id: string, msg: ClientMsg): void {
@@ -316,19 +322,33 @@ export class GameRoom {
     }
   }
 
+  /**
+   * Arm the table clock for the current seat: a CPU acts after its thinking
+   * pause; a human is played for (a fair, middling move) once the turn-timer
+   * house rule runs out. Every state change re-arms it.
+   */
   private scheduleCpu(): void {
+    if (this.cpuTimer) clearTimeout(this.cpuTimer);
+    this.cpuTimer = null;
     const game = this.game;
     if (!game || game.winner !== null) return;
     const seat = this.seats[game.current];
-    if (seat && !seat.cpu) return;
-    if (this.cpuTimer) clearTimeout(this.cpuTimer);
-    const delay = game.rules.cpuSnappy ? Math.min(this.cpuDelay, 1200) : this.cpuDelay;
+    const human = seat !== null && !seat.cpu;
+    if (human && !(game.rules.turnTimer > 0)) return;
+    const delay = human
+      ? game.rules.turnTimer * 1000
+      : game.rules.cpuSnappy ? Math.min(this.cpuDelay, 1200) : this.cpuDelay;
     this.cpuTimer = setTimeout(() => {
       this.cpuTimer = null;
       if (!this.game || this.game.winner !== null) return;
       const acting = this.seats[this.game.current];
+      const actingHuman = acting !== null && !acting.cpu;
+      if (actingHuman && !(this.game.rules.turnTimer > 0)) return;
       try {
-        applyMove(this.game, chooseMove(this.game, acting?.difficulty ?? 'hard'));
+        applyMove(
+          this.game,
+          chooseMove(this.game, actingHuman ? 'medium' : acting?.difficulty ?? 'hard'),
+        );
       } catch (err) {
         console.error('CPU move failed:', err);
         return;

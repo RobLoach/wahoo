@@ -85,6 +85,9 @@ export interface HouseRules {
   finger: boolean;
   /** Pacing, not gameplay: CPUs take their turn quickly instead of pausing. */
   cpuSnappy: boolean;
+  /** Online pacing: seconds a player gets per turn (0 = no limit). On
+   *  timeout the table plays a reasonable move for them. */
+  turnTimer: number;
 }
 
 export const DEFAULT_RULES: HouseRules = {
@@ -93,6 +96,7 @@ export const DEFAULT_RULES: HouseRules = {
   burrowJump: false,
   finger: true,
   cpuSnappy: false,
+  turnTimer: 0,
 };
 
 export const TRACK_LEN = 80;

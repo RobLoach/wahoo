@@ -54,6 +54,30 @@ export class App {
   /** Seats with a reaction currently playing: one per player at a time. */
   private emoteBusySeats = new Set<number>();
 
+  /** Turn-timer house rule: when the current turn started, by our clock. */
+  private turnKey = '';
+  private turnStart = 0;
+
+  constructor() {
+    setInterval(() => this.updateTurnClock(), 500);
+  }
+
+  /** The little countdown chip beside the status card (online turn timer). */
+  private updateTurnClock() {
+    const el = document.getElementById('turn-clock');
+    const v = this.view;
+    if (!el) return;
+    const timer = v?.rules?.turnTimer ?? 0;
+    const cpuTurn = this.roomInfo?.seats?.[v?.current ?? -1]?.cpu ?? false;
+    const show =
+      !!v && this.online && timer > 0 && v.winner === null && !cpuTurn && !$('#game').hidden;
+    el.hidden = !show;
+    if (!show) return;
+    const left = Math.max(0, timer - Math.floor((Date.now() - this.turnStart) / 1000));
+    el.textContent = `⏱ ${left}s`;
+    el.classList.toggle('urgent', left <= 10);
+  }
+
   /** Is OUR seat's reaction still playing? (Others emote independently.) */
   myEmoteBusy(): boolean {
     const seat = this.view?.mySeat;
@@ -136,6 +160,13 @@ export class App {
 
   onView(view: View) {
     this.view = view;
+    // A new turn (any move advances the log) restarts the local turn clock.
+    const turnKey = `${view.current}:${view.log.length}:${view.round}`;
+    if (turnKey !== this.turnKey) {
+      this.turnKey = turnKey;
+      this.turnStart = Date.now();
+      this.updateTurnClock();
+    }
     this.pendingEffects = view.effects;
     this.recentBunnies = new Set(view.effects.map(e => e.bunny));
     playMoveSound(view.effects);

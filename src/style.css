@@ -400,6 +400,16 @@ input[type="checkbox"]:focus-visible { outline: 2px solid var(--red-rule); outli
 #status .status-hint { font-size: 13.5px; color: var(--ink-muted); margin-top: 6px; line-height: 1.5; }
 #status.winner { border-left-color: var(--green); }
 
+/* Turn-timer chip: overlaps the status card's top-right corner. */
+#side { position: relative; }
+#turn-clock {
+  position: absolute; top: -8px; right: -6px; z-index: 2;
+  padding: 4px 10px; border-radius: 999px;
+  background: var(--dark-box); border: 1px solid var(--dark-border);
+  color: var(--lit); font: 600 13px var(--body); letter-spacing: 0.04em;
+}
+#turn-clock.urgent { background: var(--red); border-color: var(--red-lo); color: #fdf3e0; }
+
 .dark-box {
   border-radius: 10px; padding: 12px 14px; background: var(--dark-box); border: 1px solid var(--dark-border);
   color: var(--lit-soft);

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { GameRoom, sanitizeName } from './room.ts';
 import { ROOM_WORDS, randomRoomCode } from './words.ts';
 import type { ServerMsg } from './protocol.ts';
@@ -258,6 +258,7 @@ describe('house rules and emotes', () => {
         burrowJump: false,
         finger: true,
         cpuSnappy: false,
+        turnTimer: 0,
       });
     }
     // Non-hosts can't publish; started games are locked.
@@ -283,6 +284,7 @@ describe('house rules and emotes', () => {
       burrowJump: true,
       finger: true,
       cpuSnappy: false,
+      turnTimer: 0,
     });
     room.game!.winner = 0;
     room.handle('a', { t: 'again' });
@@ -300,6 +302,7 @@ describe('house rules and emotes', () => {
       burrowJump: false,
       finger: true,
       cpuSnappy: false,
+      turnTimer: 0,
     });
     room.dispose();
   });
@@ -362,5 +365,43 @@ describe('house rules and emotes', () => {
     room.handle('a', { t: 'emote', emoji: '🥕' });
     expect(last('a', 'emote')).toMatchObject({ emoji: 'lol' }); // unchanged
     room.dispose();
+  });
+});
+
+describe('turn timer', () => {
+  it('plays for a human who runs out the clock', () => {
+    vi.useFakeTimers();
+    try {
+      const { room } = makeRoom(600_000); // CPUs frozen: only the turn timer fires
+      room.addClient('a', 'Alice');
+      room.handle('a', { t: 'start', rules: { turnTimer: 30 } });
+      room.game!.current = 0; // deterministic: the human is up
+      room.addClient('watch', 'Watcher'); // spectator join re-arms the clock
+      const before = room.game!.log.length;
+      vi.advanceTimersByTime(29_000);
+      expect(room.game!.log.length).toBe(before); // still their turn
+      vi.advanceTimersByTime(2_000);
+      expect(room.game!.log.length).toBeGreaterThan(before); // played for them
+      room.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not touch a human turn when the rule is off', () => {
+    vi.useFakeTimers();
+    try {
+      const { room } = makeRoom(600_000);
+      room.addClient('a', 'Alice');
+      room.handle('a', { t: 'start' });
+      room.game!.current = 0;
+      room.addClient('watch', 'Watcher');
+      const before = room.game!.log.length;
+      vi.advanceTimersByTime(300_000);
+      expect(room.game!.log.length).toBe(before);
+      room.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

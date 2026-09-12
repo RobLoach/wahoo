@@ -85,7 +85,7 @@ test('house rules from the menu reach the game state', async ({ page }) => {
   await page.click('#start-local');
   await page.waitForSelector('#game:not([hidden]) .board-canvas');
   const rules = await page.evaluate(() => (window as any).__wahoo.app.view.rules);
-  expect(rules).toEqual({ friendlyFire: false, sevenMaxBunnies: 4, burrowJump: false, finger: true, cpuSnappy: false });
+  expect(rules).toEqual({ friendlyFire: false, sevenMaxBunnies: 4, burrowJump: false, finger: true, cpuSnappy: false, turnTimer: 0 });
   // The choice persists for next time.
   const saved = await page.evaluate(() => localStorage.getItem('wahoo-rules'));
   expect(JSON.parse(saved!)).toMatchObject({ friendlyFire: false, sevenMaxBunnies: 4 });

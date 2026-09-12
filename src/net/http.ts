@@ -179,14 +179,15 @@ export class HttpSession {
     const game = d.game;
     if (!game || game.winner !== null) return;
     const seat = d.seats[game.current];
-    if (seat && !seat.cpu) return;
+    const human = seat !== null && !seat.cpu;
+    if (human && !(game.rules.turnTimer > 0)) return;
+    const due = human ? game.rules.turnTimer * 1000 : cpuDelayMs(game.rules);
     // A little jitter so several clients rarely race (the version check on
     // the POST settles it harmlessly when they do).
-    const wait = Math.max(0, cpuDelayMs(game.rules) - d.ageMs) + Math.random() * 400;
+    const wait = Math.max(0, due - d.ageMs) + Math.random() * 400;
     this.cpuTimer = setTimeout(() => {
       if (this.closed || !this.last) return;
-      const delay = cpuDelayMs(this.last.game?.rules);
-      void this.maybePlayCpu({ ...this.last, ageMs: Math.max(this.last.ageMs, delay) });
+      void this.maybePlayCpu({ ...this.last, ageMs: Math.max(this.last.ageMs, due) });
     }, wait);
   }
 
@@ -216,16 +217,22 @@ export class HttpSession {
     }
   }
 
-  /** Whoever notices a due CPU turn computes it; the server arbitrates races. */
+  /** Whoever notices a due CPU turn computes it; the server arbitrates races.
+   *  With the turn-timer house rule, an out-of-time human turn counts too. */
   private async maybePlayCpu(d: Snapshot) {
     const game = d.game;
     if (!game || game.winner !== null) return;
     const seat = d.seats[game.current];
-    if (seat && !seat.cpu) return;
-    if (d.ageMs < cpuDelayMs(game.rules)) return;
+    const human = seat !== null && !seat.cpu;
+    if (human && !(game.rules.turnTimer > 0)) return;
+    const due = human ? game.rules.turnTimer * 1000 : cpuDelayMs(game.rules);
+    if (d.ageMs < due) return;
     const sim = cloneState(game);
     try {
-      applyMove(sim, chooseMove(sim, (seat?.difficulty as Difficulty) ?? 'hard'));
+      applyMove(
+        sim,
+        chooseMove(sim, human ? 'medium' : (seat?.difficulty as Difficulty) ?? 'hard'),
+      );
     } catch {
       return;
     }

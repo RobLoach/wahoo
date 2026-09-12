@@ -28,6 +28,7 @@ export function ruleLines(r: HouseRules): [string, string][] {
     ['Jumping over occupied burrow slots', r.burrowJump ? 'allowed' : 'not allowed'],
     ['The finger reaction', r.finger !== false ? 'allowed' : 'banned at this table'],
     ['CPU turns', r.cpuSnappy ? 'snappy' : 'relaxed'],
+    ['Turn timer (online)', r.turnTimer > 0 ? `${r.turnTimer} seconds` : 'off'],
   ];
 }
 
@@ -41,6 +42,7 @@ export function describeRules(r: HouseRules): string {
     r.burrowJump ? 'burrow jumping allowed' : 'no burrow jumping',
     r.finger === false ? 'no finger reaction' : null,
     r.cpuSnappy ? 'snappy CPU turns' : null,
+    r.turnTimer > 0 ? `${r.turnTimer}s turn timer` : null,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -68,7 +70,13 @@ function rulesControlsHtml(): string {
     `<label class="rule-row"><input type="checkbox" id="hr-finger" ${r.finger !== false ? 'checked' : ''}/>` +
     `<span>Allow the finger reaction</span></label>` +
     `<label class="rule-row"><input type="checkbox" id="hr-snappy" ${r.cpuSnappy ? 'checked' : ''}/>` +
-    `<span>Snappy CPU turns (shorter thinking pause)</span></label>`
+    `<span>Snappy CPU turns (shorter thinking pause)</span></label>` +
+    `<label class="rule-row"><span>Turn timer (online games)</span><select id="hr-timer">` +
+    `<option value="0" ${r.turnTimer === 0 ? 'selected' : ''}>off</option>` +
+    `<option value="30" ${r.turnTimer === 30 ? 'selected' : ''}>30 seconds</option>` +
+    `<option value="60" ${r.turnTimer === 60 ? 'selected' : ''}>60 seconds</option>` +
+    `<option value="120" ${r.turnTimer === 120 ? 'selected' : ''}>2 minutes</option>` +
+    `</select></label>`
   );
 }
 
@@ -80,6 +88,7 @@ export function readRules(): HouseRules {
     burrowJump: ($('#hr-jump') as HTMLInputElement).checked,
     finger: ($('#hr-finger') as HTMLInputElement).checked,
     cpuSnappy: ($('#hr-snappy') as HTMLInputElement).checked,
+    turnTimer: Number(($('#hr-timer') as HTMLSelectElement).value) || 0,
   };
   localStorage.setItem('wahoo-rules', JSON.stringify(rules));
   return rules;

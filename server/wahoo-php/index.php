@@ -223,7 +223,7 @@ function sanitizeRules(mixed $raw): array
 {
     $rules = [
         'friendlyFire' => true, 'sevenMaxBunnies' => 2, 'burrowJump' => false,
-        'finger' => true, 'cpuSnappy' => false,
+        'finger' => true, 'cpuSnappy' => false, 'turnTimer' => 0,
     ];
     if (is_array($raw)) {
         if (is_bool($raw['friendlyFire'] ?? null)) {
@@ -240,6 +240,9 @@ function sanitizeRules(mixed $raw): array
         }
         if (is_bool($raw['cpuSnappy'] ?? null)) {
             $rules['cpuSnappy'] = $raw['cpuSnappy'];
+        }
+        if (in_array($raw['turnTimer'] ?? null, [0, 30, 60, 120], true)) {
+            $rules['turnTimer'] = $raw['turnTimer'];
         }
     }
     return $rules;
@@ -880,7 +883,11 @@ $app->post('/api/rooms/{code}/state', function (Request $request, Response $resp
     $seatEntry = $room['seats'][$actingSeat] ?? null;
     if ($forCpu) {
         $seatIsCpu = $seatEntry === null || !empty($seatEntry['cpu']);
-        if (!$seatIsCpu) {
+        // The turn-timer house rule: once a human runs out the clock, any
+        // client in the room may post the table's move for them.
+        $timer = (int) ($room['game']['rules']['turnTimer'] ?? 0);
+        $overdue = $timer > 0 && (time() - (int) $room['updated_at']) >= $timer;
+        if (!$seatIsCpu && !$overdue) {
             $pdo->rollBack();
             return errorResponse($response, 'That seat is not a CPU.', 403);
         }
