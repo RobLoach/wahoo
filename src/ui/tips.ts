@@ -47,6 +47,8 @@ export function tipShowing(): boolean {
   return current !== null;
 }
 
+let escListener: ((e: KeyboardEvent) => void) | null = null;
+
 export function dismissTip() {
   // Only now does the tip count as seen: a tip nobody acknowledged will
   // offer itself again next time.
@@ -54,6 +56,10 @@ export function dismissTip() {
     load().add(currentKey);
     save();
     currentKey = null;
+  }
+  if (escListener) {
+    document.removeEventListener('keydown', escListener, true);
+    escListener = null;
   }
   current?.remove();
   current = null;
@@ -82,6 +88,17 @@ export function showTip(key: string, anchor: TipAnchor, tip: Tip): boolean {
   card.appendChild(ok);
   document.body.appendChild(card);
   current = card;
+  // Keyboard players can acknowledge without hunting: focus the button
+  // (game keys are document-wide, so this steals nothing) and let Escape
+  // dismiss before it reaches the selection handler.
+  ok.focus();
+  escListener = e => {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      dismissTip();
+    }
+  };
+  document.addEventListener('keydown', escListener, true);
 
   const r = anchor instanceof Element ? anchor.getBoundingClientRect() : anchor;
   const tail = card.querySelector<HTMLElement>('.tip-tail')!;
