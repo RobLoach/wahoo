@@ -535,18 +535,20 @@ export class BoardView {
     }
   }
 
-  /** A small arc of card backs beside the seat pill: that player's hand. */
-  private drawHandFan(p: number, count: number, label: Text) {
+  /** A small arc of card backs tucked between the board corner and the
+   *  reserve hutch: that player's hand. */
+  private drawHandFan(p: number, count: number) {
     const fan = this.handFans[p];
     if (!fan) return;
     fan.removeChildren().forEach(c => c.destroy());
     if (count <= 0) return;
-    const dir = label.anchor.x > 0.5 ? -1 : 1; // onward past the pill, toward the middle
-    const w = 0.52 * CELL;
-    const h = 0.76 * CELL;
-    const step = 0.24 * CELL;
-    const pillEnd = label.anchor.x > 0.5 ? label.x - label.width - 22 : label.x + label.width + 22;
-    const start = pillEnd + dir * (0.35 * CELL + w / 2);
+    const corner = trackPos(SPAWN_INDEX(p));
+    const r0 = reservePos(p, 0);
+    const dir = Math.sign(r0.x - corner.x); // along the edge, corner -> hutch
+    const w = 0.5 * CELL;
+    const h = 0.74 * CELL;
+    const step = 0.22 * CELL;
+    const start = corner.x + dir * (0.34 * CELL + w / 2);
     for (let i = 0; i < count; i++) {
       const card = new Graphics();
       card.roundRect(-w / 2, -h * 0.92, w, h, 2.5).fill(0x9c372e);
@@ -554,7 +556,7 @@ export class BoardView {
       card.roundRect(-w / 2 + 1.6, -h * 0.92 + 1.6, w - 3.2, h - 3.2, 1.8)
         .stroke({ color: CREAM, alpha: 0.75, width: 1 });
       const k = i - (count - 1) / 2;
-      card.position.set(start + dir * i * step, label.y + h * 0.42 - Math.abs(k) * 1.1);
+      card.position.set(start + dir * i * step, r0.y + h * 0.42 - Math.abs(k) * 1.1);
       card.rotation = dir * k * 0.1; // a gentle arc, leaning the way it runs
       fan.addChild(card);
     }
@@ -942,7 +944,7 @@ export class BoardView {
       }
       pill.alpha = active ? 1 : 0.8;
       label.alpha = active ? 1 : 0.92;
-      this.drawHandFan(p, view.handCounts[p] ?? 0, label);
+      this.drawHandFan(p, view.handCounts[p] ?? 0);
     });
   }
 
