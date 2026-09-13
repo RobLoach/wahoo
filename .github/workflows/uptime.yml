@@ -1,0 +1,21 @@
+# Pings the relay every half hour; a failed run emails the repo owner.
+# The relay went silently dark once — this catches the next time in minutes.
+name: Relay uptime
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Relay answers with a healthy 404
+        run: |
+          code=$(curl -s -o /tmp/body -w '%{http_code}' --max-time 15 \
+            'https://wahoo.robloach.net/api/rooms/PING')
+          echo "status $code: $(cat /tmp/body)"
+          # A room lookup for a nonsense code returns JSON 404 when healthy;
+          # timeouts (000), 5xx, or an HTML error page mean the relay is down.
+          [ "$code" = "404" ] && grep -q '"error"' /tmp/body
