@@ -63,15 +63,10 @@ export class App {
   private wasMyTurn = false;
   private baseTitle = document.title;
 
-  /** "● Your turn" in the tab title until the player comes back. */
-  private flashTitle() {
-    if (!document.hidden) return;
-    document.title = '● Your turn — Wahoo';
-    const restore = () => {
-      document.title = this.baseTitle;
-      document.removeEventListener('visibilitychange', restore);
-    };
-    document.addEventListener('visibilitychange', restore);
+  /** The window title says when it's this player's turn — in any mode. */
+  private syncTitle() {
+    const mine = this.view !== null && this.view.canAct && this.view.winner === null;
+    document.title = mine ? `(Your turn) ${this.baseTitle}` : this.baseTitle;
   }
 
   constructor() {
@@ -175,6 +170,7 @@ export class App {
     $('#menu').hidden = false;
     $('#lobby').hidden = true;
     this.roomInfo = null;
+    document.title = this.baseTitle;
     renderRecord();
     this.onMenuShown?.();
   }
@@ -234,12 +230,11 @@ export class App {
       playTurnChime();
       if (view.mySeat !== null) this.board.pulseSeat(view.mySeat);
     }
-    // Online: a chime and a title flash reach players in another tab.
-    if (this.online && view.canAct && !this.wasMyTurn) {
-      playTurnChime();
-      this.flashTitle();
-    }
+    // Online: a chime reaches players in another tab; the title says whose
+    // turn it is everywhere.
+    if (this.online && view.canAct && !this.wasMyTurn) playTurnChime();
     this.wasMyTurn = view.canAct;
+    this.syncTitle();
     if (view.canAct) this.lastHumanSeat = view.mySeat;
     if (view.pendingFlip && view.canAct) this.sel.cardId = 'flip';
     this.refresh();
