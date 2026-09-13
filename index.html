@@ -9,6 +9,7 @@
   <meta name="description" content="A free 4-player team race board game. Hot seat, CPU opponents, or host a game right in your browser and share a room code." />
   <meta name="application-name" content="Wahoo" />
   <!-- Installed on iOS: run standalone with the felt behind the status bar. -->
+  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Wahoo" />
@@ -16,18 +17,38 @@
   <meta property="og:title" content="Wahoo — the bunny board game" />
   <meta property="og:site_name" content="Wahoo" />
   <meta property="og:description" content="A free 4-player team race. Hot seat, CPU opponents, or host a game right in your browser and share a room code." />
-  <meta property="og:image" content="https://robloach.github.io/wahoo/social.png" />
+  <!-- ?v= busts the scraper caches when the social image is redrawn. -->
+  <meta property="og:image" content="https://robloach.github.io/wahoo/social.png?v=2" />
   <meta property="og:image:width" content="1280" />
   <meta property="og:image:height" content="640" />
-  <meta property="og:image:alt" content="A Wahoo game in progress: bunny tokens on a paper board in a wooden frame on green felt." />
+  <meta property="og:image:alt" content="A Wahoo game in progress: bunny tokens with distinct ear poses race a paper board on green felt." />
   <meta property="og:url" content="https://robloach.github.io/wahoo/" />
   <meta property="og:type" content="website" />
   <meta property="og:locale" content="en_US" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Wahoo — the bunny board game" />
   <meta name="twitter:description" content="A free 4-player team race. Play hot seat or online with friends." />
-  <meta name="twitter:image" content="https://robloach.github.io/wahoo/social.png" />
+  <meta name="twitter:image" content="https://robloach.github.io/wahoo/social.png?v=2" />
+  <meta name="twitter:image:alt" content="A Wahoo game in progress: bunny tokens with distinct ear poses race a paper board on green felt." />
   <link rel="manifest" href="manifest.webmanifest" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "VideoGame",
+    "name": "Wahoo",
+    "url": "https://robloach.github.io/wahoo/",
+    "image": "https://robloach.github.io/wahoo/social.png?v=2",
+    "description": "A free 4-player team race board game. Hot seat, CPU opponents, or host a game right in your browser and share a room code.",
+    "genre": "Board game",
+    "gamePlatform": "Web browser",
+    "playMode": ["SinglePlayer", "MultiPlayer", "CoOp"],
+    "applicationCategory": "GameApplication",
+    "operatingSystem": "Any",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "author": { "@type": "Person", "name": "Rob Loach" },
+    "license": "https://www.gnu.org/licenses/gpl-3.0.html"
+  }
+  </script>
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐰</text></svg>" />
 </head>
