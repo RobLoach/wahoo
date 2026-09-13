@@ -122,10 +122,9 @@ const NEUTRAL_EYES =
   `<circle cx="-5.2" cy="-2" r="2.3" fill="${INK}"/><circle cx="5.2" cy="-2" r="2.3" fill="${INK}"/>` +
   `<circle cx="-4.4" cy="-3" r="0.8" fill="#fff"/><circle cx="6" cy="-3" r="0.8" fill="#fff"/>`;
 
-const CREAM = '#f6ecd6';
 
 /**
- * Each seat wears its own ear pose — Red tall, Blue with a folded cream tip,
+ * Each seat wears its own ear pose — Red tall, Blue with one short ear,
  * Green a lop, Yellow short and swept — so bunnies are recognisable without
  * colour. Expression rotations are applied as deltas from the neutral pose,
  * so reactions still move ears.
@@ -139,30 +138,23 @@ function earsHtml(
   const [la, ra] = look.ears ?? [-8, 8];
   const dl = la + 8;
   const dr = ra - 8;
-  const shape = (ry: number, tip: boolean) =>
+  const shape = (ry: number) =>
     `<ellipse cy="${-ry * 0.86}" rx="4.6" ry="${ry}" fill="${g}" stroke="${dark}" stroke-width="1.2"/>` +
-    `<ellipse cy="${-ry * 0.79}" rx="2.2" ry="${ry * 0.64}" fill="${EAR}"/>` +
-    (tip
-      ? `<ellipse cy="${-ry * 1.46}" rx="3.4" ry="${ry * 0.32}" fill="${CREAM}" stroke="${dark}" stroke-width="1"/>`
-      : '');
+    `<ellipse cy="${-ry * 0.79}" rx="2.2" ry="${ry * 0.64}" fill="${EAR}"/>`;
   const at = (x: number, y: number, rot: number, inner: string) =>
     `<g transform="translate(${x} ${y}) rotate(${rot})">${inner}</g>`;
   switch (seat) {
-    case 1: // Blue: helicopter — the right ear tip folds over.
-      return (
-        at(-6.8, -8, -8 + dl, shape(11.2, true)) +
-        at(6.8, -8, 8 + dr,
-          shape(8, false) + `<g transform="translate(0.6 -13.4) rotate(96)">${shape(5.4, true)}</g>`)
-      );
+    case 1: // Blue: one tall ear, one short.
+      return at(-6.8, -8, -8 + dl, shape(11.2)) + at(6.8, -8, 8 + dr, shape(6.4));
     case 2: // Green: a lop — ears hang beside the head.
       return (
-        at(-10.4, -4, -142 + dl * 0.3, shape(10.4, false)) +
-        at(10.4, -4, 142 + dr * 0.3, shape(10.4, false))
+        at(-10.4, -4, -142 + dl * 0.3, shape(10.4)) +
+        at(10.4, -4, 142 + dr * 0.3, shape(10.4))
       );
     case 3: // Yellow: short ears in a wide V.
-      return at(-8, -7, -34 + dl, shape(7.6, false)) + at(8, -7, 34 + dr, shape(7.6, false));
+      return at(-8, -7, -34 + dl, shape(7.6)) + at(8, -7, 34 + dr, shape(7.6));
     default: // Red — and bunnies with no seat: the classic tall pair.
-      return at(-6.8, -8, -8 + dl, shape(11.2, false)) + at(6.8, -8, 8 + dr, shape(11.2, false));
+      return at(-6.8, -8, -8 + dl, shape(11.2)) + at(6.8, -8, 8 + dr, shape(11.2));
   }
 }
 

@@ -575,51 +575,36 @@ export class BoardView {
     const base = PIECE_GRADIENT[p][1];
 
     // Every player has its own ear pose — identity that survives greyscale:
-    // Red stands tall, Blue folds one cream-tipped ear, Green is a lop, and
-    // Yellow wears short swept-back ears.
-    const creamTip = p === 1;
+    // Red stands tall, Blue keeps one ear short, Green is a lop, and Yellow
+    // wears short swept-back ears.
     const deg = Math.PI / 180;
-    const ear = (opts: { ry: number; tipFold?: boolean }) => {
+    const ear = (ry: number) => {
       const g = new Graphics();
-      const ry = opts.ry;
       g.ellipse(0, -ry, 0.115 * C, ry).fill(base);
       g.ellipse(0, -ry, 0.115 * C, ry).stroke({ color: 0x000000, alpha: 0.3, width: 1.2 });
       g.ellipse(0, -ry + 0.02 * C, 0.055 * C, ry * 0.64).fill(EAR_PINK);
-      if (creamTip && !opts.tipFold) {
-        g.ellipse(0, -ry * 1.62, 0.095 * C, ry * 0.34).fill(CREAM);
-        g.ellipse(0, -ry * 1.62, 0.095 * C, ry * 0.34)
-          .stroke({ color: 0x000000, alpha: 0.25, width: 1 });
-      }
       return g;
     };
     for (const side of [-1, 1]) {
       let e: Graphics | Container;
       if (p === 0) {
         // Red: the classic — both ears tall and straight.
-        e = ear({ ry: 0.28 * C });
+        e = ear(0.28 * C);
         e.position.set(side * 0.17 * C, -0.2 * C);
         e.rotation = side * 8 * deg;
       } else if (p === 1) {
-        // Blue: helicopter ear — the right tip folds over.
-        const wrap = new Container();
-        wrap.addChild(ear({ ry: side === 1 ? 0.2 * C : 0.28 * C, tipFold: side === 1 }));
-        if (side === 1) {
-          const tip = ear({ ry: 0.13 * C });
-          tip.position.set(0.02 * C, -0.36 * C);
-          tip.rotation = 95 * deg;
-          wrap.addChild(tip);
-        }
-        e = wrap;
+        // Blue: one tall ear, one short.
+        e = ear(side === 1 ? 0.16 * C : 0.28 * C);
         e.position.set(side * 0.17 * C, -0.2 * C);
         e.rotation = side * 8 * deg;
       } else if (p === 2) {
         // Green: a lop — both ears hang down beside the head.
-        e = ear({ ry: 0.26 * C });
+        e = ear(0.26 * C);
         e.position.set(side * 0.26 * C, -0.12 * C);
         e.rotation = side * 142 * deg;
       } else {
         // Yellow: short ears swept back in a wide V.
-        e = ear({ ry: 0.19 * C });
+        e = ear(0.19 * C);
         e.position.set(side * 0.21 * C, -0.18 * C);
         e.rotation = side * 34 * deg;
       }
