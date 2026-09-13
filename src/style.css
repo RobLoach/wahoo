@@ -758,11 +758,6 @@ input[type="checkbox"]:focus-visible { outline: 2px solid var(--red-rule); outli
 #tip-card button { padding: 7px 14px; font-size: 13px; box-shadow: 0 3px 0 var(--red-lo); font-weight: 700; }
 @keyframes tip-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
-/* Respect users who ask their OS for less motion. */
-@media (prefers-reduced-motion: reduce) {
-  .confetti { display: none; }
-  .card, .card:hover, .card.selected { transition: none; }
-  #move-callout.show { animation: none; opacity: 1; }
-  #tip-card { animation: none; }
-  #flip-area .flip-card { animation: none; }
-}
+/* Animations always run here, by design: the moves and callouts carry game
+   information, and the table's whole feel depends on them — the OS-level
+   reduce-motion preference is deliberately not consulted. */

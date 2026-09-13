@@ -186,7 +186,6 @@ interface Piece {
 
 export class BoardView {
   app = new Application();
-  /** Honor the OS-level "reduce motion" preference: moves snap into place. */
   private staticLayer = new Container();
   private highlightLayer = new Container();
   private pieceLayer = new Container();
