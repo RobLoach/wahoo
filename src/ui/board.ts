@@ -544,9 +544,9 @@ export class BoardView {
     const base = PIECE_GRADIENT[p][1];
 
     // Every player has its own ear pose — identity that survives greyscale:
-    // Red stands tall, Blue folds one ear tip, Green is a lop, Yellow wears
-    // short swept-back ears. Team 2 (Blue & Yellow) adds cream ear tips.
-    const creamTip = p === 1 || p === 3;
+    // Red stands tall, Blue folds one cream-tipped ear, Green is a lop, and
+    // Yellow wears short swept-back ears.
+    const creamTip = p === 1;
     const deg = Math.PI / 180;
     const ear = (opts: { ry: number; tipFold?: boolean }) => {
       const g = new Graphics();

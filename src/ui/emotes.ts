@@ -125,10 +125,10 @@ const NEUTRAL_EYES =
 const CREAM = '#f6ecd6';
 
 /**
- * Each seat wears its own ear pose — Red tall, Blue with a folded tip,
+ * Each seat wears its own ear pose — Red tall, Blue with a folded cream tip,
  * Green a lop, Yellow short and swept — so bunnies are recognisable without
- * colour. Team 2 (Blue & Yellow) adds cream ear tips. Expression rotations
- * are applied as deltas from the neutral pose, so reactions still move ears.
+ * colour. Expression rotations are applied as deltas from the neutral pose,
+ * so reactions still move ears.
  */
 function earsHtml(
   seat: number | undefined,
@@ -160,7 +160,7 @@ function earsHtml(
         at(10.4, -4, 142 + dr * 0.3, shape(10.4, false))
       );
     case 3: // Yellow: short ears in a wide V.
-      return at(-8, -7, -34 + dl, shape(7.6, true)) + at(8, -7, 34 + dr, shape(7.6, true));
+      return at(-8, -7, -34 + dl, shape(7.6, false)) + at(8, -7, 34 + dr, shape(7.6, false));
     default: // Red — and bunnies with no seat: the classic tall pair.
       return at(-6.8, -8, -8 + dl, shape(11.2, false)) + at(6.8, -8, 8 + dr, shape(11.2, false));
   }
