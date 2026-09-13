@@ -558,6 +558,17 @@ export class BoardView {
     body.circle(0, 2, R - 2).stroke({ color: 0x000000, alpha: 0.28, width: 4 });
     body.ellipse(-0.25 * R, -0.45 * R, 0.4 * R, 0.22 * R).fill({ color: 0xffffff, alpha: 0.3 });
     body.circle(0, 0, R).stroke({ color: 0x000000, alpha: 0.35, width: 1.2 });
+    // A forehead blaze: each player has a distinct fur marking so pieces
+    // never rely on colour alone (team 1 wears filled marks, team 2 outlined).
+    const blaze = new Graphics();
+    const s = 0.085 * C;
+    const by = -0.19 * C;
+    if (p === 0) blaze.poly([0, by - s, s * 0.95, by + s * 0.8, -s * 0.95, by + s * 0.8]).fill(CREAM);
+    if (p === 2) blaze.circle(0, by, s * 0.85).fill(CREAM);
+    if (p === 1) blaze.rect(-s * 0.75, by - s * 0.75, s * 1.5, s * 1.5)
+      .stroke({ color: CREAM, width: Math.max(1.4, s * 0.45) });
+    if (p === 3) blaze.poly([0, by - s, s, by, 0, by + s, -s, by])
+      .stroke({ color: CREAM, width: Math.max(1.4, s * 0.45) });
     body.ellipse(0, 0.12 * C, 0.19 * C, 0.14 * C).fill({ color: 0xffffff, alpha: 0.92 });
     body.circle(-0.13 * C, -0.05 * C, 0.058 * C).fill(EYE_INK);
     body.circle(0.13 * C, -0.05 * C, 0.058 * C).fill(EYE_INK);
@@ -565,6 +576,7 @@ export class BoardView {
     body.circle(0.15 * C, -0.075 * C, 0.02 * C).fill(0xffffff);
     body.ellipse(0, 0.07 * C, 0.045 * C, 0.03 * C).fill(NOSE_PINK);
     root.addChild(body);
+    root.addChild(blaze);
     return { root, tx: 0, ty: 0, path: null };
   }
 
