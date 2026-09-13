@@ -9,6 +9,7 @@ function open(text: string, buttons: { label: string; primary?: boolean; value: 
     overlay.className = 'dialog-overlay';
     overlay.setAttribute('role', 'dialog');
     overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', text);
     const card = document.createElement('div');
     card.className = 'paper dialog-card';
     const p = document.createElement('p');
@@ -16,8 +17,11 @@ function open(text: string, buttons: { label: string; primary?: boolean; value: 
     card.appendChild(p);
     const row = document.createElement('div');
     row.className = 'btn-row';
+    // Focus goes back where it came from once the dialog closes.
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const done = (value: boolean) => {
       overlay.remove();
+      opener?.focus();
       resolve(value);
     };
     for (const b of buttons) {
@@ -30,10 +34,23 @@ function open(text: string, buttons: { label: string; primary?: boolean; value: 
     card.appendChild(row);
     overlay.appendChild(card);
     overlay.addEventListener('keydown', e => {
-      if (e.key === 'Escape') done(false);
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        done(false);
+      }
+      // A modal keeps Tab to itself: cycle through its own buttons.
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const items = [...row.querySelectorAll<HTMLButtonElement>('button')];
+        const at = items.indexOf(document.activeElement as HTMLButtonElement);
+        const next = e.shiftKey
+          ? (at <= 0 ? items.length - 1 : at - 1)
+          : (at === items.length - 1 ? 0 : at + 1);
+        items[next]?.focus();
+      }
     });
     document.body.appendChild(overlay);
-    (row.querySelector('.primary') as HTMLButtonElement | null)?.focus();
+    (row.querySelector<HTMLButtonElement>('.primary') ?? row.querySelector('button'))?.focus();
   });
 }
 

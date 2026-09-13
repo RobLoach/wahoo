@@ -430,13 +430,22 @@ $('#btn-rules').onclick = () => {
   // The modal shows the rules THIS game is using (guests see the host's).
   renderModalHouseRules(app.view?.rules ?? savedRules());
   $('#rules-modal').hidden = false;
+  ($('#rules-close') as HTMLButtonElement).focus();
 };
-$('#rules-close').onclick = () => {
+const closeRules = () => {
   $('#rules-modal').hidden = true;
+  ($('#btn-rules') as HTMLButtonElement).focus();
 };
+$('#rules-close').onclick = closeRules;
 $('#rules-modal').onclick = e => {
-  if (e.target === $('#rules-modal')) $('#rules-modal').hidden = true;
+  if (e.target === $('#rules-modal')) closeRules();
 };
+$('#rules-modal').addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    e.stopPropagation();
+    closeRules();
+  }
+});
 
 $('#btn-fullscreen').onclick = () => {
   if (document.fullscreenElement) {

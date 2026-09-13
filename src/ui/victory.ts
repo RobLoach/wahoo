@@ -55,6 +55,9 @@ export class VictoryView {
     overlay.hidden = false;
     if (!this.shown) {
       this.shown = true;
+      // Focus lands on the overlay's main action when it first appears.
+      const again = $('#btn-again') as HTMLButtonElement;
+      (again.hidden ? ($('#victory-menu') as HTMLButtonElement) : again).focus();
       const colors = view.winner === 0
         ? [PLAYER_COLORS_CSS[0], PLAYER_COLORS_CSS[2]]
         : [PLAYER_COLORS_CSS[1], PLAYER_COLORS_CSS[3]];
