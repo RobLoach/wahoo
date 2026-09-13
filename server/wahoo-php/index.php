@@ -89,6 +89,7 @@ function db(): PDO
             id TEXT PRIMARY KEY,
             started_at INTEGER NOT NULL
         )');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_clients_room ON clients(room_code)');
         // Migrations for databases created before emotes existed.
         try {
             $pdo->exec('ALTER TABLE rooms ADD COLUMN emote TEXT');
@@ -114,6 +115,31 @@ function db(): PDO
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Write transactions take the SQLite write lock up front (BEGIN IMMEDIATE):
+ * a deferred BEGIN that upgrades mid-transaction can hit SQLITE_BUSY with no
+ * clean way to retry, which surfaced as rare 500s under concurrent writes.
+ */
+function beginWrite(PDO $pdo): void
+{
+    $pdo->exec('BEGIN IMMEDIATE');
+}
+
+function commitWrite(PDO $pdo): void
+{
+    $pdo->exec('COMMIT');
+}
+
+function rollbackWrite(PDO $pdo): void
+{
+    // A failed BEGIN leaves no transaction: rolling back must stay harmless.
+    try {
+        $pdo->exec('ROLLBACK');
+    } catch (PDOException) {
+        // nothing to roll back
+    }
+}
 
 function jsonResponse(Response $response, array $data, int $status = 200): Response
 {
@@ -391,18 +417,50 @@ function pruneIdleRooms(PDO $pdo): void
     $pdo->prepare('DELETE FROM rooms WHERE updated_at < ?')->execute([$cutoff]);
 }
 
+/** The clientIds of seated, connected humans. */
+function seatedClientIds(mixed $seats): array
+{
+    $ids = [];
+    foreach (is_array($seats) ? $seats : [] as $seat) {
+        if ($seat !== null && empty($seat['cpu']) && !empty($seat['clientId'])) {
+            $ids[] = $seat['clientId'];
+        }
+    }
+    return $ids;
+}
+
+/** One batched query for which of these clients are still fresh. */
+function freshClientIds(PDO $pdo, array $ids): array
+{
+    if ($ids === []) {
+        return [];
+    }
+    $marks = implode(',', array_fill(0, count($ids), '?'));
+    $stmt = $pdo->prepare("SELECT id FROM clients WHERE id IN ($marks) AND last_seen >= ?");
+    $stmt->execute([...$ids, time() - CLIENT_STALE_SECONDS]);
+    return array_flip($stmt->fetchAll(PDO::FETCH_COLUMN));
+}
+
+/** Cheap staleness probe for the heartbeat path: run on the lite row only. */
+function seatsNeedReaping(PDO $pdo, mixed $seats, mixed $hostClient): bool
+{
+    if ($hostClient === null) {
+        return true; // the host seat needs handing on
+    }
+    $ids = seatedClientIds($seats);
+    return count(freshClientIds($pdo, $ids)) < count($ids);
+}
+
 /** Anyone silent too long is folded into a CPU so the game keeps moving. */
 function reapStaleClients(PDO $pdo, array &$room): bool
 {
     $changed = false;
+    $fresh = freshClientIds($pdo, seatedClientIds($room['seats']));
     foreach ($room['seats'] as $i => $seat) {
         if ($seat === null || !empty($seat['cpu']) || empty($seat['clientId'])) {
             continue;
         }
-        $stmt = $pdo->prepare('SELECT last_seen FROM clients WHERE id = ?');
-        $stmt->execute([$seat['clientId']]);
-        $lastSeen = $stmt->fetchColumn();
-        if ($lastSeen !== false && time() - (int) $lastSeen <= CLIENT_STALE_SECONDS) {
+        if (isset($fresh[$seat['clientId']])) {
             continue;
         }
         if ($room['game'] !== null && $room['game']['winner'] === null) {
@@ -551,10 +609,10 @@ $app->post('/api/rooms/{code}/join', function (Request $request, Response $respo
     if (ipThrottled($pdo, $request, 'join', MAX_JOINS_PER_IP_PER_HOUR)) {
         return errorResponse($response, 'Too many join attempts — try again later.', 429);
     }
-    $pdo->beginTransaction();
+    beginWrite($pdo);
     $room = loadRoom($pdo, $args['code']);
     if ($room === null) {
-        $pdo->rollBack();
+        rollbackWrite($pdo);
         return errorResponse($response, 'Room not found.', 404);
     }
     $body = (array) $request->getParsedBody();
@@ -588,7 +646,7 @@ $app->post('/api/rooms/{code}/join', function (Request $request, Response $respo
     $pdo->prepare('INSERT INTO clients (id, room_code, name, token, last_seen) VALUES (?, ?, ?, ?, ?)')
         ->execute([$clientId, $room['code'], $name, $token, time()]);
     saveRoom($pdo, $room);
-    $pdo->commit();
+    commitWrite($pdo);
 
     $room = loadRoom($pdo, $args['code']);
     return jsonResponse($response, ['clientId' => $clientId] + snapshot($room, $clientId));
@@ -598,17 +656,18 @@ $app->post('/api/rooms/{code}/join', function (Request $request, Response $respo
 $app->get('/api/rooms/{code}', function (Request $request, Response $response, array $args): Response {
     $pdo = db();
     $clientId = clientIdOf($request);
-    $room = loadRoom($pdo, $args['code']);
-    if ($room === null || clientRow($pdo, $clientId, $args['code']) === null) {
+    $code = strtoupper($args['code']);
+    // The hot path never touches the (large) game column: a lite row answers
+    // "nothing changed" heartbeats, so no 100KB+ json_decode per poll.
+    $liteStmt = $pdo->prepare(
+        'SELECT version, seats, host_client, emote, emote_n, updated_at FROM rooms WHERE code = ?'
+    );
+    $liteStmt->execute([$code]);
+    $lite = $liteStmt->fetch(PDO::FETCH_ASSOC);
+    if ($lite === false || clientRow($pdo, $clientId, $args['code']) === null) {
         return errorResponse($response, 'Room not found.', 404);
     }
     touchClient($pdo, $clientId);
-    if (reapStaleClients($pdo, $room)) {
-        $pdo->beginTransaction();
-        saveRoom($pdo, $room);
-        $pdo->commit();
-        $room = loadRoom($pdo, $args['code']);
-    }
     // Unchanged since the client's version: send a tiny heartbeat instead of
     // the full snapshot (~95% less polling traffic while idle). With wait=1
     // the request is held (a long poll) until a change or the hold window
@@ -618,29 +677,60 @@ $app->get('/api/rooms/{code}', function (Request $request, Response $response, a
     $q = $request->getQueryParams();
     $since = $q['since'] ?? null;
     if (
-        $since !== null && (int) $since === (int) $room['version']
+        $since !== null && (int) $since === (int) $lite['version']
         && ($q['wait'] ?? '') === '1'
         && ($hold = acquirePollHold($pdo)) !== null
     ) {
         try {
             $clientEmoteN = isset($q['emoteN']) ? (int) $q['emoteN'] : -1;
+            // Each tick compares two integers — never the game blob.
+            $mini = $pdo->prepare('SELECT version, emote_n FROM rooms WHERE code = ?');
             $deadline = microtime(true) + POLL_HOLD_SECONDS;
             while (microtime(true) < $deadline) {
                 usleep(300000);
-                $room = loadRoom($pdo, $args['code']);
-                if ($room === null) {
+                $mini->execute([$code]);
+                $row = $mini->fetch(PDO::FETCH_ASSOC);
+                if ($row === false) {
                     return errorResponse($response, 'Room not found.', 404);
                 }
-                if ((int) $room['version'] !== (int) $since) {
+                if ((int) $row['version'] !== (int) $since) {
                     break;
                 }
-                if ($clientEmoteN >= 0 && (int) ($room['emote_n'] ?? 0) > $clientEmoteN) {
+                if ($clientEmoteN >= 0 && (int) ($row['emote_n'] ?? 0) > $clientEmoteN) {
                     break;
                 }
             }
         } finally {
             releasePollHold($pdo, $hold);
         }
+        $liteStmt->execute([$code]);
+        $lite = $liteStmt->fetch(PDO::FETCH_ASSOC);
+        if ($lite === false) {
+            return errorResponse($response, 'Room not found.', 404);
+        }
+    }
+    if (
+        $since !== null && (int) $since === (int) $lite['version']
+        && !seatsNeedReaping($pdo, json_decode($lite['seats'], true), $lite['host_client'])
+    ) {
+        return jsonResponse($response, [
+            'version' => (int) $lite['version'],
+            'ageMs' => max(0, time() - (int) $lite['updated_at']) * 1000,
+            'emote' => $lite['emote'] !== null ? json_decode($lite['emote'], true) : null,
+            'emoteN' => (int) ($lite['emote_n'] ?? 0),
+        ]);
+    }
+    // Something changed — or a seated player went quiet: full load, reap,
+    // and (when the reap saved) a version bump that reaches everyone.
+    $room = loadRoom($pdo, $args['code']);
+    if ($room === null) {
+        return errorResponse($response, 'Room not found.', 404);
+    }
+    if (reapStaleClients($pdo, $room)) {
+        beginWrite($pdo);
+        saveRoom($pdo, $room);
+        commitWrite($pdo);
+        $room = loadRoom($pdo, $args['code']);
     }
     if ($since !== null && (int) $since === (int) $room['version']) {
         return jsonResponse($response, [
@@ -693,25 +783,25 @@ $app->post('/api/rooms/{code}/rename', function (Request $request, Response $res
     $pdo = db();
     $body = (array) $request->getParsedBody();
     $clientId = clientIdOf($request);
-    $pdo->beginTransaction();
+    beginWrite($pdo);
     $room = loadRoom($pdo, $args['code']);
     if ($room === null || clientRow($pdo, $clientId, $args['code']) === null) {
-        $pdo->rollBack();
+        rollbackWrite($pdo);
         return errorResponse($response, 'Room not found.', 404);
     }
     $seat = seatOf($room, $clientId);
     if ($seat === null) {
-        $pdo->rollBack();
+        rollbackWrite($pdo);
         return errorResponse($response, 'Not seated.', 403);
     }
     if (actionThrottled($pdo, $clientId)) {
-        $pdo->rollBack();
+        rollbackWrite($pdo);
         return errorResponse($response, 'Too fast.', 429);
     }
     $room['seats'][$seat]['name'] = sanitizeName($body['name'] ?? null);
     touchClient($pdo, $clientId);
     saveRoom($pdo, $room);
-    $pdo->commit();
+    commitWrite($pdo);
     return jsonResponse($response, snapshot(loadRoom($pdo, $args['code']), $clientId));
 });
 
@@ -720,20 +810,20 @@ $app->post('/api/rooms/{code}/rules', function (Request $request, Response $resp
     $pdo = db();
     $body = (array) $request->getParsedBody();
     $clientId = clientIdOf($request);
-    $pdo->beginTransaction();
+    beginWrite($pdo);
     $room = loadRoom($pdo, $args['code']);
     if ($room === null) {
-        $pdo->rollBack();
+        rollbackWrite($pdo);
         return errorResponse($response, 'Room not found.', 404);
     }
     if ($room['host_client'] !== $clientId || $room['game'] !== null) {
-        $pdo->rollBack();
+        rollbackWrite($pdo);
         return errorResponse($response, 'Not allowed.', 403);
     }
     $room['rules'] = json_encode(sanitizeRules($body['rules'] ?? null));
     touchClient($pdo, $clientId);
     saveRoom($pdo, $room);
-    $pdo->commit();
+    commitWrite($pdo);
     return jsonResponse($response, snapshot(loadRoom($pdo, $args['code']), $clientId));
 });
 
@@ -743,14 +833,14 @@ $app->post('/api/rooms/{code}/sit', function (Request $request, Response $respon
     $body = (array) $request->getParsedBody();
     $clientId = clientIdOf($request);
     $target = (int) ($body['seat'] ?? -1);
-    $pdo->beginTransaction();
+    beginWrite($pdo);
     $room = loadRoom($pdo, $args['code']);
     if ($room === null || clientRow($pdo, $clientId, $args['code']) === null) {
-        $pdo->rollBack();
+        rollbackWrite($pdo);
         return errorResponse($response, 'Room not found.', 404);
     }
     if ($room['game'] !== null || $target < 0 || $target > 3 || $room['seats'][$target] !== null) {
-        $pdo->rollBack();
+        rollbackWrite($pdo);
         return errorResponse($response, 'Seat unavailable.', 409);
     }
     $current = seatOf($room, $clientId);
@@ -763,7 +853,7 @@ $app->post('/api/rooms/{code}/sit', function (Request $request, Response $respon
     $room['seats'][$target] = $entry;
     touchClient($pdo, $clientId);
     saveRoom($pdo, $room);
-    $pdo->commit();
+    commitWrite($pdo);
     return jsonResponse($response, snapshot(loadRoom($pdo, $args['code']), $clientId));
 });
 
@@ -776,14 +866,14 @@ $app->post('/api/rooms/{code}/cpu', function (Request $request, Response $respon
     $on = (bool) ($body['on'] ?? false);
     $difficulty = in_array($body['difficulty'] ?? null, ['easy', 'medium', 'hard', 'insane'], true)
         ? $body['difficulty'] : 'hard';
-    $pdo->beginTransaction();
+    beginWrite($pdo);
     $room = loadRoom($pdo, $args['code']);
     if ($room === null) {
-        $pdo->rollBack();
+        rollbackWrite($pdo);
         return errorResponse($response, 'Room not found.', 404);
     }
     if ($room['host_client'] !== $clientId || $room['game'] !== null || $target < 0 || $target > 3) {
-        $pdo->rollBack();
+        rollbackWrite($pdo);
         return errorResponse($response, 'Not allowed.', 403);
     }
     if ($on && $room['seats'][$target] === null) {
@@ -793,7 +883,7 @@ $app->post('/api/rooms/{code}/cpu', function (Request $request, Response $respon
     }
     touchClient($pdo, $clientId);
     saveRoom($pdo, $room);
-    $pdo->commit();
+    commitWrite($pdo);
     return jsonResponse($response, snapshot(loadRoom($pdo, $args['code']), $clientId));
 });
 
@@ -803,18 +893,18 @@ $app->post('/api/rooms/{code}/start', function (Request $request, Response $resp
     $body = (array) $request->getParsedBody();
     $clientId = clientIdOf($request);
     $state = $body['state'] ?? null;
-    $pdo->beginTransaction();
+    beginWrite($pdo);
     $room = loadRoom($pdo, $args['code']);
     if ($room === null) {
-        $pdo->rollBack();
+        rollbackWrite($pdo);
         return errorResponse($response, 'Room not found.', 404);
     }
     if ($room['host_client'] !== $clientId || $room['game'] !== null) {
-        $pdo->rollBack();
+        rollbackWrite($pdo);
         return errorResponse($response, 'Only the host can start.', 403);
     }
     if (!looksLikeGameState($state)) {
-        $pdo->rollBack();
+        rollbackWrite($pdo);
         return errorResponse($response, 'Invalid game state.', 422);
     }
     foreach ($room['seats'] as $i => $seat) {
@@ -825,7 +915,7 @@ $app->post('/api/rooms/{code}/start', function (Request $request, Response $resp
     $room['game'] = $state;
     touchClient($pdo, $clientId);
     saveRoom($pdo, $room);
-    $pdo->commit();
+    commitWrite($pdo);
     return jsonResponse($response, snapshot(loadRoom($pdo, $args['code']), $clientId));
 });
 
@@ -835,24 +925,24 @@ $app->post('/api/rooms/{code}/again', function (Request $request, Response $resp
     $body = (array) $request->getParsedBody();
     $clientId = clientIdOf($request);
     $state = $body['state'] ?? null;
-    $pdo->beginTransaction();
+    beginWrite($pdo);
     $room = loadRoom($pdo, $args['code']);
     if ($room === null) {
-        $pdo->rollBack();
+        rollbackWrite($pdo);
         return errorResponse($response, 'Room not found.', 404);
     }
     if ($room['host_client'] !== $clientId || $room['game'] === null || $room['game']['winner'] === null) {
-        $pdo->rollBack();
+        rollbackWrite($pdo);
         return errorResponse($response, 'No finished game to restart.', 403);
     }
     if (!looksLikeGameState($state)) {
-        $pdo->rollBack();
+        rollbackWrite($pdo);
         return errorResponse($response, 'Invalid game state.', 422);
     }
     $room['game'] = $state;
     touchClient($pdo, $clientId);
     saveRoom($pdo, $room);
-    $pdo->commit();
+    commitWrite($pdo);
     return jsonResponse($response, snapshot(loadRoom($pdo, $args['code']), $clientId));
 });
 
@@ -865,18 +955,18 @@ $app->post('/api/rooms/{code}/state', function (Request $request, Response $resp
     $expected = (int) ($body['expectedVersion'] ?? -1);
     $forCpu = (bool) ($body['cpu'] ?? false);
     $state = $body['state'] ?? null;
-    $pdo->beginTransaction();
+    beginWrite($pdo);
     $room = loadRoom($pdo, $args['code']);
     if ($room === null || clientRow($pdo, $clientId, $args['code']) === null) {
-        $pdo->rollBack();
+        rollbackWrite($pdo);
         return errorResponse($response, 'Room not found.', 404);
     }
     if ($room['game'] === null || $room['game']['winner'] !== null) {
-        $pdo->rollBack();
+        rollbackWrite($pdo);
         return errorResponse($response, 'No game in progress.', 409);
     }
     if ((int) $room['version'] !== $expected) {
-        $pdo->rollBack();
+        rollbackWrite($pdo);
         return errorResponse($response, 'Version conflict.', 409);
     }
     $actingSeat = (int) $room['game']['current'];
@@ -888,21 +978,21 @@ $app->post('/api/rooms/{code}/state', function (Request $request, Response $resp
         $timer = (int) ($room['game']['rules']['turnTimer'] ?? 0);
         $overdue = $timer > 0 && (time() - (int) $room['updated_at']) >= $timer;
         if (!$seatIsCpu && !$overdue) {
-            $pdo->rollBack();
+            rollbackWrite($pdo);
             return errorResponse($response, 'That seat is not a CPU.', 403);
         }
     } elseif (seatOf($room, $clientId) !== $actingSeat) {
-        $pdo->rollBack();
+        rollbackWrite($pdo);
         return errorResponse($response, 'Not your turn.', 403);
     }
     if (!looksLikeGameState($state)) {
-        $pdo->rollBack();
+        rollbackWrite($pdo);
         return errorResponse($response, 'Invalid game state.', 422);
     }
     $room['game'] = $state;
     touchClient($pdo, $clientId);
     saveRoom($pdo, $room);
-    $pdo->commit();
+    commitWrite($pdo);
     return jsonResponse($response, snapshot(loadRoom($pdo, $args['code']), $clientId));
 });
 
@@ -911,10 +1001,10 @@ $app->post('/api/rooms/{code}/leave', function (Request $request, Response $resp
     $pdo = db();
     $body = (array) $request->getParsedBody();
     $clientId = clientIdOf($request);
-    $pdo->beginTransaction();
+    beginWrite($pdo);
     $room = loadRoom($pdo, $args['code']);
     if ($room === null) {
-        $pdo->rollBack();
+        rollbackWrite($pdo);
         return jsonResponse($response, ['ok' => true]);
     }
     $seat = seatOf($room, $clientId);
@@ -932,7 +1022,7 @@ $app->post('/api/rooms/{code}/leave', function (Request $request, Response $resp
     $pdo->prepare('DELETE FROM clients WHERE id = ?')->execute([$clientId]);
     reapStaleClients($pdo, $room);
     saveRoom($pdo, $room);
-    $pdo->commit();
+    commitWrite($pdo);
     return jsonResponse($response, ['ok' => true]);
 });
 
