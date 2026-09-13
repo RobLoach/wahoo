@@ -46,6 +46,8 @@ export class App {
   onMenuShown: (() => void) | null = null;
   private lastAnnounced = '';
   private lastLogLen = 0;
+  /** Card ids already shown in the hand: anything else animates in as dealt. */
+  private knownCards = new Set<number>();
   private pendingEffects: MoveEffect[] | undefined;
   private recentBunnies = new Set<number>();
   /** Hot-seat pass-the-device privacy. */
@@ -138,6 +140,7 @@ export class App {
 
   async showGame() {
     this.victory.reset();
+    this.knownCards.clear(); // card ids repeat between games; deal them fresh
     $('#menu').hidden = true;
     $('#game').hidden = false;
     if (!this.boardReady) {
@@ -618,7 +621,11 @@ export class App {
     const playable = new Set(
       view.legal.filter(m => m.type === 'play').map(m => (m as any).card as number),
     );
-    for (const card of curtainUp ? [] : view.myHand) {
+    // Fresh cards (a new round's deal, or a new seat's hand in hot-seat)
+    // slide in from the pile, staggered like a real deal.
+    const shown = curtainUp ? [] : view.myHand;
+    let dealN = 0;
+    for (const card of shown) {
       const el = document.createElement('button');
       el.className = 'card';
       if (isRed(card)) el.classList.add('red');
@@ -626,6 +633,10 @@ export class App {
       const canPlay = view.canAct && !view.pendingFlip && playable.has(card.id);
       if (!canPlay) el.classList.add('disabled');
       el.innerHTML = cardFaceHtml(card, CARD_HINTS[card.rank] ?? '');
+      if (!this.knownCards.has(card.id)) {
+        el.classList.add('dealt');
+        el.style.setProperty('--deal-delay', `${dealN++ * 0.09}s`);
+      }
       el.title = CARD_TOOLTIPS[card.rank] ?? '';
       el.setAttribute(
         'aria-label',
@@ -649,6 +660,7 @@ export class App {
       };
       handEl.appendChild(el);
     }
+    if (!curtainUp) this.knownCards = new Set(shown.map(c => c.id));
 
     // Description of the selected card, always visible (tooltips need hover).
     const helpEl = $('#card-help');

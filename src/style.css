@@ -483,6 +483,14 @@ input[type="checkbox"]:focus-visible { outline: 2px solid var(--red-rule); outli
 }
 .card.selected .hintline { color: var(--red); }
 .card:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+/* A fresh deal: cards slide in from the pile below, one after another. */
+.card.dealt {
+  animation: deal-in 0.36s cubic-bezier(0.22, 0.9, 0.36, 1) backwards;
+  animation-delay: var(--deal-delay, 0s);
+}
+@keyframes deal-in {
+  from { opacity: 0; transform: translate(46px, 74px) rotate(11deg) scale(0.6); }
+}
 
 #card-help { font-size: 13.5px; line-height: 1.6; color: var(--lit-soft); padding: 8px 14px; border-radius: 10px; background: var(--dark-box-soft); border: 1px solid var(--dark-border); }
 
