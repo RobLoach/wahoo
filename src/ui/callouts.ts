@@ -8,6 +8,8 @@ import { burrowPos, reservePos, trackPos } from './board.ts';
 import { SPAWN_INDEX } from '../engine/types.ts';
 import type { View } from '../net/protocol.ts';
 import { inked, isRed } from './cards.ts';
+import { emoteHtml } from './emotes.ts';
+import { PLAYER_COLORS_CSS } from './palette.ts';
 
 /** Board-space point -> pixel offset inside #board-wrap, following the canvas scale. */
 export function boardPoint(pt: { x: number; y: number }) {
@@ -76,7 +78,13 @@ export class Callouts {
     seat: number,
   ) {
     const el = $('#move-callout');
-    el.innerHTML = `<div class="callout-box">${cardHtml}<span>${text}</span></div><div class="callout-tail"></div>`;
+    // The acting player's own bunny sits on the right of the bubble.
+    const bunny =
+      `<span class="callout-bunny" aria-hidden="true">` +
+      `${emoteHtml('plain', PLAYER_COLORS_CSS[seat], seat)}</span>`;
+    el.innerHTML =
+      `<div class="callout-box">${cardHtml}<span>${text}</span>${bunny}</div>` +
+      `<div class="callout-tail"></div>`;
     el.hidden = false;
     el.classList.remove('show');
     // Board geometry in logical space: ring corners and the safe inner field

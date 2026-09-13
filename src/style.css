@@ -615,6 +615,8 @@ input[type="checkbox"]:focus-visible { outline: 2px solid var(--red-rule); outli
   box-shadow: 0 10px 22px rgba(0, 0, 0, 0.4), inset 0 1px 0 #fff;
 }
 .callout-box .mini-card { width: 36px; height: 48px; font-size: 19px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3), inset 0 1px 0 #fff; }
+.callout-box .callout-bunny { flex: none; width: 40px; margin: -4px -2px -8px 0; }
+.callout-box .callout-bunny svg { display: block; width: 100%; height: auto; }
 .callout-box i { color: var(--ink-muted); }
 /* A line along +x ending in an arrowhead; the app rotates it toward the
    action and stretches it to reach the space where the move landed. */
