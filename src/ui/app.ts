@@ -24,7 +24,7 @@ import type { RoomInfo, View } from '../net/protocol.ts';
 import { backwardDest, distOf, forwardDest } from '../engine/game.ts';
 import type { Bunny, CardAction, Move, MoveEffect } from '../engine/types.ts';
 import { PLAYER_NAMES, SPAWN_INDEX, TRACK_LEN } from '../engine/types.ts';
-import { announce } from './announce.ts';
+import { announce, announceUrgent } from './announce.ts';
 import { playEmoteSound, playMoveSound, playTurnChime } from '../sounds.ts';
 import { TIPS, dismissTip, showTip, tipSeen } from './tips.ts';
 import { emoteHtml } from './emotes.ts';
@@ -59,6 +59,20 @@ export class App {
   /** Turn-timer house rule: when the current turn started, by our clock. */
   private turnKey = '';
   private turnStart = 0;
+  private urgentFor = '';
+  private wasMyTurn = false;
+  private baseTitle = document.title;
+
+  /** "● Your turn" in the tab title until the player comes back. */
+  private flashTitle() {
+    if (!document.hidden) return;
+    document.title = '● Your turn — Wahoo';
+    const restore = () => {
+      document.title = this.baseTitle;
+      document.removeEventListener('visibilitychange', restore);
+    };
+    document.addEventListener('visibilitychange', restore);
+  }
 
   constructor() {
     setInterval(() => this.updateTurnClock(), 500);
@@ -78,6 +92,11 @@ export class App {
     const left = Math.max(0, timer - Math.floor((Date.now() - this.turnStart) / 1000));
     el.textContent = `⏱ ${left}s`;
     el.classList.toggle('urgent', left <= 10);
+    // The player about to run out hears one warning per turn.
+    if (v.canAct && left === 10 && this.urgentFor !== this.turnKey) {
+      this.urgentFor = this.turnKey;
+      announceUrgent('10 seconds left to play.');
+    }
   }
 
   /** Is OUR seat's reaction still playing? (Others emote independently.) */
@@ -215,6 +234,12 @@ export class App {
       playTurnChime();
       if (view.mySeat !== null) this.board.pulseSeat(view.mySeat);
     }
+    // Online: a chime and a title flash reach players in another tab.
+    if (this.online && view.canAct && !this.wasMyTurn) {
+      playTurnChime();
+      this.flashTitle();
+    }
+    this.wasMyTurn = view.canAct;
     if (view.canAct) this.lastHumanSeat = view.mySeat;
     if (view.pendingFlip && view.canAct) this.sel.cardId = 'flip';
     this.refresh();
