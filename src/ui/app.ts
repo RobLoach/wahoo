@@ -21,9 +21,10 @@ import type { OnlineSession } from '../net/client.ts';
 import type { HttpSession } from '../net/http.ts';
 import type { P2PGuestSession, P2PHostSession } from '../net/p2p.ts';
 import type { RoomInfo, View } from '../net/protocol.ts';
-import { backwardDest, forwardDest } from '../engine/game.ts';
+import { backwardDest, distOf, forwardDest } from '../engine/game.ts';
 import type { Bunny, CardAction, Move, MoveEffect } from '../engine/types.ts';
-import { PLAYER_NAMES, SPAWN_INDEX } from '../engine/types.ts';
+import { PLAYER_NAMES, SPAWN_INDEX, TRACK_LEN } from '../engine/types.ts';
+import { announce } from './announce.ts';
 import { playEmoteSound, playMoveSound, playTurnChime } from '../sounds.ts';
 import { TIPS, dismissTip, showTip, tipSeen } from './tips.ts';
 import { emoteHtml } from './emotes.ts';
@@ -44,6 +45,7 @@ export class App {
   roomInfo: RoomInfo | null = null;
   onMenuShown: (() => void) | null = null;
   private lastAnnounced = '';
+  private lastLogLen = 0;
   private pendingEffects: MoveEffect[] | undefined;
   private recentBunnies = new Set<number>();
   /** Hot-seat pass-the-device privacy. */
@@ -156,6 +158,27 @@ export class App {
     this.roomInfo = null;
     renderRecord();
     this.onMenuShown?.();
+  }
+
+  /** Where each bunny stands, in words, for screen readers. */
+  private renderBoardSummary(view: View) {
+    const lines = [0, 1, 2, 3].map(p => {
+      const mine = view.bunnies.filter(b => b.player === p);
+      const onTrack = mine
+        .filter(b => b.place.kind === 'track')
+        .map(b => `${distOf(b)} of ${TRACK_LEN} spaces along`);
+      const home = mine.filter(b => b.place.kind === 'burrow').length;
+      const reserve = mine.filter(b => b.place.kind === 'reserve').length;
+      const bits = [
+        onTrack.length
+          ? `${onTrack.length} on the track (${onTrack.join(', ')})`
+          : null,
+        home ? `${home} home` : null,
+        reserve ? `${reserve} in reserve` : null,
+      ].filter(Boolean);
+      return `${shortName(view, p)}: ${bits.join(', ')}.`;
+    });
+    $('#board-summary').textContent = `Board positions. ${lines.join(' ')}`;
   }
 
   onView(view: View) {
@@ -524,12 +547,26 @@ export class App {
       });
     }
 
-    // Screen readers hear each play and turn change through the live region.
-    const announcement = `${view.log[0] ?? ''}${view.canAct ? ' Your turn.' : ''}`;
-    if (announcement !== this.lastAnnounced) {
+    // Screen readers hear every new play plus whose turn it is now, as one
+    // composed sentence (bursts would otherwise overwrite each other).
+    if (view.log.length < this.lastLogLen) this.lastLogLen = 0; // new game
+    const newLines = view.log.slice(this.lastLogLen);
+    this.lastLogLen = view.log.length;
+    const turn = view.winner !== null
+      ? ''
+      : view.canAct ? 'Your turn.' : `${shortName(view, view.current)}'s turn.`;
+    const announcement = [...newLines, turn]
+      .filter(Boolean)
+      .join(' ')
+      // "Q♥" reads badly aloud: spell the suits out for the live region.
+      .replace(/(10|[A2-9JQK])([♠♥♦♣])/g, (_m, r, s) => `${r} of ${SUIT_NAMES[s] ?? s}`);
+    if (announcement && announcement !== this.lastAnnounced) {
       this.lastAnnounced = announcement;
-      $('#announcer').textContent = announcement;
+      announce(announcement);
     }
+
+    // A parallel text description of the board for screen readers.
+    this.renderBoardSummary(view);
 
     // Pass-the-device curtain over the board: fanned card backs and a reveal button.
     const curtainEl = $('#curtain');

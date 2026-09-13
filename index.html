@@ -33,6 +33,7 @@
 </head>
 <body>
   <div id="announcer" class="sr-only" role="status" aria-live="polite"></div>
+  <div id="announcer-urgent" class="sr-only" role="alert" aria-live="assertive"></div>
   <div id="app">
     <section id="menu">
       <div class="masthead">
@@ -131,6 +132,7 @@
       <div id="board-wrap">
         <div id="board-frame" class="board-frame"></div>
         <div id="move-callout" hidden aria-hidden="true"></div>
+        <div id="board-summary" class="sr-only"></div>
         <div id="curtain" hidden></div>
         <div id="victory" role="dialog" aria-label="Game over" hidden>
           <div class="victory-card paper">
