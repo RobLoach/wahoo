@@ -1,5 +1,15 @@
 import { defineConfig } from 'vitest/config';
 import type { Plugin } from 'vite';
+import { execSync } from 'node:child_process';
+
+/** The short git SHA, stamped into the menu footer for support questions. */
+function buildStamp(): string {
+  try {
+    return execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
+  } catch {
+    return 'dev';
+  }
+}
 
 /**
  * Emit the complete list of built files so the service worker can precache
@@ -20,6 +30,7 @@ const assetList = (): Plugin => ({
 
 export default defineConfig({
   base: '/wahoo/',
+  define: { __WAHOO_BUILD__: JSON.stringify(buildStamp()) },
   plugins: [assetList()],
   build: {
     target: 'es2022',

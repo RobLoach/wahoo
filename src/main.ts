@@ -39,6 +39,7 @@ const app = new App();
 
 buildSeatConfig();
 renderRecord();
+$('#build-stamp').textContent = __WAHOO_BUILD__;
 
 // House rules card: persist every change and, when hosting a lobby,
 // publish it so guests see the rules live.

@@ -4,6 +4,9 @@ import type { App } from './ui/app.ts';
 import type { burrowPos, reservePos, trackPos } from './ui/board.ts';
 
 declare global {
+  /** The short git SHA, injected by Vite at build time ('dev' otherwise). */
+  const __WAHOO_BUILD__: string;
+
   interface Window {
     /** The running app plus the board geometry helpers. */
     __wahoo?: {
