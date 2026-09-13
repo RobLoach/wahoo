@@ -543,14 +543,56 @@ export class BoardView {
     const C = R / 0.35; // the bunny is drawn in cell units around a 0.35-cell body
     const base = PIECE_GRADIENT[p][1];
 
+    // Every player has its own ear pose — identity that survives greyscale:
+    // Red stands tall, Blue folds one ear tip, Green is a lop, Yellow wears
+    // short swept-back ears. Team 2 (Blue & Yellow) adds cream ear tips.
+    const creamTip = p === 1 || p === 3;
+    const deg = Math.PI / 180;
+    const ear = (opts: { ry: number; tipFold?: boolean }) => {
+      const g = new Graphics();
+      const ry = opts.ry;
+      g.ellipse(0, -ry, 0.115 * C, ry).fill(base);
+      g.ellipse(0, -ry, 0.115 * C, ry).stroke({ color: 0x000000, alpha: 0.3, width: 1.2 });
+      g.ellipse(0, -ry + 0.02 * C, 0.055 * C, ry * 0.64).fill(EAR_PINK);
+      if (creamTip && !opts.tipFold) {
+        g.ellipse(0, -ry * 1.62, 0.095 * C, ry * 0.34).fill(CREAM);
+        g.ellipse(0, -ry * 1.62, 0.095 * C, ry * 0.34)
+          .stroke({ color: 0x000000, alpha: 0.25, width: 1 });
+      }
+      return g;
+    };
     for (const side of [-1, 1]) {
-      const ear = new Graphics();
-      ear.ellipse(0, -0.24 * C, 0.115 * C, 0.28 * C).fill(base);
-      ear.ellipse(0, -0.24 * C, 0.115 * C, 0.28 * C).stroke({ color: 0x000000, alpha: 0.3, width: 1.2 });
-      ear.ellipse(0, -0.22 * C, 0.055 * C, 0.18 * C).fill(EAR_PINK);
-      ear.position.set(side * 0.17 * C, -0.2 * C);
-      ear.rotation = side * (8 * Math.PI) / 180;
-      root.addChild(ear);
+      let e: Graphics | Container;
+      if (p === 0) {
+        // Red: the classic — both ears tall and straight.
+        e = ear({ ry: 0.28 * C });
+        e.position.set(side * 0.17 * C, -0.2 * C);
+        e.rotation = side * 8 * deg;
+      } else if (p === 1) {
+        // Blue: helicopter ear — the right tip folds over.
+        const wrap = new Container();
+        wrap.addChild(ear({ ry: side === 1 ? 0.2 * C : 0.28 * C, tipFold: side === 1 }));
+        if (side === 1) {
+          const tip = ear({ ry: 0.13 * C });
+          tip.position.set(0.02 * C, -0.36 * C);
+          tip.rotation = 95 * deg;
+          wrap.addChild(tip);
+        }
+        e = wrap;
+        e.position.set(side * 0.17 * C, -0.2 * C);
+        e.rotation = side * 8 * deg;
+      } else if (p === 2) {
+        // Green: a lop — both ears hang down beside the head.
+        e = ear({ ry: 0.26 * C });
+        e.position.set(side * 0.26 * C, -0.12 * C);
+        e.rotation = side * 142 * deg;
+      } else {
+        // Yellow: short ears swept back in a wide V.
+        e = ear({ ry: 0.19 * C });
+        e.position.set(side * 0.21 * C, -0.18 * C);
+        e.rotation = side * 34 * deg;
+      }
+      root.addChild(e);
     }
 
     const body = new Graphics();
@@ -558,17 +600,6 @@ export class BoardView {
     body.circle(0, 2, R - 2).stroke({ color: 0x000000, alpha: 0.28, width: 4 });
     body.ellipse(-0.25 * R, -0.45 * R, 0.4 * R, 0.22 * R).fill({ color: 0xffffff, alpha: 0.3 });
     body.circle(0, 0, R).stroke({ color: 0x000000, alpha: 0.35, width: 1.2 });
-    // A forehead blaze: each player has a distinct fur marking so pieces
-    // never rely on colour alone (team 1 wears filled marks, team 2 outlined).
-    const blaze = new Graphics();
-    const s = 0.085 * C;
-    const by = -0.19 * C;
-    if (p === 0) blaze.poly([0, by - s, s * 0.95, by + s * 0.8, -s * 0.95, by + s * 0.8]).fill(CREAM);
-    if (p === 2) blaze.circle(0, by, s * 0.85).fill(CREAM);
-    if (p === 1) blaze.rect(-s * 0.75, by - s * 0.75, s * 1.5, s * 1.5)
-      .stroke({ color: CREAM, width: Math.max(1.4, s * 0.45) });
-    if (p === 3) blaze.poly([0, by - s, s, by, 0, by + s, -s, by])
-      .stroke({ color: CREAM, width: Math.max(1.4, s * 0.45) });
     body.ellipse(0, 0.12 * C, 0.19 * C, 0.14 * C).fill({ color: 0xffffff, alpha: 0.92 });
     body.circle(-0.13 * C, -0.05 * C, 0.058 * C).fill(EYE_INK);
     body.circle(0.13 * C, -0.05 * C, 0.058 * C).fill(EYE_INK);
@@ -576,7 +607,6 @@ export class BoardView {
     body.circle(0.15 * C, -0.075 * C, 0.02 * C).fill(0xffffff);
     body.ellipse(0, 0.07 * C, 0.045 * C, 0.03 * C).fill(NOSE_PINK);
     root.addChild(body);
-    root.addChild(blaze);
     return { root, tx: 0, ty: 0, path: null };
   }
 
