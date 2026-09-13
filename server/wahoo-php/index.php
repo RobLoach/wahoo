@@ -195,7 +195,10 @@ function loadRoom(PDO $pdo, string $code): ?array
     return $row;
 }
 
-function saveRoom(PDO $pdo, array $room, bool $bumpVersion = true): void
+/** With $touch = false the game clocks survive: updated_at drives both the
+ *  turn-timer rule and the CPU thinking pause, so cosmetic changes (renames
+ *  mid-game) must not reset them. */
+function saveRoom(PDO $pdo, array $room, bool $bumpVersion = true, bool $touch = true): void
 {
     $stmt = $pdo->prepare(
         'UPDATE rooms SET seats = ?, game = ?, version = ?, host_client = ?, rules = ?, updated_at = ?
@@ -207,7 +210,7 @@ function saveRoom(PDO $pdo, array $room, bool $bumpVersion = true): void
         $room['version'] + ($bumpVersion ? 1 : 0),
         $room['host_client'],
         $room['rules'] ?? null,
-        time(),
+        $touch ? time() : (int) $room['updated_at'],
         $room['code'],
     ]);
 }
@@ -800,7 +803,10 @@ $app->post('/api/rooms/{code}/rename', function (Request $request, Response $res
     }
     $room['seats'][$seat]['name'] = sanitizeName($body['name'] ?? null);
     touchClient($pdo, $clientId);
-    saveRoom($pdo, $room);
+    // Renaming mid-game must not reset the turn timer or the CPU pause —
+    // otherwise one rename per second stalls a timed game forever.
+    $gameRunning = $room['game'] !== null && $room['game']['winner'] === null;
+    saveRoom($pdo, $room, true, !$gameRunning);
     commitWrite($pdo);
     return jsonResponse($response, snapshot(loadRoom($pdo, $args['code']), $clientId));
 });
