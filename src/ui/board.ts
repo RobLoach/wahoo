@@ -179,6 +179,9 @@ interface Piece {
   ty: number;
   /** Eased path (accelerate, then slow into position) for the current move. */
   path: MovePath | null;
+  /** Open eyes on the move, peacefully closed ones once home in the burrow. */
+  awake: Graphics;
+  asleep: Graphics;
 }
 
 export class BoardView {
@@ -395,6 +398,9 @@ export class BoardView {
         );
         hole.circle(x, y + 1.5, BURROW_R).stroke({ color: 0xffffff, alpha: 0.22, width: 1.5 });
         hole.circle(x, y, BURROW_R).stroke({ color: PLAYER_COLORS[p], alpha: 0.8, width: 1.5 });
+        // A made bed waiting in the hole: the seat colour, extremely faint.
+        hole.ellipse(x, y + BURROW_R * 0.32, BURROW_R * 0.5, BURROW_R * 0.3)
+          .fill({ color: PLAYER_COLORS[p], alpha: 0.14 });
         this.staticLayer.addChild(hole);
       }
     }
@@ -618,13 +624,26 @@ export class BoardView {
     body.ellipse(-0.25 * R, -0.45 * R, 0.4 * R, 0.22 * R).fill({ color: 0xffffff, alpha: 0.3 });
     body.circle(0, 0, R).stroke({ color: 0x000000, alpha: 0.35, width: 1.2 });
     body.ellipse(0, 0.12 * C, 0.19 * C, 0.14 * C).fill({ color: 0xffffff, alpha: 0.92 });
-    body.circle(-0.13 * C, -0.05 * C, 0.058 * C).fill(EYE_INK);
-    body.circle(0.13 * C, -0.05 * C, 0.058 * C).fill(EYE_INK);
-    body.circle(-0.11 * C, -0.075 * C, 0.02 * C).fill(0xffffff);
-    body.circle(0.15 * C, -0.075 * C, 0.02 * C).fill(0xffffff);
     body.ellipse(0, 0.07 * C, 0.045 * C, 0.03 * C).fill(NOSE_PINK);
     root.addChild(body);
-    return { root, tx: 0, ty: 0, path: null };
+    // Two sets of eyes: bright ones out on the track, and contentedly closed
+    // lids once the bunny is tucked into its burrow.
+    const awake = new Graphics();
+    awake.circle(-0.13 * C, -0.05 * C, 0.058 * C).fill(EYE_INK);
+    awake.circle(0.13 * C, -0.05 * C, 0.058 * C).fill(EYE_INK);
+    awake.circle(-0.11 * C, -0.075 * C, 0.02 * C).fill(0xffffff);
+    awake.circle(0.15 * C, -0.075 * C, 0.02 * C).fill(0xffffff);
+    const asleep = new Graphics();
+    for (const sx of [-0.13, 0.13]) {
+      asleep
+        .moveTo((sx - 0.055) * C, -0.055 * C)
+        .quadraticCurveTo(sx * C, -0.005 * C, (sx + 0.055) * C, -0.055 * C)
+        .stroke({ color: EYE_INK, width: 0.032 * C, cap: 'round' });
+    }
+    asleep.visible = false;
+    root.addChild(awake);
+    root.addChild(asleep);
+    return { root, tx: 0, ty: 0, path: null, awake, asleep };
   }
 
   private lastHi: Highlights | null = null;
@@ -834,6 +853,9 @@ export class BoardView {
         hi.selected === bunny.id ? 1.18 : bunny.place.kind === 'reserve' ? 0.8 : 1,
       );
       piece.root.alpha = bunny.place.kind === 'burrow' ? 0.95 : 1;
+      const home = bunny.place.kind === 'burrow';
+      piece.awake.visible = !home;
+      piece.asleep.visible = home;
     }
 
     // Highlights
