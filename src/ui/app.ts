@@ -690,16 +690,13 @@ export class App {
       !curtainUp && view.canAct && view.legal.length === 1 && view.legal[0].type === 'discardHand';
     $('#btn-fold').hidden = !foldOnly;
 
-    // Piles: the draw pile as a card back, with counts beside it.
+    // Piles: the draw pile as a card back, with counts beside it. Per-player
+    // hand counts live on the board itself, as card fans beside the pills.
     $('#piles').innerHTML =
       `<div class="card-back small" aria-hidden="true"></div>` +
       `<div>Draw ${view.drawCount} · Discard ${
         view.discardTop ? esc(view.discardTop.rank + view.discardTop.suit) : '—'
-      }<br/><span class="hands">Hands ` +
-      view.handCounts
-        .map((n, i) => `<span style="color:${PLAYER_COLORS_LIT_CSS[i]}">${n}</span>`)
-        .join(' · ') +
-      `</span></div>`;
+      }</div>`;
 
     // Log, newest first, with player names tinted for scanning.
     const colorizeLog = (line: string) =>
