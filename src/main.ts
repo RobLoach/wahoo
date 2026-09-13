@@ -330,7 +330,7 @@ function renderLobby(session: NetSession, room: RoomInfo) {
           }</span>`
       : `<span class="seat-name-text open">Open seat<span class="tag">${PLAYER_NAMES[i]}</span></span>`;
     row.innerHTML =
-      `<span class="seat-bunny" aria-hidden="true">${emoteHtml('plain', PLAYER_COLORS_CSS[i])}</span>` +
+      `<span class="seat-bunny" aria-hidden="true">${emoteHtml('plain', PLAYER_COLORS_CSS[i], i)}</span>` +
       `${name}${status}${controls}`;
     seats.appendChild(row);
     }

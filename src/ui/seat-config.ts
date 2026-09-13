@@ -54,7 +54,7 @@ function buildRows(
     const row = document.createElement('div');
     row.className = 'seat-row';
     row.innerHTML =
-      `<span class="seat-bunny" aria-hidden="true">${emoteHtml('plain', PLAYER_COLORS_CSS[i])}</span>` +
+      `<span class="seat-bunny" aria-hidden="true">${emoteHtml('plain', PLAYER_COLORS_CSS[i], i)}</span>` +
       `<span class="seat-color">${PLAYER_NAMES[i]}</span>` +
       `<span class="seat-label" data-label-seat="${i}">CPU ${PLAYER_NAMES[i]}</span>` +
       `<input class="seat-name" data-name-seat="${i}" maxlength="12" value="${esc(names[i])}"` +

@@ -113,7 +113,7 @@ export class App {
     const mine = seat === this.view?.mySeat;
     const bubble = document.createElement('span');
     bubble.className = `emote-bubble seat-${seat}`;
-    bubble.innerHTML = emoteHtml(emoji, PLAYER_COLORS_CSS[seat]);
+    bubble.innerHTML = emoteHtml(emoji, PLAYER_COLORS_CSS[seat], seat);
     $('#board-wrap').appendChild(bubble);
     playEmoteSound(emoji);
     if (mine) {
@@ -568,7 +568,7 @@ export class App {
     if (view.mySeat !== null && emoteBar.dataset.seat !== String(view.mySeat)) {
       emoteBar.dataset.seat = String(view.mySeat);
       emoteBar.querySelectorAll<HTMLElement>('button[data-emote]').forEach(btn => {
-        btn.innerHTML = emoteHtml(btn.dataset.emote!, PLAYER_COLORS_CSS[view.mySeat!]);
+        btn.innerHTML = emoteHtml(btn.dataset.emote!, PLAYER_COLORS_CSS[view.mySeat!], view.mySeat!);
       });
     }
 

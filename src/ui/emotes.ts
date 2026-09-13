@@ -122,24 +122,63 @@ const NEUTRAL_EYES =
   `<circle cx="-5.2" cy="-2" r="2.3" fill="${INK}"/><circle cx="5.2" cy="-2" r="2.3" fill="${INK}"/>` +
   `<circle cx="-4.4" cy="-3" r="0.8" fill="#fff"/><circle cx="6" cy="-3" r="0.8" fill="#fff"/>`;
 
+const CREAM = '#f6ecd6';
+
+/**
+ * Each seat wears its own ear pose — Red tall, Blue with a folded tip,
+ * Green a lop, Yellow short and swept — so bunnies are recognisable without
+ * colour. Team 2 (Blue & Yellow) adds cream ear tips. Expression rotations
+ * are applied as deltas from the neutral pose, so reactions still move ears.
+ */
+function earsHtml(
+  seat: number | undefined,
+  look: Look,
+  g: string,
+  dark: string,
+): string {
+  const [la, ra] = look.ears ?? [-8, 8];
+  const dl = la + 8;
+  const dr = ra - 8;
+  const shape = (ry: number, tip: boolean) =>
+    `<ellipse cy="${-ry * 0.86}" rx="4.6" ry="${ry}" fill="${g}" stroke="${dark}" stroke-width="1.2"/>` +
+    `<ellipse cy="${-ry * 0.79}" rx="2.2" ry="${ry * 0.64}" fill="${EAR}"/>` +
+    (tip
+      ? `<ellipse cy="${-ry * 1.46}" rx="3.4" ry="${ry * 0.32}" fill="${CREAM}" stroke="${dark}" stroke-width="1"/>`
+      : '');
+  const at = (x: number, y: number, rot: number, inner: string) =>
+    `<g transform="translate(${x} ${y}) rotate(${rot})">${inner}</g>`;
+  switch (seat) {
+    case 1: // Blue: helicopter — the right ear tip folds over.
+      return (
+        at(-6.8, -8, -8 + dl, shape(11.2, true)) +
+        at(6.8, -8, 8 + dr,
+          shape(8, false) + `<g transform="translate(0.6 -13.4) rotate(96)">${shape(5.4, true)}</g>`)
+      );
+    case 2: // Green: a lop — ears hang beside the head.
+      return (
+        at(-10.4, -4, -142 + dl * 0.3, shape(10.4, false)) +
+        at(10.4, -4, 142 + dr * 0.3, shape(10.4, false))
+      );
+    case 3: // Yellow: short ears in a wide V.
+      return at(-8, -7, -34 + dl, shape(7.6, true)) + at(8, -7, 34 + dr, shape(7.6, true));
+    default: // Red — and bunnies with no seat: the classic tall pair.
+      return at(-6.8, -8, -8 + dl, shape(11.2, false)) + at(6.8, -8, 8 + dr, shape(11.2, false));
+  }
+}
+
 /**
  * Inline SVG of a bunny reaction in the given seat colour. Unknown ids
  * (older clients still sending emoji) fall back to plain text.
  */
 let gradientN = 0;
 
-export function emoteHtml(id: string, color = '#b89a6a'): string {
+export function emoteHtml(id: string, color = '#b89a6a', seat?: number): string {
   const look = LOOKS[id];
   if (!look) return `<span>${id.replace(/[<>&"]/g, '')}</span>`;
   // Unique per render: two bubbles of the same colour must not share DOM ids.
   const gid = `bg${color.replace(/[^0-9a-f]/gi, '')}-${gradientN++}`;
   const g = `url(#${gid})`;
   const dark = darken(color, 0.45);
-  const [lr, rr] = look.ears ?? [-8, 8];
-  const ear = (x: number, rot: number) =>
-    `<g transform="translate(${x} -8) rotate(${rot})">` +
-    `<ellipse cy="-9.6" rx="4.6" ry="11.2" fill="${g}" stroke="${dark}" stroke-width="1.2"/>` +
-    `<ellipse cy="-8.8" rx="2.2" ry="7.2" fill="${EAR}"/></g>`;
   return (
     `<svg class="emote" viewBox="-27 -31 54 58" role="img" aria-label="${EMOTE_LABELS[id] ?? id}">` +
     `<defs><radialGradient id="${gid}" cx="35%" cy="28%" r="75%">` +
@@ -147,7 +186,7 @@ export function emoteHtml(id: string, color = '#b89a6a'): string {
     `</radialGradient></defs>` +
     `<ellipse cy="15.2" rx="12" ry="3.6" fill="#000" opacity="0.2"/>` +
     (look.behind?.(g, dark, color) ?? '') +
-    ear(-6.8, lr) + ear(6.8, rr) +
+    earsHtml(seat, look, g, dark) +
     `<circle r="14" fill="${g}" stroke="${dark}" stroke-width="1.4"/>` +
     `<ellipse cy="4.8" rx="7.6" ry="5.6" fill="#fff" opacity="0.9"/>` +
     (look.eyes || NEUTRAL_EYES) +
