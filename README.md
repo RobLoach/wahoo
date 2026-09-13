@@ -6,7 +6,7 @@ stomping anyone who gets in the way.
 
 **Play it:** https://robloach.github.io/wahoo/
 
-![Wahoo mid-game: bunny tokens race around a laid-paper board in a wooden frame on green felt, with earthen burrows at each corner and fenced hutches for the reserves](docs/screenshot.png)
+![Wahoo mid-game: bunny tokens race around a laid-paper board on green felt, with earthen burrows at each corner, fenced hutches for the reserves, and each player's hand fanned beside their corner](docs/screenshot.png)
 
 ## Features
 
@@ -24,6 +24,13 @@ stomping anyone who gets in the way.
   a bonus flip, or a bunny getting home.
 - **Bunny reactions** — online players can fire one of five bunny faces at
   the table: cheer, laugh, gasp, smirk, or the finger.
+- **House rules** — teammate stomping, how far a 7 may split, jumping inside
+  the burrow, snappy CPU turns, an optional online turn timer, and whether
+  the finger is welcome at this table.
+- **Built for everyone** — each player's bunny has its own ear pose so pieces
+  never rely on colour alone, stomps are previewed with a danger ring before
+  you commit, the whole game plays from the keyboard, and screen readers hear
+  every move and a live description of the board.
 - **Installable PWA** — add it to a phone home screen; hot-seat and CPU games
   work fully offline.
 - **Reconnection** — refresh mid-game and rejoin your seat (a CPU covers for
