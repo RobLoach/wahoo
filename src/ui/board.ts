@@ -547,8 +547,9 @@ export class BoardView {
     const dir = Math.sign(r0.x - corner.x); // along the edge, corner -> hutch
     const w = 0.5 * CELL;
     const h = 0.74 * CELL;
-    const step = 0.22 * CELL;
-    const start = corner.x + dir * (0.34 * CELL + w / 2);
+    const step = 0.2 * CELL;
+    // Hug the board edge so even a full fan stays clear of the hutch.
+    const start = corner.x + dir * (0.12 * CELL + w / 2);
     for (let i = 0; i < count; i++) {
       const card = new Graphics();
       card.roundRect(-w / 2, -h * 0.92, w, h, 2.5).fill(0x9c372e);
