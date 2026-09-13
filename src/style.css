@@ -410,6 +410,16 @@ input[type="checkbox"]:focus-visible { outline: 2px solid var(--red-rule); outli
 }
 #turn-clock.urgent { background: var(--red); border-color: var(--red-lo); color: #fdf3e0; }
 
+/* "New version" toast: a quiet paper chip pinned to the bottom. */
+#update-toast {
+  position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 50;
+  display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 18px;
+  border-radius: 12px; background-color: var(--paper); background-image: var(--paper-texture);
+  color: var(--ink); font-size: 14px; box-shadow: 0 14px 30px rgba(0, 0, 0, 0.45);
+}
+#update-toast button { padding: 8px 14px; font-size: 13px; }
+#update-toast button.ghost { color: var(--ink-muted); border-color: var(--rule-dot); }
+
 .dark-box {
   border-radius: 10px; padding: 12px 14px; background: var(--dark-box); border: 1px solid var(--dark-border);
   color: var(--lit-soft);

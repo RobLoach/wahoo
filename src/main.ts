@@ -507,8 +507,33 @@ $('#btn-again').onclick = () => {
 
 installKeyboard(app);
 
+/** A deploy landed while this session was open: offer a one-tap refresh. */
+function offerUpdate() {
+  if (document.getElementById('update-toast')) return;
+  const toast = document.createElement('div');
+  toast.id = 'update-toast';
+  toast.setAttribute('role', 'status');
+  toast.innerHTML = '<span>A new version of Wahoo is ready.</span>';
+  const go = document.createElement('button');
+  go.className = 'primary';
+  go.textContent = 'Refresh';
+  go.onclick = () => location.reload();
+  const later = document.createElement('button');
+  later.className = 'ghost';
+  later.textContent = 'Later';
+  later.onclick = () => toast.remove();
+  toast.append(go, later);
+  document.body.appendChild(toast);
+}
+
 // Offline/installable support (skipped during local development).
 if ('serviceWorker' in navigator && location.hostname !== 'localhost') {
+  // The worker activates new deploys immediately (skipWaiting): when the
+  // controller changes under a page that already had one, an update landed.
+  const hadController = !!navigator.serviceWorker.controller;
+  if (hadController) {
+    navigator.serviceWorker.addEventListener('controllerchange', offerUpdate);
+  }
   navigator.serviceWorker
     .register(`${import.meta.env.BASE_URL}sw.js`)
     .then(reg => {
