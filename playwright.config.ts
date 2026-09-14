@@ -10,7 +10,9 @@ export default defineConfig({
     baseURL: 'http://localhost:4173/wahoo/',
   },
   webServer: {
-    command: 'npx vite preview --port 4173 --strictPort',
+    // --host: the offline spec needs 127.0.0.1 (the service worker skips
+    // registering on the literal hostname `localhost`).
+    command: 'npx vite preview --port 4173 --strictPort --host',
     url: 'http://localhost:4173/wahoo/',
     reuseExistingServer: !process.env.CI,
   },
