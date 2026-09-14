@@ -24,7 +24,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: composer install --no-dev --no-interaction --working-dir=server/wahoo-php
+      - run: composer install --no-interaction --working-dir=server/wahoo-php
+      - run: composer test --working-dir=server/wahoo-php
       - run: npm test
       - run: npm run build
       - run: npx playwright install --with-deps chromium

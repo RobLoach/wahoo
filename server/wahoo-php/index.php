@@ -1032,4 +1032,7 @@ $app->post('/api/rooms/{code}/leave', function (Request $request, Response $resp
     return jsonResponse($response, ['ok' => true]);
 });
 
-$app->run();
+// The test suite includes this file for its functions without serving.
+if (!defined('WAHOO_TEST')) {
+    $app->run();
+}
