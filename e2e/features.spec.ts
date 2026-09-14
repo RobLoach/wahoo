@@ -142,3 +142,56 @@ test('cards and moves work from the keyboard', async ({ page }) => {
   );
   expect(bunny).toEqual({ kind: 'track', index: 10 });
 });
+
+test('the window title tracks whose turn it is', async ({ page }) => {
+  await startLocal(page);
+  await expect(page).toHaveTitle('(Your turn) Wahoo');
+  await page.evaluate(() => {
+    const app = (window as any).__wahoo.app;
+    app.submit(app.view.legal[0]);
+  });
+  await expect(page).toHaveTitle('Wahoo');
+});
+
+test('a fresh hand deals in with a stagger', async ({ page }) => {
+  await startLocal(page);
+  const cards = page.locator('#hand .card.dealt');
+  await expect(cards).toHaveCount(4);
+  await expect(cards.nth(3)).toHaveCSS('animation-delay', '0.27s');
+  // Reselecting does not re-deal.
+  await page.evaluate(() => (window as any).__wahoo.app.refresh());
+  await expect(page.locator('#hand .card.dealt')).toHaveCount(0);
+});
+
+test('choosing a landing spot warns about the stomp', async ({ page }) => {
+  await startLocal(page);
+  await forceState(page, {
+    current: 0,
+    hand: [{ id: 900, rank: '3', suit: '♠' }],
+    bunnies: [
+      { id: 0, place: { kind: 'track', index: 10 } },
+      { id: 4, place: { kind: 'track', index: 13 } }, // Blue, exactly 3 ahead
+    ],
+  });
+  const danger = await page.evaluate(() => {
+    const app = (window as any).__wahoo.app;
+    app.sel.cardId = 900;
+    app.refresh();
+    app.clickBunny(0);
+    return [...app.highlightsAndHint().hi.danger];
+  });
+  expect(danger).toEqual([4]);
+});
+
+test('the menu shows the lifetime record once games exist', async ({ page }) => {
+  await page.goto('./');
+  await expect(page.locator('#family-record')).toBeHidden();
+  await page.evaluate(() => {
+    localStorage.setItem(
+      'wahoo-record',
+      JSON.stringify({ games: 3, wins: [2, 1], stomps: 9, rounds: 7 }),
+    );
+  });
+  await page.reload();
+  await expect(page.locator('#family-record')).toContainText('3 games, 9 stomps');
+});
