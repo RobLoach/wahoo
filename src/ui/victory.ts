@@ -6,6 +6,7 @@ import { PLAYER_COLORS_CSS } from './palette.ts';
 import type { View } from '../net/protocol.ts';
 import { inked, shortName } from './cards.ts';
 import { recordGame } from './stats.ts';
+import { playVictorySound } from '../sounds.ts';
 
 export class VictoryView {
   private shown = false;
@@ -55,6 +56,7 @@ export class VictoryView {
     overlay.hidden = false;
     if (!this.shown) {
       this.shown = true;
+      playVictorySound();
       // Focus lands on the overlay's main action when it first appears.
       const again = $('#btn-again') as HTMLButtonElement;
       (again.hidden ? ($('#victory-menu') as HTMLButtonElement) : again).focus();

@@ -117,6 +117,39 @@ export function playTurnChime(): void {
   }
 }
 
+/** The win fanfare: a bright rising arpeggio landing on a full chord. */
+export function playVictorySound(): void {
+  if (muted) return;
+  try {
+    const Ctor = window.AudioContext ?? window.webkitAudioContext;
+    if (!Ctor) return;
+    popCtx ??= new Ctor();
+    const ctx = popCtx;
+    const t0 = ctx.currentTime;
+    const note = (at: number, freq: number, dur: number, vol = 0.1, type: OscillatorType = 'triangle') => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, t0 + at);
+      gain.gain.setValueAtTime(0.001, t0 + at);
+      gain.gain.exponentialRampToValueAtTime(vol, t0 + at + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, t0 + at + dur);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t0 + at);
+      osc.stop(t0 + at + dur + 0.05);
+    };
+    // C5 E5 G5 up the stairs…
+    note(0, 523.25, 0.28);
+    note(0.12, 659.25, 0.28);
+    note(0.24, 783.99, 0.32);
+    // …then the C-major landing chord with a sparkle two octaves up.
+    for (const f of [523.25, 659.25, 783.99, 1046.5]) note(0.4, f, 0.9, 0.07);
+    note(0.52, 2093, 0.5, 0.045, 'sine');
+  } catch {
+    /* audio may be blocked before the first gesture */
+  }
+}
+
 export function playMoveSound(effects: MoveEffect[]): void {
   if (muted) return;
   const reachedHome = effects.some(
