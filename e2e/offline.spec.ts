@@ -20,14 +20,23 @@ test('one online visit is enough for full offline play', async ({ browser }) => 
   // Pixi chunks are cached purely via the precache list, the regression that
   // once broke first-visit offline play.
   await page.goto(ORIGIN);
+  // Wait until every built asset is cached — a count heuristic raced the
+  // precache on slow CI runners and went offline before the lazy chunks.
   await page.waitForFunction(async () => {
     const reg = await navigator.serviceWorker?.getRegistration();
     if (!reg?.active) return false;
+    const list: string[] | null = await fetch('asset-list.json')
+      .then(r => (r.ok ? r.json() : null))
+      .catch(() => null);
+    if (!list) return false;
     const keys = await caches.keys();
     if (!keys.length) return false;
     const cache = await caches.open(keys[0]);
-    return (await cache.keys()).length > 20; // shell + assets + lazy chunks
-  }, undefined, { timeout: 20_000 });
+    const cached = (await cache.keys()).map(r => r.url);
+    return list
+      .filter(f => f.startsWith('assets/'))
+      .every(f => cached.some(u => u.endsWith(`/${f}`)));
+  }, undefined, { timeout: 30_000 });
 
   // Pull the plug and come back cold.
   await context.setOffline(true);
