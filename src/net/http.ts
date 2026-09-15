@@ -146,10 +146,17 @@ export class HttpSession {
       }
     } finally {
       this.busy = false;
-      // A response that took a while means the server held it (long poll):
-      // chain the next one immediately. Fast responses mean an old server —
-      // let the interval pace us so we don't hammer it.
-      if (!this.closed && Date.now() - started > 2000) void this.poll();
+      const took = Date.now() - started;
+      if (!this.closed) {
+        if (took > 2000) {
+          // The server held it (long poll): chain the next one immediately.
+          void this.poll();
+        } else if (this.last?.started && this.last.game?.winner === null) {
+          // An instant answer during a live game means we had no hold slot
+          // (or an old server): don't sit out the full interval either.
+          setTimeout(() => void this.poll(), 500);
+        }
+      }
     }
   }
 

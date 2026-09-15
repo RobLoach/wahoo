@@ -134,6 +134,20 @@ describe('HttpSession scheduling', () => {
     session.leave();
   });
 
+  it('polls again quickly when no hold slot was offered mid-game', async () => {
+    const d = snap();
+    (d.game as GameState).current = 0; // a human is thinking: no CPU posts
+    const session = await connect(d);
+    const polls = () => calls.filter(c => c.url.includes('?since=')).length;
+    await vi.advanceTimersByTimeAsync(1250); // first interval poll: instant heartbeat
+    const afterFirst = polls();
+    expect(afterFirst).toBeGreaterThanOrEqual(1);
+    // The 500ms follow-up lands well before the next 1200ms interval.
+    await vi.advanceTimersByTimeAsync(600);
+    expect(polls()).toBeGreaterThan(afterFirst);
+    session.leave();
+  });
+
   it('shrugs off a version conflict when another client won the race', async () => {
     const d = snap();
     (d.game as GameState).current = 1;
