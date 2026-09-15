@@ -3,8 +3,8 @@ RewriteEngine On
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule ^ index.php [QSA,L]
 
-# Never serve the database or composer internals directly.
-RewriteRule ^(data|vendor)/ - [F,L]
+# Never serve the database, composer internals, or tooling directly.
+RewriteRule ^(data|vendor|bin|tests)/ - [F,L]
 
 # Snapshots are repetitive JSON that compresses ~10x: gzip them on the way out.
 <IfModule mod_deflate.c>

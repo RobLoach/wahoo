@@ -16,6 +16,7 @@
         "phpunit/phpunit": "^11"
     },
     "scripts": {
-        "test": "phpunit"
+        "test": "phpunit",
+        "reset": "php bin/reset.php"
     }
 }

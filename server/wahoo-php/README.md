@@ -41,6 +41,13 @@ Rooms untouched for a week are cleared automatically to make room for new
 lobbies; players silent for ~75s are handed to a CPU (reclaimable by rejoining
 with the same browser).
 
+## Maintenance
+
+- `composer test` — the PHPUnit suite (in-memory database, no side effects).
+- `composer reset` — wipe the database (rooms, seats, tokens, throttles);
+  the schema is recreated on the next request. CLI only: run it over SSH.
+  Active games die mid-poll and every reclaim token is invalidated.
+
 ## Long polling
 
 Polls with `wait=1` are held for up to ~10 seconds until the room changes, so
