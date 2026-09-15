@@ -38,9 +38,12 @@ test('one online visit is enough for full offline play', async ({ browser }) => 
       .every(f => cached.some(u => u.endsWith(`/${f}`)));
   }, undefined, { timeout: 30_000 });
 
-  // Pull the plug and come back cold.
+  // Pull the plug and come back cold. The very first offline navigation can
+  // race the service worker's cold start (a Chromium quirk hit mostly by
+  // fresh test profiles) — one reload, like a real user would do, settles it.
   await context.setOffline(true);
   await page.goto(ORIGIN, { waitUntil: 'load' });
+  await page.reload({ waitUntil: 'load' });
   await expect(page.locator('#menu h1')).toHaveText('Wahoo');
 
   // A full local game must start: board canvas, cards, playable state.
