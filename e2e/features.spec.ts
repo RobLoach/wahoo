@@ -146,10 +146,10 @@ test('cards and moves work from the keyboard', async ({ page }) => {
 test('the window title tracks whose turn it is', async ({ page }) => {
   await startLocal(page);
   await expect(page).toHaveTitle('(Your turn) Wahoo');
-  await page.evaluate(() => {
-    const app = (window as any).__wahoo.app;
-    app.submit(app.view.legal[0]);
-  });
+  // Hand the turn to a CPU without playing: pushed state alone never
+  // schedules a CPU move, so the title stays stable for the assertion
+  // (submitting instead races the 40ms test CPUs handing the turn back).
+  await forceState(page, { current: 1 });
   await expect(page).toHaveTitle('Wahoo');
 });
 
