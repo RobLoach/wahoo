@@ -33,9 +33,11 @@ const MAX_JOINS_PER_IP_PER_HOUR = 60;
 const ACTION_COOLDOWN_SECONDS = 1; // min gap between renames/emotes per client
 const MAX_BODY_BYTES = 400000;
 // Long polls pin a PHP worker each: on shared hosting the pool is small, so
-// only a few requests may hold at once — the rest get an instant heartbeat
-// and the client simply polls again.
-const MAX_HELD_POLLS = 3;
+// holds are budgeted — every seat in a room can hold one, with a global
+// ceiling so a burst of rooms can't starve the pool. Past either cap the
+// heartbeat returns at once and the client simply polls again.
+const MAX_HELD_POLLS_PER_ROOM = 4;
+const MAX_HELD_POLLS_TOTAL = 12;
 const POLL_HOLD_SECONDS = 8;
 const EMOTES = ['wahoo', 'lol', 'gasp', 'smug', 'finger'];
 
@@ -87,8 +89,14 @@ function db(): PDO
         )');
         $pdo->exec('CREATE TABLE IF NOT EXISTS poll_holds (
             id TEXT PRIMARY KEY,
+            room TEXT NOT NULL DEFAULT \'\',
             started_at INTEGER NOT NULL
         )');
+        try {
+            $pdo->exec("ALTER TABLE poll_holds ADD COLUMN room TEXT NOT NULL DEFAULT ''");
+        } catch (PDOException) {
+            // column already exists
+        }
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_clients_room ON clients(room_code)');
         // Migrations for databases created before emotes existed.
         try {
@@ -319,21 +327,26 @@ function actionThrottled(PDO $pdo, string $clientId): bool
 }
 
 /**
- * Claim a long-poll slot, or null when the pool is full. Rows are stamped so
- * a worker that dies mid-hold self-heals: anything older than the hold window
- * is swept on the next claim.
+ * Claim a long-poll slot, or null when the room's or the pool's budget is
+ * spent. Rows are stamped so a worker that dies mid-hold self-heals:
+ * anything older than the hold window is swept on the next claim.
  */
-function acquirePollHold(PDO $pdo): ?string
+function acquirePollHold(PDO $pdo, string $room): ?string
 {
     $pdo->prepare('DELETE FROM poll_holds WHERE started_at < ?')
         ->execute([time() - POLL_HOLD_SECONDS - 5]);
-    $count = $pdo->query('SELECT COUNT(*) FROM poll_holds')->fetchColumn();
-    if ((int) $count >= MAX_HELD_POLLS) {
+    $total = $pdo->query('SELECT COUNT(*) FROM poll_holds')->fetchColumn();
+    if ((int) $total >= MAX_HELD_POLLS_TOTAL) {
+        return null;
+    }
+    $inRoom = $pdo->prepare('SELECT COUNT(*) FROM poll_holds WHERE room = ?');
+    $inRoom->execute([$room]);
+    if ((int) $inRoom->fetchColumn() >= MAX_HELD_POLLS_PER_ROOM) {
         return null;
     }
     $id = bin2hex(random_bytes(8));
-    $pdo->prepare('INSERT INTO poll_holds (id, started_at) VALUES (?, ?)')
-        ->execute([$id, time()]);
+    $pdo->prepare('INSERT INTO poll_holds (id, room, started_at) VALUES (?, ?, ?)')
+        ->execute([$id, $room, time()]);
     return $id;
 }
 
@@ -675,14 +688,14 @@ $app->get('/api/rooms/{code}', function (Request $request, Response $response, a
     // the full snapshot (~95% less polling traffic while idle). With wait=1
     // the request is held (a long poll) until a change or the hold window
     // passes, so moves reach other players almost immediately. Holds are
-    // capped (MAX_HELD_POLLS): past the cap the heartbeat returns at once
+    // budgeted (per room, with a global ceiling): past the budget the heartbeat returns at once
     // and the client just polls again, instead of starving the worker pool.
     $q = $request->getQueryParams();
     $since = $q['since'] ?? null;
     if (
         $since !== null && (int) $since === (int) $lite['version']
         && ($q['wait'] ?? '') === '1'
-        && ($hold = acquirePollHold($pdo)) !== null
+        && ($hold = acquirePollHold($pdo, $code)) !== null
     ) {
         try {
             $clientEmoteN = isset($q['emoteN']) ? (int) $q['emoteN'] : -1;
