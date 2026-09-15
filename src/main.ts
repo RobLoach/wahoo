@@ -116,13 +116,22 @@ function netHandlers(getSession: () => NetSession): OnlineHandlers {
     },
     onRoom: room => {
       setNetPending(null);
+      rejoining = false;
       $('#join-note').hidden = true; // in the room now
       app.roomInfo = room;
+      const s = getSession();
+      if (s instanceof HttpSession || s instanceof OnlineSession) rememberRoom(room.code);
       renderLobby(getSession(), room);
     },
     onEmote: (seat, emoji) => app.showEmote(seat, emoji),
     onError: msg => {
       setNetPending(null);
+      if (rejoining) {
+        // The remembered room is gone (pruned or bad server): stop offering it.
+        rejoining = false;
+        localStorage.removeItem(LAST_ROOM_KEY);
+        refreshRejoinButton();
+      }
       void notice(msg);
     },
     onClose: () => {
@@ -163,6 +172,38 @@ function joinP2P(code: string) {
 }
 
 let activeDedicatedServer: string | null = null;
+let rejoining = false;
+
+// The dedicated-server room this device sat in most recently: the relay
+// keeps rooms for a week and the token reclaims the seat, so coming back
+// after a closed tab is one tap.
+const LAST_ROOM_KEY = 'wahoo-last-room';
+
+function lastRoom(): { code: string; server: string } | null {
+  try {
+    const r = JSON.parse(localStorage.getItem(LAST_ROOM_KEY) ?? 'null');
+    if (!r?.code || !r?.server) return null;
+    if (Date.now() - (r.at ?? 0) > 6 * 86_400_000) return null; // the relay prunes at 7 days
+    return r;
+  } catch {
+    return null;
+  }
+}
+
+function rememberRoom(code: string) {
+  if (!activeDedicatedServer) return;
+  localStorage.setItem(
+    LAST_ROOM_KEY,
+    JSON.stringify({ code, server: activeDedicatedServer, at: Date.now() }),
+  );
+}
+
+function refreshRejoinButton() {
+  const r = lastRoom();
+  const btn = $('#online-rejoin') as HTMLButtonElement;
+  btn.hidden = !r;
+  if (r) btn.textContent = `Rejoin ${r.code}`;
+}
 
 function connectOnline(afterOpen: (s: OnlineSession | HttpSession) => void) {
   const url =
@@ -235,6 +276,7 @@ $('#local-resume').onclick = async () => {
 };
 app.onMenuShown = () => {
   refreshResumeButton();
+  refreshRejoinButton();
   setJoiningMode(false); // returning to the menu restores the full menu
 };
 
@@ -266,6 +308,14 @@ $('#online-join').onclick = () => {
   if (!code) return void notice('Enter a room code.');
   connectOnline(s => s.join(code, playerName(), clientToken()));
 };
+$('#online-rejoin').onclick = () => {
+  const r = lastRoom();
+  if (!r) return refreshRejoinButton();
+  ($('#online-server') as HTMLInputElement).value = r.server;
+  rejoining = true;
+  connectOnline(s => s.join(r.code, playerName(), clientToken()));
+};
+refreshRejoinButton();
 
 function renderLobby(session: NetSession, room: RoomInfo) {
   const lobby = $('#lobby');

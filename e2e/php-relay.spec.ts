@@ -104,4 +104,31 @@ test.describe('PHP relay server', () => {
       `join=${created.code}&server=`,
     );
   });
+
+  test('the menu offers to rejoin your last room', async ({ page }) => {
+    const created = await (
+      await fetch(`http://127.0.0.1:${PHP_PORT}/api/rooms`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'Host', token: 'rejoin-tok' }),
+      })
+    ).json();
+
+    await page.addInitScript(() => ((window as any).__wahooResolution = 1));
+    await page.goto('./');
+    await page.fill('#online-name', 'Returner');
+    await page.click('#tab-server');
+    await page.fill('#online-server', `http://127.0.0.1:${PHP_PORT}`);
+    await page.fill('#online-code', created.code);
+    await page.click('#online-join');
+    await expect(page.locator('#lobby .code')).toHaveText(created.code);
+
+    // A closed tab later, the menu remembers the room…
+    await page.reload();
+    const rejoin = page.locator('#online-rejoin');
+    await expect(rejoin).toHaveText(`Rejoin ${created.code}`);
+    // …and one tap puts you back in it.
+    await rejoin.click();
+    await expect(page.locator('#lobby .code')).toHaveText(created.code);
+  });
 });

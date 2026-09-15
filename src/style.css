@@ -420,6 +420,8 @@ input[type="checkbox"]:focus-visible { outline: 2px solid var(--red-rule); outli
 #update-toast button { padding: 8px 14px; font-size: 13px; }
 #update-toast button.ghost { color: var(--ink-muted); border-color: var(--rule-dot); }
 
+#online-rejoin { margin-top: 10px; width: 100%; }
+
 .dark-box {
   border-radius: 10px; padding: 12px 14px; background: var(--dark-box); border: 1px solid var(--dark-border);
   color: var(--lit-soft);
