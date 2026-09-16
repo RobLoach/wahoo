@@ -19,7 +19,7 @@ export const CARD_TOOLTIPS: Record<string, string> = {
   '4': 'Four: move one bunny backward 4 spaces (stays on the track).',
   '5': 'Move one bunny forward 5 spaces.',
   '6': 'Move one bunny forward 6 spaces.',
-  '7': 'Seven: move one bunny 7 spaces, or split the 7 between two bunnies.',
+  '7': 'Seven: move one bunny 7 spaces, or split the 7 between two bunnies — even one already in the burrow, shuffling it deeper.',
   '8': 'Move one bunny forward 8 spaces.',
   '9': 'Move one bunny forward 9 spaces.',
   '10': 'Move one bunny forward 10 spaces.',

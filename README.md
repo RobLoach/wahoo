@@ -37,7 +37,7 @@ stomping anyone who gets in the way.
   you meanwhile); a browser host can even close the tab and resume the room
   later. Invite links (`?join=CODE`) get friends in with one tap.
 - **Online play, no server needed** — "Host a Game" runs the room right in the
-  host's browser tab; friends join with a 5-letter code over WebRTC (PeerJS
+  host's browser tab; friends join with a 4-letter code over WebRTC (PeerJS
   handles the handshake, then traffic flows peer-to-peer — on a shared LAN it
   stays local). Empty seats are filled by CPUs; if a player disconnects
   mid-game a CPU takes over.

@@ -144,7 +144,7 @@ export const TIPS: Record<string, Tip> = {
   },
   'card:7': {
     title: 'The 7 — split move',
-    text: 'A 7 can be split between two bunnies — tap the first bunny, choose its steps, then the second.',
+    text: 'A 7 can be split between two bunnies — tap the first bunny, choose its steps, then the second. Bunnies already in the burrow can shuffle deeper, too.',
   },
   'card:J': {
     title: 'The Jack — swap',

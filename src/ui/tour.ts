@@ -22,9 +22,9 @@ const STEPS: Step[] = [
   {
     sel: '#board-wrap',
     text:
-      'Your burrow is the diagonal at your corner. Entering needs an exact ' +
-      'count, and you cannot jump over bunnies already inside. The first team ' +
-      'to tuck all eight bunnies into their burrows wins — have fun!',
+      'Your burrow is the earthen tunnel beside your corner. Entering needs ' +
+      'an exact count, and you cannot jump over bunnies already inside. The ' +
+      'first team to tuck all eight bunnies into their burrows wins — have fun!',
   },
 ];
 
