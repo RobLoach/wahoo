@@ -146,7 +146,8 @@
       <p id="family-record" class="menu-footer" hidden></p>
       <p class="menu-footer">
         <a href="https://github.com/RobLoach/wahoo">Source on GitHub</a>
-        · GPL-3.0 · <span id="build-stamp" title="Build"></span>
+        · GPL-3.0 · <button id="privacy-link" class="linklike">Privacy &amp; terms</button>
+        · <span id="build-stamp" title="Build"></span>
       </p>
     </section>
 
@@ -221,6 +222,32 @@
         </table>
         <h3>House Rules in this game</h3>
         <ul id="rules-modal-house"></ul>
+      </div>
+    </div>
+
+    <div id="privacy-modal" role="dialog" aria-modal="true" aria-label="Privacy and terms" hidden>
+      <div class="rules-card paper">
+        <div class="paper-rule rule-gold"></div>
+        <div class="rules-head">
+          <h2>Privacy &amp; terms</h2>
+          <button id="privacy-close">Close ✕</button>
+        </div>
+        <div class="divider"></div>
+        <h3>Privacy, in plain words</h3>
+        <ul>
+          <li><b>No accounts, no ads, no analytics, no tracking.</b> There is nothing to sign up for and nothing watching you play.</li>
+          <li><b>Local games stay on your device.</b> Player names, house-rule choices, the family record, and your settings live in this browser's storage and go nowhere. Clearing the site's data erases them.</li>
+          <li><b>Online games share what the table needs.</b> The name you enter and your moves are sent to the game server you choose and shown to the other players in your room. Rooms — including the token that lets you reclaim your seat — are deleted after about a week of quiet.</li>
+          <li><b>Servers see your IP address</b>, as every website does — it's used only for rate limiting and ordinary server logs.</li>
+          <li><b>Browser-hosted games connect you directly.</b> The free PeerJS service brokers the handshake, then game data flows between players over an encrypted connection — like a video call, the people in your game can technically see each other's IP addresses. When a firewall blocks the direct path, the encrypted traffic passes through the Open&nbsp;Relay service instead.</li>
+          <li><b>The game itself is served by GitHub Pages</b>, so GitHub's standard hosting logs apply to page loads.</li>
+        </ul>
+        <h3>Terms</h3>
+        <ul>
+          <li>Wahoo is free and open source (GPL-3.0), provided as-is, with no warranty of any kind — it's a family card game, not a legal instrument.</li>
+          <li>Be kind at the table. Room codes are shared among friends; the host sets the house rules, including whether the finger is welcome.</li>
+          <li>Questions or concerns? <a href="https://github.com/RobLoach/wahoo/issues">Open an issue on GitHub</a>.</li>
+        </ul>
       </div>
     </div>
   </div>

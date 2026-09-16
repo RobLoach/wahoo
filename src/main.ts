@@ -498,6 +498,25 @@ $('#rules-modal').addEventListener('keydown', e => {
   }
 });
 
+$('#privacy-link').onclick = () => {
+  $('#privacy-modal').hidden = false;
+  ($('#privacy-close') as HTMLButtonElement).focus();
+};
+const closePrivacy = () => {
+  $('#privacy-modal').hidden = true;
+  ($('#privacy-link') as HTMLButtonElement).focus();
+};
+$('#privacy-close').onclick = closePrivacy;
+$('#privacy-modal').onclick = e => {
+  if (e.target === $('#privacy-modal')) closePrivacy();
+};
+$('#privacy-modal').addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    e.stopPropagation();
+    closePrivacy();
+  }
+});
+
 $('#btn-fullscreen').onclick = () => {
   if (document.fullscreenElement) {
     void document.exitFullscreen();
