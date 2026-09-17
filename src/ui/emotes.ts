@@ -95,9 +95,32 @@ const LOOKS: Record<string, Look> = {
     mouth: `<ellipse cy="6.8" rx="1.8" ry="2.3" fill="${MOUTH}"/>`,
     front: () => drop(17.5, -12),
   },
-  // Smug: one ear flopped, heavy lids, a raised brow, sideways smirk.
+  // Smug: one ear flopped, heavy lids, a raised brow, sideways smirk —
+  // and a katana strapped across his back, because of course he has one.
   smug: {
     ears: [-8, 36],
+    behind: () => {
+      const SAYA = '#3a5a7a';   // sheathed blade, slung low
+      const WRAP = '#7a3040';   // silk-wrapped grip
+      const grip = { x: -20, y: -18 };
+      const tsuba = { x: -11.5, y: -11 };
+      const tip = { x: 15.5, y: 11 };
+      const at = (t: number) => `${grip.x + t * (tsuba.x - grip.x)},${grip.y + t * (tsuba.y - grip.y)}`;
+      return (
+        // Scabbard: dark outline, steel-blue body, a gold end cap.
+        `<path d="M${tsuba.x},${tsuba.y} L${tip.x},${tip.y}" stroke="${INK}" stroke-width="5.4" stroke-linecap="round"/>` +
+        `<path d="M${tsuba.x},${tsuba.y} L${tip.x},${tip.y}" stroke="${SAYA}" stroke-width="3.4" stroke-linecap="round"/>` +
+        `<path d="M13.8,9.6 L${tip.x},${tip.y}" stroke="${GOLD}" stroke-width="3.4" stroke-linecap="round"/>` +
+        // Grip over the shoulder, with the criss-cross silk wrap.
+        `<path d="M${grip.x},${grip.y} L${tsuba.x},${tsuba.y}" stroke="${INK}" stroke-width="5" stroke-linecap="round"/>` +
+        `<path d="M${grip.x},${grip.y} L${tsuba.x},${tsuba.y}" stroke="${WRAP}" stroke-width="3.2" stroke-linecap="round"/>` +
+        [0.28, 0.55, 0.82]
+          .map(t => `<rect x="-1.1" y="-1.1" width="2.2" height="2.2" fill="#f6ecd6" opacity="0.9" transform="translate(${at(t)}) rotate(45)"/>`)
+          .join('') +
+        // Tsuba: the little gold guard between grip and sheath.
+        `<circle cx="${tsuba.x}" cy="${tsuba.y}" r="2.9" fill="${GOLD}" stroke="${INK}" stroke-width="1.2"/>`
+      );
+    },
     eyes:
       thin('M-8.4,-7.2 l5.8,2.2') + thin('M2.6,-9 l5.8,-0.4') +
       `<ellipse cx="-5.2" cy="-1.4" rx="2.4" ry="1.25" fill="${INK}"/>` +
